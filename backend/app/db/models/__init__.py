@@ -1,4 +1,5 @@
 from app.db.models.blocked_period import BlockedPeriod
+from app.db.models.customer import Customer
 from app.db.models.salon import Salon
 from app.db.models.salon_user import SalonUser
 from app.db.models.service import Service
@@ -9,6 +10,7 @@ from app.db.models.working_hour import WorkingHour
 
 __all__ = [
     "BlockedPeriod",
+    "Customer",
     "Salon",
     "SalonUser",
     "Service",

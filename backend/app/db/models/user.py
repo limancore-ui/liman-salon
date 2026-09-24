@@ -12,6 +12,7 @@ from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 if TYPE_CHECKING:
     from app.db.models.salon_user import SalonUser
     from app.db.models.blocked_period import BlockedPeriod
+    from app.db.models.customer import Customer
     from app.db.models.staff import Staff
 
 
@@ -43,6 +44,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     blocked_periods_created: Mapped[list[BlockedPeriod]] = relationship(
         back_populates="created_by_user",
     )
+    customers: Mapped[list[Customer]] = relationship(back_populates="user")
 
     __table_args__ = (
         Index("ix_users_email_lower", func.lower(email), unique=True),
