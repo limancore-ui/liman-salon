@@ -23,6 +23,7 @@ from app.db.base import Base
 from app.db.mixins import UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
+    from app.db.models.ai_message import AIMessage
     from app.db.models.customer import Customer
     from app.db.models.salon import Salon
     from app.db.models.user import User
@@ -83,6 +84,9 @@ class AIConversation(Base, UUIDPrimaryKeyMixin):
     customer: Mapped[Customer | None] = relationship(
         back_populates="ai_conversations",
         foreign_keys=[salon_id, customer_id],
+    )
+    messages: Mapped[list[AIMessage]] = relationship(
+        back_populates="conversation",
     )
 
     __table_args__ = (

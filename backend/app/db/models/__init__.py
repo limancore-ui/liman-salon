@@ -1,4 +1,5 @@
 from app.db.models.ai_conversation import AIConversation
+from app.db.models.ai_message import AIMessage
 from app.db.models.blocked_period import BlockedPeriod
 from app.db.models.bonus_transaction import BonusTransaction
 from app.db.models.notification import Notification
@@ -17,6 +18,7 @@ from app.db.models.working_hour import WorkingHour
 
 __all__ = [
     "AIConversation",
+    "AIMessage",
     "BlockedPeriod",
     "BonusTransaction",
     "Notification",
