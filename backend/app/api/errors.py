@@ -15,6 +15,11 @@ from app.auth.errors import (
     SalonNotFoundError,
     UnauthorizedError,
 )
+from app.services.service_catalog.errors import (
+    ServiceCatalogError,
+    ServiceCatalogNotFoundError,
+    ServiceCatalogValidationError,
+)
 from app.services.staff.errors import (
     StaffError,
     StaffNotFoundError,
@@ -85,6 +90,33 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=401,
             content=ErrorBody(detail=str(exc), code="auth_error").model_dump(),
+        )
+
+    @app.exception_handler(ServiceCatalogNotFoundError)
+    async def service_catalog_not_found(
+        _request: Request, exc: ServiceCatalogNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(ServiceCatalogValidationError)
+    async def service_catalog_validation(
+        _request: Request, exc: ServiceCatalogValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(ServiceCatalogError)
+    async def service_catalog_error(
+        _request: Request, exc: ServiceCatalogError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="service_catalog_error").model_dump(),
         )
 
     @app.exception_handler(StaffNotFoundError)
