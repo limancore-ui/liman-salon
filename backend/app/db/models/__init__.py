@@ -1,6 +1,7 @@
 from app.db.models.blocked_period import BlockedPeriod
 from app.db.models.bonus_transaction import BonusTransaction
 from app.db.models.booking import Booking
+from app.db.models.review import Review
 from app.db.models.customer import Customer
 from app.db.models.salon import Salon
 from app.db.models.salon_user import SalonUser
@@ -14,6 +15,7 @@ __all__ = [
     "BlockedPeriod",
     "BonusTransaction",
     "Booking",
+    "Review",
     "Customer",
     "Salon",
     "SalonUser",

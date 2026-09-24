@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from app.db.models.staff import Staff
     from app.db.models.user import User
     from app.db.models.bonus_transaction import BonusTransaction
+    from app.db.models.review import Review
 
 _BOOKING_STATUS_CHECK = (
     "status IN ('pending', 'confirmed', 'in_progress', 'completed', "
@@ -108,6 +109,10 @@ class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     bonus_transactions: Mapped[list[BonusTransaction]] = relationship(
         back_populates="booking",
+    )
+    review: Mapped[Review | None] = relationship(
+        back_populates="booking",
+        uselist=False,
     )
 
     __table_args__ = (
