@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from app.db.models.service import Service
     from app.db.models.staff import Staff
     from app.db.models.user import User
+    from app.db.models.bonus_transaction import BonusTransaction
 
 _BOOKING_STATUS_CHECK = (
     "status IN ('pending', 'confirmed', 'in_progress', 'completed', "
@@ -104,6 +105,9 @@ class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     created_by_user: Mapped[User | None] = relationship(
         back_populates="bookings_created",
+    )
+    bonus_transactions: Mapped[list[BonusTransaction]] = relationship(
+        back_populates="booking",
     )
 
     __table_args__ = (

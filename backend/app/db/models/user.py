@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.db.models.booking import Booking
     from app.db.models.customer import Customer
     from app.db.models.staff import Staff
+    from app.db.models.bonus_transaction import BonusTransaction
 
 
 class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -47,6 +48,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     customers: Mapped[list[Customer]] = relationship(back_populates="user")
     bookings_created: Mapped[list[Booking]] = relationship(
+        back_populates="created_by_user",
+    )
+    bonus_transactions_created: Mapped[list[BonusTransaction]] = relationship(
         back_populates="created_by_user",
     )
 
