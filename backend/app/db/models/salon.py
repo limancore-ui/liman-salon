@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from app.db.models.working_hour import WorkingHour
     from app.db.models.bonus_transaction import BonusTransaction
     from app.db.models.review import Review
+    from app.db.models.subscription import Subscription
 
 
 class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -58,6 +59,7 @@ class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="salon",
     )
     reviews: Mapped[list[Review]] = relationship(back_populates="salon")
+    subscriptions: Mapped[list[Subscription]] = relationship(back_populates="salon")
 
     __table_args__ = (
         CheckConstraint("char_length(slug) >= 2", name="ck_salons_slug_min_length"),

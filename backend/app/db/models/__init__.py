@@ -8,6 +8,7 @@ from app.db.models.salon_user import SalonUser
 from app.db.models.service import Service
 from app.db.models.staff import Staff
 from app.db.models.staff_service import StaffService
+from app.db.models.subscription import Subscription
 from app.db.models.user import User
 from app.db.models.working_hour import WorkingHour
 
@@ -22,6 +23,7 @@ __all__ = [
     "Service",
     "Staff",
     "StaffService",
+    "Subscription",
     "User",
     "WorkingHour",
 ]
