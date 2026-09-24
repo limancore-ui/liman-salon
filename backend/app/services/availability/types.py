@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, time
 
@@ -46,3 +47,39 @@ class BookingOccupancy:
     ends_at: datetime
     status: str
     expires_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceForAvailability:
+    """Service fields used for Smart Gap slot sizing (includes inactive rows)."""
+
+    id: uuid.UUID
+    is_active: bool
+    duration_minutes: int
+    buffer_before_minutes: int
+    buffer_after_minutes: int
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceAvailabilitySlot:
+    """
+    Bookable NET service window within one free gap.
+
+    service_start: earliest net service start in the gap.
+    service_end: latest net service end (finish time if started at latest valid start).
+    """
+
+    service_start: datetime
+    service_end: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class StaffServiceAvailability:
+    staff_id: uuid.UUID
+    slots: tuple[ServiceAvailabilitySlot, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceAvailabilityResult:
+    service_id: uuid.UUID
+    staff: tuple[StaffServiceAvailability, ...]

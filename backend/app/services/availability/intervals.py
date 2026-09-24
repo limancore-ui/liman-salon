@@ -3,7 +3,12 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from app.services.availability.types import BusyInterval, TimeInterval, WorkingHourSpec
+from app.services.availability.types import (
+    BusyInterval,
+    ServiceAvailabilitySlot,
+    TimeInterval,
+    WorkingHourSpec,
+)
 
 
 def _hour_row_applies_on_date(row: WorkingHourSpec, local_date: date) -> bool:
@@ -137,6 +142,38 @@ def filter_gaps_min_duration(
         raise ValueError("duration_minutes must be positive")
     min_len = timedelta(minutes=duration_minutes)
     return [g for g in gaps if (g.end - g.start) >= min_len]
+
+
+def net_service_slots_from_free_gaps(
+    gaps: list[TimeInterval],
+    *,
+    duration_minutes: int,
+    buffer_before_minutes: int,
+    buffer_after_minutes: int,
+) -> list[ServiceAvailabilitySlot]:
+    """
+    Map raw free gaps to NET service windows for a service's buffers and duration.
+
+    Bookings are already subtracted using stored occupied bounds; placement requires
+    buffer_before + duration + buffer_after to fit inside each gap.
+    """
+    if duration_minutes <= 0:
+        raise ValueError("duration_minutes must be positive")
+    min_occupied = buffer_before_minutes + duration_minutes + buffer_after_minutes
+    eligible = filter_gaps_min_duration(gaps, min_occupied)
+    slots: list[ServiceAvailabilitySlot] = []
+    buf_before = timedelta(minutes=buffer_before_minutes)
+    buf_after = timedelta(minutes=buffer_after_minutes)
+    service_len = timedelta(minutes=duration_minutes)
+    for gap in eligible:
+        service_start = gap.start + buf_before
+        service_end = gap.end - buf_after
+        if service_end - service_start < service_len:
+            continue
+        slots.append(
+            ServiceAvailabilitySlot(service_start=service_start, service_end=service_end)
+        )
+    return slots
 
 
 def salon_local_date_range_to_utc_bounds(

@@ -11,11 +11,17 @@ from app.services.availability.intervals import (
     build_working_intervals_for_range,
     clip_intervals_to_range,
     filter_gaps_min_duration,
+    net_service_slots_from_free_gaps,
     salon_local_date_range_to_utc_bounds,
     subtract_busy_from_working,
 )
+from app.services.availability.errors import ServiceNotFoundError
 from app.services.availability.repository import AvailabilityRepository
-from app.services.availability.types import TimeInterval
+from app.services.availability.types import (
+    ServiceAvailabilityResult,
+    StaffServiceAvailability,
+    TimeInterval,
+)
 
 
 class AvailabilityService:
@@ -73,6 +79,65 @@ class AvailabilityService:
 
         free = subtract_busy_from_working(working, [*blocks, *busy_from_bookings])
         return filter_gaps_min_duration(free, service_duration_minutes)
+
+    def get_service_availability(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        service_id: uuid.UUID,
+        start_date: date,
+        end_date: date,
+        as_of: datetime,
+        staff_id: uuid.UUID | None = None,
+    ) -> ServiceAvailabilityResult:
+        if as_of.tzinfo is None:
+            raise ValueError("as_of must be timezone-aware (UTC recommended)")
+        if end_date < start_date:
+            return ServiceAvailabilityResult(service_id=service_id, staff=())
+
+        service = self._repo.get_service_for_availability(salon_id, service_id)
+        if service is None:
+            raise ServiceNotFoundError("service not found")
+        if not service.is_active:
+            return ServiceAvailabilityResult(service_id=service_id, staff=())
+
+        if staff_id is not None:
+            if not self._repo.staff_eligible_for_service(salon_id, service_id, staff_id):
+                return ServiceAvailabilityResult(service_id=service_id, staff=())
+            staff_ids = [staff_id]
+        else:
+            staff_ids = self._repo.list_bookable_staff_for_service(salon_id, service_id)
+
+        occupied_minutes = (
+            service.buffer_before_minutes
+            + service.duration_minutes
+            + service.buffer_after_minutes
+        )
+
+        staff_results: list[StaffServiceAvailability] = []
+        for sid in staff_ids:
+            free_gaps = self.get_free_gaps(
+                salon_id=salon_id,
+                staff_id=sid,
+                start_date=start_date,
+                end_date=end_date,
+                service_duration_minutes=occupied_minutes,
+                as_of=as_of,
+            )
+            slots = net_service_slots_from_free_gaps(
+                free_gaps,
+                duration_minutes=service.duration_minutes,
+                buffer_before_minutes=service.buffer_before_minutes,
+                buffer_after_minutes=service.buffer_after_minutes,
+            )
+            staff_results.append(
+                StaffServiceAvailability(staff_id=sid, slots=tuple(slots))
+            )
+
+        return ServiceAvailabilityResult(
+            service_id=service_id,
+            staff=tuple(staff_results),
+        )
 
     def is_occupied_interval_available(
         self,

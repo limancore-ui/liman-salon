@@ -9,9 +9,16 @@ from sqlalchemy.orm import Session
 from app.db.models.blocked_period import BlockedPeriod
 from app.db.models.booking import Booking
 from app.db.models.salon import Salon
+from app.db.models.service import Service
 from app.db.models.staff import Staff
+from app.db.models.staff_service import StaffService
 from app.db.models.working_hour import WorkingHour
-from app.services.availability.types import BookingOccupancy, BusyInterval, WorkingHourSpec
+from app.services.availability.types import (
+    BookingOccupancy,
+    BusyInterval,
+    ServiceForAvailability,
+    WorkingHourSpec,
+)
 
 
 class AvailabilityRepository:
@@ -24,6 +31,80 @@ class AvailabilityRepository:
         return self._session.scalar(
             select(Salon.timezone).where(Salon.id == salon_id)
         )
+
+    def get_service_for_availability(
+        self, salon_id: uuid.UUID, service_id: uuid.UUID
+    ) -> ServiceForAvailability | None:
+        """Tenant-scoped service row (active or inactive)."""
+        row = self._session.scalar(
+            select(Service).where(
+                Service.salon_id == salon_id,
+                Service.id == service_id,
+            )
+        )
+        if row is None:
+            return None
+        return ServiceForAvailability(
+            id=row.id,
+            is_active=row.is_active,
+            duration_minutes=row.duration_minutes,
+            buffer_before_minutes=row.buffer_before_minutes,
+            buffer_after_minutes=row.buffer_after_minutes,
+        )
+
+    def get_active_service_for_availability(
+        self, salon_id: uuid.UUID, service_id: uuid.UUID
+    ) -> ServiceForAvailability | None:
+        service = self.get_service_for_availability(salon_id, service_id)
+        if service is None or not service.is_active:
+            return None
+        return service
+
+    def list_bookable_staff_for_service(
+        self, salon_id: uuid.UUID, service_id: uuid.UUID
+    ) -> list[uuid.UUID]:
+        stmt = (
+            select(Staff.id)
+            .join(
+                StaffService,
+                (StaffService.staff_id == Staff.id)
+                & (StaffService.salon_id == Staff.salon_id),
+            )
+            .where(
+                StaffService.salon_id == salon_id,
+                StaffService.service_id == service_id,
+                Staff.salon_id == salon_id,
+                Staff.is_active.is_(True),
+                Staff.is_bookable.is_(True),
+            )
+            .order_by(Staff.sort_order, Staff.display_name, Staff.id)
+        )
+        return list(self._session.scalars(stmt).all())
+
+    def staff_eligible_for_service(
+        self,
+        salon_id: uuid.UUID,
+        service_id: uuid.UUID,
+        staff_id: uuid.UUID,
+    ) -> bool:
+        found = self._session.scalar(
+            select(Staff.id)
+            .join(
+                StaffService,
+                (StaffService.staff_id == Staff.id)
+                & (StaffService.salon_id == Staff.salon_id),
+            )
+            .where(
+                StaffService.salon_id == salon_id,
+                StaffService.service_id == service_id,
+                StaffService.staff_id == staff_id,
+                Staff.salon_id == salon_id,
+                Staff.id == staff_id,
+                Staff.is_active.is_(True),
+                Staff.is_bookable.is_(True),
+            )
+        )
+        return found is not None
 
     def staff_belongs_to_salon(self, salon_id: uuid.UUID, staff_id: uuid.UUID) -> bool:
         found = self._session.scalar(
