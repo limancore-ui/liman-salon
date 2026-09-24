@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.db.models.service import Service
     from app.db.models.staff import Staff
     from app.db.models.staff_service import StaffService
+    from app.db.models.blocked_period import BlockedPeriod
     from app.db.models.working_hour import WorkingHour
 
 
@@ -46,6 +47,7 @@ class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     services: Mapped[list[Service]] = relationship(back_populates="salon")
     staff_services: Mapped[list[StaffService]] = relationship(back_populates="salon")
     working_hours: Mapped[list[WorkingHour]] = relationship(back_populates="salon")
+    blocked_periods: Mapped[list[BlockedPeriod]] = relationship(back_populates="salon")
 
     __table_args__ = (
         CheckConstraint("char_length(slug) >= 2", name="ck_salons_slug_min_length"),

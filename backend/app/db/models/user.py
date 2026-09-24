@@ -11,6 +11,7 @@ from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.db.models.salon_user import SalonUser
+    from app.db.models.blocked_period import BlockedPeriod
     from app.db.models.staff import Staff
 
 
@@ -39,6 +40,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         cascade="all, delete-orphan",
     )
     staff_profiles: Mapped[list[Staff]] = relationship(back_populates="user")
+    blocked_periods_created: Mapped[list[BlockedPeriod]] = relationship(
+        back_populates="created_by_user",
+    )
 
     __table_args__ = (
         Index("ix_users_email_lower", func.lower(email), unique=True),
