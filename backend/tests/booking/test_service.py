@@ -95,7 +95,7 @@ def test_create_confirmed_persists_occupied_and_snapshots() -> None:
         source="admin",
         status="confirmed",
         as_of=AS_OF,
-        notes="hello",
+        customer_notes="hello",
     )
     assert result.status == "confirmed"
     assert result.starts_at == REQUESTED

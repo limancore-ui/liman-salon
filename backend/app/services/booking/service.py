@@ -42,7 +42,8 @@ class BookingService:
         status: str,
         as_of: datetime,
         expires_at: datetime | None = None,
-        notes: str | None = None,
+        customer_notes: str | None = None,
+        internal_notes: str | None = None,
         created_by_user_id: uuid.UUID | None = None,
     ) -> CreateBookingResult:
         if as_of.tzinfo is None:
@@ -65,7 +66,8 @@ class BookingService:
                 status=status,
                 as_of=as_of,
                 expires_at=expires_at,
-                notes=notes,
+                customer_notes=customer_notes,
+                internal_notes=internal_notes,
                 created_by_user_id=created_by_user_id,
             )
 
@@ -81,7 +83,8 @@ class BookingService:
         status: str,
         as_of: datetime,
         expires_at: datetime | None,
-        notes: str | None,
+        customer_notes: str | None,
+        internal_notes: str | None,
         created_by_user_id: uuid.UUID | None,
     ) -> CreateBookingResult:
         currency = self._repo.get_salon_currency(salon_id)
@@ -159,7 +162,8 @@ class BookingService:
             price_cents=snapshot.price_cents,
             currency_code=snapshot.currency_code,
             duration_minutes=snapshot.duration_minutes,
-            customer_notes=notes,
+            customer_notes=customer_notes,
+            internal_notes=internal_notes,
             expires_at=hold_expires_at,
             confirmed_at=confirmed_at,
             created_by_user_id=created_by_user_id,
