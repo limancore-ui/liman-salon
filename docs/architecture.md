@@ -49,6 +49,13 @@ Modules may share a common **kernel** (IDs, `salon_id` conventions, errors) but 
 - Each salon is a **tenant**. The canonical tenant key is **`salon_id`**.
 - **All tenant-owned entities** carry `salon_id` (or are reachable only through aggregates that do).
 - Queries and commands must **filter by `salon_id`** for the authenticated salon context; public booking flows resolve salon context explicitly (e.g. slug or domain) before reads/writes.
+
+### Public salon entry (slug → tenant)
+
+- **Human-facing URL pattern (future frontend):** `/s/{slug}` — not implemented in MVP backend; no QR or WhatsApp deep links in v0.1.
+- **Resolver API (no auth):** `GET /api/v1/public/salons/{slug}` returns `salon_id`, `slug`, `name`, `currency_code`, and `timezone` for **active** salons only; missing or inactive slugs → **404** (`not_found`).
+- **Slug storage:** `salons.slug` is unique, indexed (see initial migration), lowercase URL-safe; helpers in `app.services.salon_public.slug` normalize text and allocate `-2`, `-3`, … suffixes when creating salons later—no full salon CRUD in this slice.
+- **Downstream public flows** (availability, public booking, public customer resolve) continue to use explicit `salon_id` in their paths after the client resolves slug once.
 - Cross-tenant access is forbidden at the application layer; tests should assert isolation on critical paths.
 
 ## Booking and schedule as source of truth for availability

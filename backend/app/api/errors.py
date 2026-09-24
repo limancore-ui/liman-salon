@@ -31,6 +31,7 @@ from app.services.customer.errors import (
     CustomerNotFoundError,
     CustomerValidationError,
 )
+from app.services.salon_public.errors import PublicSalonNotFoundError
 from app.services.staff.errors import (
     StaffError,
     StaffNotFoundError,
@@ -162,6 +163,15 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(CustomerNotFoundError)
     async def customer_not_found(
         _request: Request, exc: CustomerNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(PublicSalonNotFoundError)
+    async def public_salon_not_found(
+        _request: Request, exc: PublicSalonNotFoundError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=404,
