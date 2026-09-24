@@ -15,6 +15,11 @@ from app.auth.errors import (
     SalonNotFoundError,
     UnauthorizedError,
 )
+from app.services.staff.errors import (
+    StaffError,
+    StaffNotFoundError,
+    StaffValidationError,
+)
 from app.services.booking.errors import (
     BookingError,
     BookingNotFoundError,
@@ -80,6 +85,27 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=401,
             content=ErrorBody(detail=str(exc), code="auth_error").model_dump(),
+        )
+
+    @app.exception_handler(StaffNotFoundError)
+    async def staff_not_found(_request: Request, exc: StaffNotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(StaffValidationError)
+    async def staff_validation(_request: Request, exc: StaffValidationError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(StaffError)
+    async def staff_error(_request: Request, exc: StaffError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="staff_error").model_dump(),
         )
 
     @app.exception_handler(BookingNotFoundError)

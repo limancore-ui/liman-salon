@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.services.availability.service import AvailabilityService
 from app.services.booking.service import BookingService
+from app.services.staff.service import StaffService
 
 SessionDep = Annotated[Session, Depends(get_db)]
 
@@ -47,3 +48,10 @@ def get_booking_service(session: SessionDep) -> BookingService:
 
 AvailabilityServiceDep = Annotated[AvailabilityService, Depends(get_availability_service)]
 BookingServiceDep = Annotated[BookingService, Depends(get_booking_service)]
+
+
+def get_staff_service(session: SessionDep) -> StaffService:
+    return StaffService(session)
+
+
+StaffServiceDep = Annotated[StaffService, Depends(get_staff_service)]
