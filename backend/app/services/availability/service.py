@@ -73,3 +73,46 @@ class AvailabilityService:
 
         free = subtract_busy_from_working(working, [*blocks, *busy_from_bookings])
         return filter_gaps_min_duration(free, service_duration_minutes)
+
+    def is_occupied_interval_available(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        staff_id: uuid.UUID,
+        occupied_start: datetime,
+        occupied_end: datetime,
+        as_of: datetime,
+    ) -> bool:
+        """
+        True when [occupied_start, occupied_end) lies entirely inside one free gap.
+
+        Uses the same schedule/booking rules as get_free_gaps; minimum gap length is
+        the occupied span in minutes (buffers included when stored in starts_at/ends_at).
+        """
+        if occupied_start.tzinfo is None or occupied_end.tzinfo is None:
+            raise ValueError("occupied bounds must be timezone-aware")
+        if occupied_start >= occupied_end:
+            return False
+
+        span_minutes = int((occupied_end - occupied_start).total_seconds() // 60)
+        if span_minutes <= 0:
+            return False
+
+        tz_name = self._repo.get_salon_timezone(salon_id)
+        if not tz_name:
+            return False
+        tz = ZoneInfo(tz_name)
+        start_date = occupied_start.astimezone(tz).date()
+        end_date = occupied_end.astimezone(tz).date()
+        gaps = self.get_free_gaps(
+            salon_id=salon_id,
+            staff_id=staff_id,
+            start_date=start_date,
+            end_date=end_date,
+            service_duration_minutes=span_minutes,
+            as_of=as_of,
+        )
+        for gap in gaps:
+            if gap.start <= occupied_start and gap.end >= occupied_end:
+                return True
+        return False
