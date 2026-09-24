@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     app_name: str = "Liman Salon API"
     environment: str = "development"
     debug: bool = False
+    database_url: str
 
 
 @lru_cache
