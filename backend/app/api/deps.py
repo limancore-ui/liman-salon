@@ -9,9 +9,11 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.services.availability.service import AvailabilityService
 from app.services.booking.service import BookingService
+from app.services.public_booking.service import PublicBookingService
 from app.services.schedule.service import ScheduleService
 from app.services.service_catalog.service import ServiceCatalogService
 from app.services.staff.service import StaffService
@@ -50,6 +52,19 @@ def get_booking_service(session: SessionDep) -> BookingService:
 
 AvailabilityServiceDep = Annotated[AvailabilityService, Depends(get_availability_service)]
 BookingServiceDep = Annotated[BookingService, Depends(get_booking_service)]
+
+
+def get_public_booking_service(session: SessionDep) -> PublicBookingService:
+    settings = get_settings()
+    return PublicBookingService(
+        session,
+        public_booking_hold_seconds=settings.public_booking_hold_seconds,
+    )
+
+
+PublicBookingServiceDep = Annotated[
+    PublicBookingService, Depends(get_public_booking_service)
+]
 
 
 def get_staff_service(session: SessionDep) -> StaffService:

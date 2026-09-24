@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "dev-only-change-me-use-env-jwt-secret-key-32b"
     jwt_algorithm: str = "HS256"
     access_token_expire_seconds: int = 900
+    public_booking_hold_seconds: int = 900
 
 
 @lru_cache

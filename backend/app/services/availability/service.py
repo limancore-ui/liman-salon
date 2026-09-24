@@ -17,6 +17,7 @@ from app.services.availability.intervals import (
 )
 from app.services.availability.errors import ServiceNotFoundError
 from app.services.availability.repository import AvailabilityRepository
+from app.services.booking.types import compute_occupied_interval
 from app.services.availability.types import (
     ServiceAvailabilityResult,
     StaffServiceAvailability,
@@ -181,3 +182,46 @@ class AvailabilityService:
             if gap.start <= occupied_start and gap.end >= occupied_end:
                 return True
         return False
+
+    def is_service_slot_available(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        service_id: uuid.UUID,
+        staff_id: uuid.UUID,
+        service_start: datetime,
+        as_of: datetime,
+    ) -> bool:
+        """
+        True when NET service_start fits a free gap for this service/staff.
+
+        Raises ServiceNotFoundError when the service is absent in the salon.
+        Returns False when the service is inactive, staff ineligible, or the slot
+        is not free (same occupied-interval rules as booking create).
+        """
+        if service_start.tzinfo is None:
+            raise ValueError("service_start must be timezone-aware")
+        if as_of.tzinfo is None:
+            raise ValueError("as_of must be timezone-aware")
+
+        service = self._repo.get_service_for_availability(salon_id, service_id)
+        if service is None:
+            raise ServiceNotFoundError("service not found")
+        if not service.is_active:
+            return False
+        if not self._repo.staff_eligible_for_service(salon_id, service_id, staff_id):
+            return False
+
+        occupied = compute_occupied_interval(
+            requested_service_start=service_start,
+            duration_minutes=service.duration_minutes,
+            buffer_before_minutes=service.buffer_before_minutes,
+            buffer_after_minutes=service.buffer_after_minutes,
+        )
+        return self.is_occupied_interval_available(
+            salon_id=salon_id,
+            staff_id=staff_id,
+            occupied_start=occupied.occupied_start,
+            occupied_end=occupied.occupied_end,
+            as_of=as_of,
+        )

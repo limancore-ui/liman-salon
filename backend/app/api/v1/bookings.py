@@ -4,8 +4,12 @@ import uuid
 
 from fastapi import APIRouter
 
-from app.api.deps import AsOfDep, BookingServiceDep
+from app.api.deps import AsOfDep, BookingServiceDep, PublicBookingServiceDep
 from app.api.schemas.bookings import BookingCreateRequest, BookingCreateResponse
+from app.api.schemas.public_booking import (
+    PublicBookingCreateRequest,
+    PublicBookingCreateResponse,
+)
 
 router = APIRouter(tags=["bookings"])
 
@@ -39,4 +43,35 @@ def create_booking(
         starts_at=result.starts_at,
         ends_at=result.ends_at,
         status=result.status,
+    )
+
+
+@router.post(
+    "/salons/{salon_id}/bookings/public",
+    response_model=PublicBookingCreateResponse,
+    status_code=201,
+)
+def create_public_booking(
+    salon_id: uuid.UUID,
+    body: PublicBookingCreateRequest,
+    as_of: AsOfDep,
+    public_booking_service: PublicBookingServiceDep,
+) -> PublicBookingCreateResponse:
+    result = public_booking_service.create_public_booking(
+        salon_id=salon_id,
+        customer_id=body.customer_id,
+        staff_id=body.staff_id,
+        service_id=body.service_id,
+        service_start=body.service_start,
+        as_of=as_of,
+        customer_notes=body.customer_notes,
+    )
+    return PublicBookingCreateResponse(
+        booking_id=result.booking_id,
+        status=result.status,
+        service_id=result.service_id,
+        staff_id=result.staff_id,
+        service_start=result.service_start,
+        service_end=result.service_end,
+        hold_expires_at=result.hold_expires_at,
     )
