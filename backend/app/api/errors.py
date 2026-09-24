@@ -15,6 +15,11 @@ from app.auth.errors import (
     SalonNotFoundError,
     UnauthorizedError,
 )
+from app.services.schedule.errors import (
+    ScheduleError,
+    ScheduleNotFoundError,
+    ScheduleValidationError,
+)
 from app.services.service_catalog.errors import (
     ServiceCatalogError,
     ServiceCatalogNotFoundError,
@@ -90,6 +95,31 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=401,
             content=ErrorBody(detail=str(exc), code="auth_error").model_dump(),
+        )
+
+    @app.exception_handler(ScheduleNotFoundError)
+    async def schedule_not_found(
+        _request: Request, exc: ScheduleNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(ScheduleValidationError)
+    async def schedule_validation(
+        _request: Request, exc: ScheduleValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(ScheduleError)
+    async def schedule_error(_request: Request, exc: ScheduleError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="schedule_error").model_dump(),
         )
 
     @app.exception_handler(ServiceCatalogNotFoundError)
