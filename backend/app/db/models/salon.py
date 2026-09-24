@@ -11,6 +11,7 @@ from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.db.models.salon_user import SalonUser
+    from app.db.models.staff import Staff
 
 
 class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -38,6 +39,7 @@ class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="salon",
         cascade="all, delete-orphan",
     )
+    staff: Mapped[list[Staff]] = relationship(back_populates="salon")
 
     __table_args__ = (
         CheckConstraint("char_length(slug) >= 2", name="ck_salons_slug_min_length"),

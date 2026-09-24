@@ -11,6 +11,7 @@ from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.db.models.salon_user import SalonUser
+    from app.db.models.staff import Staff
 
 
 class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -37,6 +38,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    staff_profiles: Mapped[list[Staff]] = relationship(back_populates="user")
 
     __table_args__ = (
         Index("ix_users_email_lower", func.lower(email), unique=True),
