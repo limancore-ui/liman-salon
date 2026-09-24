@@ -43,6 +43,105 @@ This document applies to **human developers** and **AI coding agents** working i
 - Use **controlled application services** only; never bypass tenancy or call the database directly.
 - Do not commit, push, or change deployment configuration unless the human owner explicitly requests it for that task.
 
+## Mandatory Completion Report
+
+Every **AI coding agent**, after finishing **any** task, must automatically provide a full plain-text final report **directly in the Agent chat**.
+
+- The agent must **NOT** wait for the architect to ask for the report.
+- The report must **NOT** require screenshots.
+- The report must be readable and copy-pasteable as plain text/Markdown.
+
+### Required report structure (every task)
+
+```markdown
+# LIMAN SALON REVIEW REPORT
+
+## 1. Task
+- What was implemented.
+- Exact scope.
+- Explicitly state what was NOT implemented when relevant.
+
+## 2. Files Changed
+- Every modified file.
+- Every new file.
+- Every deleted file.
+- Clear distinction between modified/new/deleted.
+
+## 3. Implementation Summary
+- Main models/code/components changed.
+- Important fields, types, defaults, logic, or relationships.
+- Mention tenant-isolation implications where relevant.
+
+## 4. Database / Architecture Details
+When applicable:
+- Foreign keys and ON DELETE behavior.
+- Composite foreign keys.
+- Unique constraints.
+- Indexes / partial indexes.
+- CHECK constraints.
+- Relationships / back_populates.
+- Any architecture-boundary changes.
+
+## 5. Migration
+When applicable:
+- Migration filename.
+- revision.
+- down_revision.
+- What the migration creates/changes.
+- Confirm whether previous committed migrations were modified.
+
+## 6. Validation
+Report every check that was actually run, with PASS / FAIL / BLOCKED:
+- compile/import checks
+- tests
+- metadata checks
+- Alembic checks
+- offline SQL/DDL checks
+- formatter/static checks
+- any other relevant validation
+
+Never claim a validation passed unless it was actually run.
+
+## 7. Scope Verification
+Explicitly confirm:
+- requested scope completed
+- unrelated work not performed
+- later models/features not implemented
+- architecture/docs changed or not changed
+
+## 8. Git Status
+Show the exact current git status:
+- branch
+- ahead/behind state when available
+- modified files
+- untracked files
+- staged files
+- whether commit was made
+- whether push was made
+
+## 9. Issues / Limitations
+- Any blockers.
+- Any environment limitations.
+- Any warnings.
+- Clearly distinguish blockers from optional follow-up items.
+
+## 10. Final Status
+Use exactly one:
+- READY FOR ARCHITECT REVIEW
+- BLOCKED
+- NEEDS FOLLOW-UP
+```
+
+### Rules
+
+- Always produce the report at the end of the task.
+- Always produce it automatically; never wait for a second request.
+- Do not replace the full report with a short summary.
+- Do not hide validation failures or environment limitations.
+- Do not invent test results.
+- Do not commit or push unless the task explicitly authorizes it.
+- STOP after the report unless the task explicitly asks for another action.
+
 ## Reference
 
 - Architecture: [docs/architecture.md](docs/architecture.md)
