@@ -20,6 +20,7 @@ from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
+    from app.db.models.booking import Booking
     from app.db.models.salon import Salon
     from app.db.models.staff_service import StaffService
 
@@ -49,6 +50,7 @@ class Service(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     salon: Mapped[Salon] = relationship(back_populates="services")
     staff_services: Mapped[list[StaffService]] = relationship(back_populates="service")
+    bookings: Mapped[list[Booking]] = relationship(back_populates="service")
 
     __table_args__ = (
         UniqueConstraint("salon_id", "id", name="uq_services_salon_id_id"),

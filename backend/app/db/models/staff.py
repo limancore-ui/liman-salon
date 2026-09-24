@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from app.db.models.staff_service import StaffService
     from app.db.models.user import User
     from app.db.models.blocked_period import BlockedPeriod
+    from app.db.models.booking import Booking
     from app.db.models.working_hour import WorkingHour
 
 
@@ -57,6 +58,7 @@ class Staff(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     staff_services: Mapped[list[StaffService]] = relationship(back_populates="staff")
     working_hours: Mapped[list[WorkingHour]] = relationship(back_populates="staff")
     blocked_periods: Mapped[list[BlockedPeriod]] = relationship(back_populates="staff")
+    bookings: Mapped[list[Booking]] = relationship(back_populates="staff")
 
     __table_args__ = (
         UniqueConstraint("salon_id", "id", name="uq_staff_salon_id_id"),
