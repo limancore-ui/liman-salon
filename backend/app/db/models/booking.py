@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from app.db.models.user import User
     from app.db.models.bonus_transaction import BonusTransaction
     from app.db.models.review import Review
+    from app.db.models.payment import Payment
 
 _BOOKING_STATUS_CHECK = (
     "status IN ('pending', 'confirmed', 'in_progress', 'completed', "
@@ -114,6 +115,7 @@ class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="booking",
         uselist=False,
     )
+    payments: Mapped[list[Payment]] = relationship(back_populates="booking")
 
     __table_args__ = (
         UniqueConstraint("salon_id", "id", name="uq_bookings_salon_id_id"),

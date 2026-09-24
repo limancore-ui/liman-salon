@@ -22,6 +22,7 @@ from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
+    from app.db.models.payment import Payment
     from app.db.models.salon import Salon
 
 _SUBSCRIPTION_STATUS_CHECK = (
@@ -80,6 +81,7 @@ class Subscription(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
 
     salon: Mapped[Salon] = relationship(back_populates="subscriptions")
+    payments: Mapped[list[Payment]] = relationship(back_populates="subscription")
 
     __table_args__ = (
         UniqueConstraint("salon_id", "id", name="uq_subscriptions_salon_id_id"),
