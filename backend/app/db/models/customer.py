@@ -26,6 +26,7 @@ from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 if TYPE_CHECKING:
     from app.db.models.booking import Booking
     from app.db.models.bonus_transaction import BonusTransaction
+    from app.db.models.notification import Notification
     from app.db.models.review import Review
     from app.db.models.salon import Salon
     from app.db.models.user import User
@@ -70,6 +71,9 @@ class Customer(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="customer",
     )
     reviews: Mapped[list[Review]] = relationship(back_populates="customer")
+    notifications: Mapped[list[Notification]] = relationship(
+        back_populates="customer",
+    )
 
     __table_args__ = (
         UniqueConstraint("salon_id", "id", name="uq_customers_salon_id_id"),

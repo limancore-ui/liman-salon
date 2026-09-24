@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from app.db.models.bonus_transaction import BonusTransaction
     from app.db.models.review import Review
     from app.db.models.subscription import Subscription
+    from app.db.models.notification import Notification
     from app.db.models.payment import Payment
 
 
@@ -62,6 +63,9 @@ class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     reviews: Mapped[list[Review]] = relationship(back_populates="salon")
     subscriptions: Mapped[list[Subscription]] = relationship(back_populates="salon")
     payments: Mapped[list[Payment]] = relationship(back_populates="salon")
+    notifications: Mapped[list[Notification]] = relationship(
+        back_populates="salon",
+    )
 
     __table_args__ = (
         CheckConstraint("char_length(slug) >= 2", name="ck_salons_slug_min_length"),

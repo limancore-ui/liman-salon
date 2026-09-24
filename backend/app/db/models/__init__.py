@@ -1,5 +1,6 @@
 from app.db.models.blocked_period import BlockedPeriod
 from app.db.models.bonus_transaction import BonusTransaction
+from app.db.models.notification import Notification
 from app.db.models.payment import Payment
 from app.db.models.booking import Booking
 from app.db.models.review import Review
@@ -16,6 +17,7 @@ from app.db.models.working_hour import WorkingHour
 __all__ = [
     "BlockedPeriod",
     "BonusTransaction",
+    "Notification",
     "Payment",
     "Booking",
     "Review",

@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from app.db.models.user import User
     from app.db.models.bonus_transaction import BonusTransaction
     from app.db.models.review import Review
+    from app.db.models.notification import Notification
     from app.db.models.payment import Payment
 
 _BOOKING_STATUS_CHECK = (
@@ -116,6 +117,9 @@ class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         uselist=False,
     )
     payments: Mapped[list[Payment]] = relationship(back_populates="booking")
+    notifications: Mapped[list[Notification]] = relationship(
+        back_populates="booking",
+    )
 
     __table_args__ = (
         UniqueConstraint("salon_id", "id", name="uq_bookings_salon_id_id"),
