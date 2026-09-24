@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.db.models.customer import Customer
     from app.db.models.staff import Staff
     from app.db.models.bonus_transaction import BonusTransaction
+    from app.db.models.ai_conversation import AIConversation
     from app.db.models.review import Review
 
 
@@ -56,6 +57,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     reviews_moderated: Mapped[list[Review]] = relationship(
         back_populates="moderated_by_user",
+    )
+    ai_conversations: Mapped[list[AIConversation]] = relationship(
+        back_populates="user",
     )
 
     __table_args__ = (

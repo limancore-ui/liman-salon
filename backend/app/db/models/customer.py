@@ -26,6 +26,7 @@ from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 if TYPE_CHECKING:
     from app.db.models.booking import Booking
     from app.db.models.bonus_transaction import BonusTransaction
+    from app.db.models.ai_conversation import AIConversation
     from app.db.models.notification import Notification
     from app.db.models.review import Review
     from app.db.models.salon import Salon
@@ -72,6 +73,9 @@ class Customer(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     reviews: Mapped[list[Review]] = relationship(back_populates="customer")
     notifications: Mapped[list[Notification]] = relationship(
+        back_populates="customer",
+    )
+    ai_conversations: Mapped[list[AIConversation]] = relationship(
         back_populates="customer",
     )
 

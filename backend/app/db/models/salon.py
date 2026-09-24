@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from app.db.models.bonus_transaction import BonusTransaction
     from app.db.models.review import Review
     from app.db.models.subscription import Subscription
+    from app.db.models.ai_conversation import AIConversation
     from app.db.models.notification import Notification
     from app.db.models.payment import Payment
 
@@ -64,6 +65,9 @@ class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     subscriptions: Mapped[list[Subscription]] = relationship(back_populates="salon")
     payments: Mapped[list[Payment]] = relationship(back_populates="salon")
     notifications: Mapped[list[Notification]] = relationship(
+        back_populates="salon",
+    )
+    ai_conversations: Mapped[list[AIConversation]] = relationship(
         back_populates="salon",
     )
 
