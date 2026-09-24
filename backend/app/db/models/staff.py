@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from app.db.models.salon import Salon
     from app.db.models.staff_service import StaffService
     from app.db.models.user import User
+    from app.db.models.working_hour import WorkingHour
 
 
 class Staff(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -53,6 +54,7 @@ class Staff(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     salon: Mapped[Salon] = relationship(back_populates="staff")
     user: Mapped[User | None] = relationship(back_populates="staff_profiles")
     staff_services: Mapped[list[StaffService]] = relationship(back_populates="staff")
+    working_hours: Mapped[list[WorkingHour]] = relationship(back_populates="staff")
 
     __table_args__ = (
         UniqueConstraint("salon_id", "id", name="uq_staff_salon_id_id"),
