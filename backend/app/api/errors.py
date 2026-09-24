@@ -25,6 +25,12 @@ from app.services.service_catalog.errors import (
     ServiceCatalogNotFoundError,
     ServiceCatalogValidationError,
 )
+from app.services.customer.errors import (
+    CustomerConflictError,
+    CustomerError,
+    CustomerNotFoundError,
+    CustomerValidationError,
+)
 from app.services.staff.errors import (
     StaffError,
     StaffNotFoundError,
@@ -151,6 +157,40 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content=ErrorBody(detail=str(exc), code="service_catalog_error").model_dump(),
+        )
+
+    @app.exception_handler(CustomerNotFoundError)
+    async def customer_not_found(
+        _request: Request, exc: CustomerNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(CustomerConflictError)
+    async def customer_conflict(
+        _request: Request, exc: CustomerConflictError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content=ErrorBody(detail=str(exc), code="conflict").model_dump(),
+        )
+
+    @app.exception_handler(CustomerValidationError)
+    async def customer_validation(
+        _request: Request, exc: CustomerValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(CustomerError)
+    async def customer_error(_request: Request, exc: CustomerError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="customer_error").model_dump(),
         )
 
     @app.exception_handler(StaffNotFoundError)

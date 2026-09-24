@@ -16,6 +16,7 @@ from app.services.booking.service import BookingService
 from app.services.public_booking.service import PublicBookingService
 from app.services.schedule.service import ScheduleService
 from app.services.service_catalog.service import ServiceCatalogService
+from app.services.customer.service import CustomerService
 from app.services.staff.service import StaffService
 
 SessionDep = Annotated[Session, Depends(get_db)]
@@ -72,6 +73,13 @@ def get_staff_service(session: SessionDep) -> StaffService:
 
 
 StaffServiceDep = Annotated[StaffService, Depends(get_staff_service)]
+
+
+def get_customer_service(session: SessionDep) -> CustomerService:
+    return CustomerService(session)
+
+
+CustomerServiceDep = Annotated[CustomerService, Depends(get_customer_service)]
 
 
 def get_service_catalog_service(session: SessionDep) -> ServiceCatalogService:
