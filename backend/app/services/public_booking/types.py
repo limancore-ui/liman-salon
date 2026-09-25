@@ -14,3 +14,13 @@ class PublicBookingResult:
     service_start: datetime
     service_end: datetime
     hold_expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PublicBookingOrchestrateResult:
+    salon_id: UUID
+    customer_id: UUID
+    booking_id: UUID
+    service_start: datetime
+    service_end: datetime
+    hold_expires_at: datetime

@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.db.session import get_db
 from app.services.availability.service import AvailabilityService
 from app.services.booking.service import BookingService
+from app.services.public_booking.orchestrator import PublicBookingOrchestrator
 from app.services.public_booking.service import PublicBookingService
 from app.services.schedule.service import ScheduleService
 from app.services.service_catalog.service import ServiceCatalogService
@@ -66,6 +67,23 @@ def get_public_booking_service(session: SessionDep) -> PublicBookingService:
 
 PublicBookingServiceDep = Annotated[
     PublicBookingService, Depends(get_public_booking_service)
+]
+
+
+def get_public_booking_orchestrator(
+    salon_public_service: SalonPublicServiceDep,
+    customer_service: CustomerServiceDep,
+    public_booking_service: PublicBookingServiceDep,
+) -> PublicBookingOrchestrator:
+    return PublicBookingOrchestrator(
+        salon_public_service=salon_public_service,
+        customer_service=customer_service,
+        public_booking_service=public_booking_service,
+    )
+
+
+PublicBookingOrchestratorDep = Annotated[
+    PublicBookingOrchestrator, Depends(get_public_booking_orchestrator)
 ]
 
 
