@@ -22,7 +22,6 @@ export type PublicBookingCreateResponse = {
 export type CustomerFormState = {
   full_name: string
   phone: string
-  email: string
   customer_notes: string
 }
 
@@ -33,6 +32,5 @@ export type CustomerFormFieldErrors = Partial<
 export const EMPTY_CUSTOMER_FORM: CustomerFormState = {
   full_name: '',
   phone: '',
-  email: '',
   customer_notes: '',
 }

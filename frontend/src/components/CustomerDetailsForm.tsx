@@ -69,28 +69,6 @@ export function CustomerDetailsForm({
       </div>
 
       <div className="form-field">
-        <label className="form-field__label" htmlFor="customer-email">
-          Email
-        </label>
-        <input
-          id="customer-email"
-          className={`form-field__input${fieldErrors.email ? ' form-field__input--invalid' : ''}`}
-          type="email"
-          name="email"
-          autoComplete="email"
-          maxLength={320}
-          value={form.email}
-          disabled={disabled}
-          onChange={(event) => onChange('email', event.target.value)}
-        />
-        {fieldErrors.email ? (
-          <p className="form-field__error" role="alert">
-            {fieldErrors.email}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="form-field">
         <label className="form-field__label" htmlFor="customer-notes">
           Комментарий
         </label>

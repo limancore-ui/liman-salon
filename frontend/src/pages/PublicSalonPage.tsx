@@ -375,7 +375,6 @@ export function PublicSalonPage() {
       const result = await createPublicBookingBySlug(slug, {
         full_name: customerForm.full_name.trim(),
         phone: customerForm.phone.trim(),
-        email: customerForm.email.trim() || undefined,
         customer_notes: customerForm.customer_notes.trim() || undefined,
         service_id: selectedService.id,
         staff_id: selectedStaff.id,
