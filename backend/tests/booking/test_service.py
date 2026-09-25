@@ -61,8 +61,6 @@ def _customer() -> Customer:
 
 def _booking_service_with_mocks() -> tuple[BookingService, MagicMock, MagicMock]:
     session = MagicMock()
-    session.begin.return_value.__enter__ = MagicMock(return_value=None)
-    session.begin.return_value.__exit__ = MagicMock(return_value=False)
     svc = BookingService(session)
     repo = MagicMock()
     availability = MagicMock()
@@ -264,6 +262,23 @@ def test_integrity_error_becomes_overlap_error() -> None:
             status="confirmed",
             as_of=AS_OF,
         )
+
+
+def test_create_booking_does_not_open_nested_transaction() -> None:
+    svc, repo, availability = _booking_service_with_mocks()
+    session = svc._session
+    result = svc.create_booking(
+        salon_id=SALON_ID,
+        customer_id=CUSTOMER_ID,
+        staff_id=STAFF_ID,
+        service_id=SERVICE_ID,
+        requested_service_start=REQUESTED,
+        source="admin",
+        status="confirmed",
+        as_of=AS_OF,
+    )
+    assert result.status == "confirmed"
+    session.begin.assert_not_called()
 
 
 def test_public_pending_success_sets_expires_at() -> None:

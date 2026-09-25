@@ -55,21 +55,20 @@ class BookingService:
 
         self._validate_status_and_hold(source, status, as_of, expires_at)
 
-        with self._session.begin():
-            return self._create_booking_in_transaction(
-                salon_id=salon_id,
-                customer_id=customer_id,
-                staff_id=staff_id,
-                service_id=service_id,
-                requested_service_start=requested_service_start,
-                source=source,
-                status=status,
-                as_of=as_of,
-                expires_at=expires_at,
-                customer_notes=customer_notes,
-                internal_notes=internal_notes,
-                created_by_user_id=created_by_user_id,
-            )
+        return self._create_booking_in_transaction(
+            salon_id=salon_id,
+            customer_id=customer_id,
+            staff_id=staff_id,
+            service_id=service_id,
+            requested_service_start=requested_service_start,
+            source=source,
+            status=status,
+            as_of=as_of,
+            expires_at=expires_at,
+            customer_notes=customer_notes,
+            internal_notes=internal_notes,
+            created_by_user_id=created_by_user_id,
+        )
 
     def _create_booking_in_transaction(
         self,
