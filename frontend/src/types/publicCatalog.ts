@@ -28,3 +28,21 @@ export type PublicCatalogStaffResponse = {
   service_id: string
   staff: PublicCatalogStaffOut[]
 }
+
+/** Matches backend `ServiceAvailabilitySlotOut`. */
+export type ServiceAvailabilitySlotOut = {
+  service_start: string
+  service_end: string
+}
+
+/** Matches backend `StaffServiceAvailabilityOut`. */
+export type StaffServiceAvailabilityOut = {
+  staff_id: string
+  slots: ServiceAvailabilitySlotOut[]
+}
+
+/** Matches backend `ServiceAvailabilityResponse`. */
+export type ServiceAvailabilityResponse = {
+  service_id: string
+  staff: StaffServiceAvailabilityOut[]
+}

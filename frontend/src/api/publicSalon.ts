@@ -3,6 +3,7 @@ import type { PublicSalonEntryResponse } from '../types/publicSalon'
 import type {
   PublicCatalogServicesResponse,
   PublicCatalogStaffResponse,
+  ServiceAvailabilityResponse,
 } from '../types/publicCatalog'
 
 async function parseJsonResponse<T>(response: Response): Promise<T> {
@@ -47,4 +48,27 @@ export async function getPublicServiceStaff(
     `/api/v1/public/salons/${encodeURIComponent(slug)}/services/${encodeURIComponent(serviceId)}/staff`,
   )
   return parseJsonResponse<PublicCatalogStaffResponse>(response)
+}
+
+export type PublicServiceAvailabilityParams = {
+  serviceId: string
+  staffId: string
+  startDate: string
+  endDate: string
+}
+
+export async function getPublicServiceAvailability(
+  slug: string,
+  params: PublicServiceAvailabilityParams,
+): Promise<ServiceAvailabilityResponse> {
+  const query = new URLSearchParams({
+    service_id: params.serviceId,
+    start_date: params.startDate,
+    end_date: params.endDate,
+    staff_id: params.staffId,
+  })
+  const response = await fetch(
+    `/api/v1/public/salons/${encodeURIComponent(slug)}/availability/service?${query.toString()}`,
+  )
+  return parseJsonResponse<ServiceAvailabilityResponse>(response)
 }
