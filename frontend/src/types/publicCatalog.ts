@@ -15,3 +15,16 @@ export type PublicCatalogServicesResponse = {
   salon_id: string
   services: PublicCatalogServiceOut[]
 }
+
+/** Matches backend `PublicCatalogStaffOut`. */
+export type PublicCatalogStaffOut = {
+  id: string
+  display_name: string
+}
+
+/** Matches backend `PublicCatalogStaffResponse`. */
+export type PublicCatalogStaffResponse = {
+  salon_id: string
+  service_id: string
+  staff: PublicCatalogStaffOut[]
+}

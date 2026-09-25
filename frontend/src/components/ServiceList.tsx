@@ -11,9 +11,15 @@ export type ServiceListState =
 
 type ServiceListProps = {
   state: ServiceListState
+  selectedServiceId?: string | null
+  onSelectService?: (service: PublicCatalogServiceOut) => void
 }
 
-export function ServiceList({ state }: ServiceListProps) {
+export function ServiceList({
+  state,
+  selectedServiceId = null,
+  onSelectService,
+}: ServiceListProps) {
   if (state.status === 'idle' || state.status === 'loading') {
     return <LoadingState message="Loading services…" />
   }
@@ -32,7 +38,13 @@ export function ServiceList({ state }: ServiceListProps) {
     <ul className="service-list">
       {state.services.map((service) => (
         <li key={service.id} className="service-list__item">
-          <ServiceCard service={service} />
+          <ServiceCard
+            service={service}
+            selected={selectedServiceId === service.id}
+            onSelect={
+              onSelectService ? () => onSelectService(service) : undefined
+            }
+          />
         </li>
       ))}
     </ul>

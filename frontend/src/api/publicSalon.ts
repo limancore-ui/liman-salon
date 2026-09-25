@@ -1,6 +1,9 @@
 import { ApiError } from './errors'
 import type { PublicSalonEntryResponse } from '../types/publicSalon'
-import type { PublicCatalogServicesResponse } from '../types/publicCatalog'
+import type {
+  PublicCatalogServicesResponse,
+  PublicCatalogStaffResponse,
+} from '../types/publicCatalog'
 
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -34,4 +37,14 @@ export async function getPublicServices(
     `/api/v1/public/salons/${encodeURIComponent(slug)}/services`,
   )
   return parseJsonResponse<PublicCatalogServicesResponse>(response)
+}
+
+export async function getPublicServiceStaff(
+  slug: string,
+  serviceId: string,
+): Promise<PublicCatalogStaffResponse> {
+  const response = await fetch(
+    `/api/v1/public/salons/${encodeURIComponent(slug)}/services/${encodeURIComponent(serviceId)}/staff`,
+  )
+  return parseJsonResponse<PublicCatalogStaffResponse>(response)
 }

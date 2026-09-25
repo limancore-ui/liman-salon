@@ -3,11 +3,15 @@ import { formatDuration, formatPrice } from '../utils/format'
 
 type ServiceCardProps = {
   service: PublicCatalogServiceOut
+  selected?: boolean
+  onSelect?: () => void
 }
 
-export function ServiceCard({ service }: ServiceCardProps) {
-  return (
-    <article className="service-card">
+export function ServiceCard({ service, selected = false, onSelect }: ServiceCardProps) {
+  const className = `service-card${selected ? ' service-card--selected' : ''}`
+
+  const content = (
+    <>
       <div className="service-card__header">
         <h2 className="service-card__name">{service.name}</h2>
         <span className="service-card__price">
@@ -20,6 +24,21 @@ export function ServiceCard({ service }: ServiceCardProps) {
       <p className="service-card__meta">
         {formatDuration(service.duration_minutes)}
       </p>
-    </article>
+    </>
   )
+
+  if (onSelect) {
+    return (
+      <button
+        type="button"
+        className={`${className} service-card--interactive`}
+        aria-pressed={selected}
+        onClick={onSelect}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return <article className={className}>{content}</article>
 }
