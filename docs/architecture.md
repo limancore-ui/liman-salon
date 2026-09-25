@@ -55,8 +55,25 @@ Modules may share a common **kernel** (IDs, `salon_id` conventions, errors) but 
 - **Human-facing URL pattern (future frontend):** `/s/{slug}` — not implemented in MVP backend; no QR or WhatsApp deep links in v0.1.
 - **Resolver API (no auth):** `GET /api/v1/public/salons/{slug}` returns `salon_id`, `slug`, `name`, `currency_code`, and `timezone` for **active** salons only; missing or inactive slugs → **404** (`not_found`).
 - **Slug storage:** `salons.slug` is unique, indexed (see initial migration), lowercase URL-safe; helpers in `app.services.salon_public.slug` normalize text and allocate `-2`, `-3`, … suffixes when creating salons later—no full salon CRUD in this slice.
-- **Downstream public flows** (availability, public booking, public customer resolve) continue to use explicit `salon_id` in their paths after the client resolves slug once.
+- **Downstream public flows** may use either explicit `salon_id` paths (legacy/split clients) or slug-based public catalog reads after the client resolves slug once.
 - Cross-tenant access is forbidden at the application layer; tests should assert isolation on critical paths.
+
+### Public catalog flow (slug → services → staff → availability)
+
+- **Purpose:** read-only public catalog and availability entry points for the future customer-facing booking UI (no frontend, QR, or WhatsApp in MVP backend).
+- **Orchestration:** `PublicCatalogService` composes `SalonPublicService` (slug → active salon), `ServiceCatalogService` / `AvailabilityRepository` (tenant-scoped catalog reads), and **`AvailabilityService.get_service_availability`** (no duplicated availability math).
+- **Endpoints (no auth):**
+  - `GET /api/v1/public/salons/{slug}/services` — active services for the resolved salon, stable `sort_order` / name / id ordering, `currency_code` from salon.
+  - `GET /api/v1/public/salons/{slug}/services/{service_id}/staff` — active, bookable staff assigned via `staff_services`; missing or inactive service → **404** (`not_found`); response exposes `id` and `display_name` only.
+  - `GET /api/v1/public/salons/{slug}/availability/service` — same query contract as `GET /api/v1/salons/{salon_id}/availability/service` (`service_id`, `start_date`, `end_date`, optional `staff_id`; `as_of` server-injected).
+- **Full public booking path (future UI):**
+  1. `GET /api/v1/public/salons/{slug}`
+  2. `GET /api/v1/public/salons/{slug}/services`
+  3. `GET /api/v1/public/salons/{slug}/services/{service_id}/staff`
+  4. `GET /api/v1/public/salons/{slug}/availability/service`
+  5. `POST /api/v1/public/salons/{slug}/bookings`
+- **Legacy split APIs remain:** `POST /api/v1/salons/{salon_id}/public/customers/resolve`, `POST /api/v1/salons/{salon_id}/bookings/public`, and salon-id availability are unchanged; slug catalog adds parallel read entry points only.
+- **Booking authority:** holds and writes still flow through the existing public booking orchestrator / `BookingService`; this slice is read-only.
 
 ### Public orchestrated booking entry (slug → customer → hold)
 

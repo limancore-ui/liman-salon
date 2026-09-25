@@ -1,15 +1,51 @@
 from __future__ import annotations
 
+import uuid
+from datetime import date
+
 from fastapi import APIRouter
 
-from app.api.deps import AsOfDep, PublicBookingOrchestratorDep, SalonPublicServiceDep
+from app.api.deps import AsOfDep, PublicBookingOrchestratorDep, PublicCatalogServiceDep, SalonPublicServiceDep
+from app.api.schemas.availability import (
+    ServiceAvailabilityResponse,
+    ServiceAvailabilitySlotOut,
+    StaffServiceAvailabilityOut,
+)
 from app.api.schemas.public_booking_orchestrator import (
     PublicBookingOrchestrateRequest,
     PublicBookingOrchestrateResponse,
 )
+from app.api.schemas.public_catalog import (
+    PublicCatalogServiceOut,
+    PublicCatalogServicesResponse,
+    PublicCatalogStaffOut,
+    PublicCatalogStaffResponse,
+)
 from app.api.schemas.salon_public import PublicSalonEntryResponse
+from app.services.availability.types import ServiceAvailabilityResult
 
 router = APIRouter(tags=["salons-public"])
+
+
+def _to_service_availability_response(
+    result: ServiceAvailabilityResult,
+) -> ServiceAvailabilityResponse:
+    return ServiceAvailabilityResponse(
+        service_id=result.service_id,
+        staff=[
+            StaffServiceAvailabilityOut(
+                staff_id=row.staff_id,
+                slots=[
+                    ServiceAvailabilitySlotOut(
+                        service_start=slot.service_start,
+                        service_end=slot.service_end,
+                    )
+                    for slot in row.slots
+                ],
+            )
+            for row in result.staff
+        ],
+    )
 
 
 @router.get(
@@ -29,6 +65,83 @@ def get_public_salon_by_slug(
         currency_code=entry.currency_code,
         timezone=entry.timezone,
     )
+
+
+@router.get(
+    "/public/salons/{slug}/services",
+    response_model=PublicCatalogServicesResponse,
+    status_code=200,
+)
+def list_public_services_by_slug(
+    slug: str,
+    catalog: PublicCatalogServiceDep,
+) -> PublicCatalogServicesResponse:
+    result = catalog.list_active_services_by_slug(slug)
+    return PublicCatalogServicesResponse(
+        salon_id=result.salon_id,
+        services=[
+            PublicCatalogServiceOut(
+                id=item.id,
+                name=item.name,
+                description=item.description,
+                duration_minutes=item.duration_minutes,
+                buffer_before_minutes=item.buffer_before_minutes,
+                buffer_after_minutes=item.buffer_after_minutes,
+                price_cents=item.price_cents,
+                currency_code=item.currency_code,
+            )
+            for item in result.services
+        ],
+    )
+
+
+@router.get(
+    "/public/salons/{slug}/services/{service_id}/staff",
+    response_model=PublicCatalogStaffResponse,
+    status_code=200,
+)
+def list_public_staff_for_service_by_slug(
+    slug: str,
+    service_id: uuid.UUID,
+    catalog: PublicCatalogServiceDep,
+) -> PublicCatalogStaffResponse:
+    result = catalog.list_bookable_staff_for_service_by_slug(
+        slug=slug,
+        service_id=service_id,
+    )
+    return PublicCatalogStaffResponse(
+        salon_id=result.salon_id,
+        service_id=result.service_id,
+        staff=[
+            PublicCatalogStaffOut(id=member.id, display_name=member.display_name)
+            for member in result.staff
+        ],
+    )
+
+
+@router.get(
+    "/public/salons/{slug}/availability/service",
+    response_model=ServiceAvailabilityResponse,
+    status_code=200,
+)
+def get_public_service_availability_by_slug(
+    slug: str,
+    service_id: uuid.UUID,
+    start_date: date,
+    end_date: date,
+    as_of: AsOfDep,
+    catalog: PublicCatalogServiceDep,
+    staff_id: uuid.UUID | None = None,
+) -> ServiceAvailabilityResponse:
+    result = catalog.get_service_availability_by_slug(
+        slug=slug,
+        service_id=service_id,
+        start_date=start_date,
+        end_date=end_date,
+        staff_id=staff_id,
+        as_of=as_of,
+    )
+    return _to_service_availability_response(result)
 
 
 @router.post(
