@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { label: 'Bookings', to: '/admin/bookings' },
   { label: 'Customers', to: null },
   { label: 'Staff', to: '/admin/staff' },
-  { label: 'Services', to: null },
+  { label: 'Services', to: '/admin/services' },
   { label: 'Schedule', to: null },
 ] as const
 

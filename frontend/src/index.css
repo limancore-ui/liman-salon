@@ -980,6 +980,108 @@ body {
   font-weight: 600;
 }
 
+.admin-services__header {
+  margin-bottom: var(--space-lg);
+}
+
+.admin-services__title {
+  margin: 0 0 var(--space-xs);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.admin-services__lead {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.admin-services__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-services__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+.admin-services__filter--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.admin-services__filter--checkbox input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-accent);
+}
+
+.admin-services__state {
+  margin: 0;
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--color-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-services__state--error {
+  color: #8b2e2e;
+}
+
+.admin-services__table-wrap {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-services__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.admin-services__table th,
+.admin-services__table td {
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.admin-services__table th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-services__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-services__name {
+  display: block;
+  font-weight: 600;
+}
+
 @media (min-width: 480px) {
   .page {
     padding-left: var(--space-lg);
