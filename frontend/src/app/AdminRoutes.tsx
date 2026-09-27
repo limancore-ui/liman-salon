@@ -4,6 +4,7 @@ import { ProtectedAdminRoute } from '../auth/ProtectedAdminRoute'
 import { AdminBookingsPage } from '../pages/AdminBookingsPage'
 import { AdminStaffPage } from '../pages/AdminStaffPage'
 import { AdminServicesPage } from '../pages/AdminServicesPage'
+import { AdminCustomersPage } from '../pages/AdminCustomersPage'
 import { AdminDashboardPage } from '../pages/AdminDashboardPage'
 import { AdminLoginPage } from '../pages/AdminLoginPage'
 
@@ -15,6 +16,7 @@ export function AdminRoutes() {
         <Route element={<ProtectedAdminRoute />}>
           <Route index element={<AdminDashboardPage />} />
           <Route path="bookings" element={<AdminBookingsPage />} />
+          <Route path="customers" element={<AdminCustomersPage />} />
           <Route path="staff" element={<AdminStaffPage />} />
           <Route path="services" element={<AdminServicesPage />} />
         </Route>

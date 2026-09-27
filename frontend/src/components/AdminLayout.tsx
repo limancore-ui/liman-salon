@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/admin' },
   { label: 'Bookings', to: '/admin/bookings' },
-  { label: 'Customers', to: null },
+  { label: 'Customers', to: '/admin/customers' },
   { label: 'Staff', to: '/admin/staff' },
   { label: 'Services', to: '/admin/services' },
   { label: 'Schedule', to: null },
