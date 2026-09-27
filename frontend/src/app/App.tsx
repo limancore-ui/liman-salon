@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { AdminRoutes } from './AdminRoutes'
 import { PublicSalonPage } from '../pages/PublicSalonPage'
 
 export function App() {
@@ -6,6 +7,7 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/s/:slug" element={<PublicSalonPage />} />
+        <Route path="/admin/*" element={<AdminRoutes />} />
         <Route
           path="*"
           element={

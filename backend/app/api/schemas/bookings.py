@@ -27,3 +27,18 @@ class BookingCreateResponse(BaseModel):
     starts_at: datetime
     ends_at: datetime
     status: str
+
+
+class BookingListItemResponse(BaseModel):
+    id: UUID
+    status: str
+    starts_at: datetime
+    ends_at: datetime
+    duration_minutes: int
+    price_cents: int
+    customer_name: str
+    customer_phone: str | None
+    staff_name: str
+    service_name: str
+    source: str
+    created_at: datetime

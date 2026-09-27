@@ -16,9 +16,22 @@ from app.services.booking.errors import (
 )
 from app.services.booking.repository import BookingRepository
 from app.services.booking.types import (
+    BookingListRow,
     CreateBookingResult,
     ServiceSnapshot,
     compute_occupied_interval,
+)
+
+_BOOKING_STATUSES = frozenset(
+    {
+        "pending",
+        "confirmed",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "no_show",
+        "expired",
+    }
 )
 
 
@@ -29,6 +42,43 @@ class BookingService:
         self._session = session
         self._repo = BookingRepository(session)
         self._availability = AvailabilityService(session)
+
+    def list_bookings(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        starts_at_from: datetime | None = None,
+        starts_at_to: datetime | None = None,
+        status: str | None = None,
+        staff_id: uuid.UUID | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[BookingListRow]:
+        if limit < 1 or limit > 200:
+            raise BookingValidationError("limit must be between 1 and 200")
+        if offset < 0:
+            raise BookingValidationError("offset must be >= 0")
+        if starts_at_from is not None and starts_at_from.tzinfo is None:
+            raise BookingValidationError("starts_at_from must be timezone-aware")
+        if starts_at_to is not None and starts_at_to.tzinfo is None:
+            raise BookingValidationError("starts_at_to must be timezone-aware")
+        if (
+            starts_at_from is not None
+            and starts_at_to is not None
+            and starts_at_from >= starts_at_to
+        ):
+            raise BookingValidationError("starts_at_from must be before starts_at_to")
+        if status is not None and status not in _BOOKING_STATUSES:
+            raise BookingValidationError("invalid booking status filter")
+        return self._repo.list_bookings(
+            salon_id=salon_id,
+            starts_at_from=starts_at_from,
+            starts_at_to=starts_at_to,
+            status=status,
+            staff_id=staff_id,
+            limit=limit,
+            offset=offset,
+        )
 
     def create_booking(
         self,
