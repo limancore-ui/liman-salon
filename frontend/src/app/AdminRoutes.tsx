@@ -5,6 +5,7 @@ import { AdminBookingsPage } from '../pages/AdminBookingsPage'
 import { AdminStaffPage } from '../pages/AdminStaffPage'
 import { AdminServicesPage } from '../pages/AdminServicesPage'
 import { AdminCustomersPage } from '../pages/AdminCustomersPage'
+import { AdminSchedulePage } from '../pages/AdminSchedulePage'
 import { AdminDashboardPage } from '../pages/AdminDashboardPage'
 import { AdminLoginPage } from '../pages/AdminLoginPage'
 
@@ -19,6 +20,7 @@ export function AdminRoutes() {
           <Route path="customers" element={<AdminCustomersPage />} />
           <Route path="staff" element={<AdminStaffPage />} />
           <Route path="services" element={<AdminServicesPage />} />
+          <Route path="schedule" element={<AdminSchedulePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>

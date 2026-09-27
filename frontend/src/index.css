@@ -1186,6 +1186,206 @@ body {
   font-weight: 600;
 }
 
+.admin-schedule__header {
+  margin-bottom: var(--space-lg);
+}
+
+.admin-schedule__title {
+  margin: 0 0 var(--space-xs);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.admin-schedule__lead {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.admin-schedule__section {
+  margin-bottom: var(--space-xl);
+}
+
+.admin-schedule__section-title {
+  margin: 0 0 var(--space-md);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.admin-schedule__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-schedule__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-muted);
+  min-width: 10rem;
+}
+
+.admin-schedule__filter--wide {
+  flex: 1;
+  min-width: 14rem;
+}
+
+.admin-schedule__filter input,
+.admin-schedule__filter select {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-schedule__filter input:focus,
+.admin-schedule__filter select:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.admin-schedule__state {
+  margin: 0 0 var(--space-md);
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--color-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-schedule__state--error {
+  color: #8b2e2e;
+}
+
+.admin-schedule__weekly {
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-schedule__weekly-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-schedule__weekly-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.admin-schedule__weekly-day:last-child {
+  border-bottom: none;
+}
+
+.admin-schedule__weekly-day-name {
+  flex: 0 0 6.5rem;
+  font-weight: 600;
+}
+
+.admin-schedule__weekly-closed {
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+.admin-schedule__weekly-slots {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+}
+
+.admin-schedule__closed-summary {
+  margin: 0 0 var(--space-md);
+  font-size: 0.875rem;
+  color: var(--color-muted);
+}
+
+.admin-schedule__table-wrap {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-schedule__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.admin-schedule__table th,
+.admin-schedule__table td {
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.admin-schedule__table th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-schedule__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-schedule__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.admin-schedule__form {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-schedule__form-title {
+  margin: 0 0 var(--space-md);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.admin-schedule__form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.admin-schedule__form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
 @media (min-width: 480px) {
   .page {
     padding-left: var(--space-lg);

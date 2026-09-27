@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { label: 'Customers', to: '/admin/customers' },
   { label: 'Staff', to: '/admin/staff' },
   { label: 'Services', to: '/admin/services' },
-  { label: 'Schedule', to: null },
+  { label: 'Schedule', to: '/admin/schedule' },
 ] as const
 
 type AdminLayoutProps = {
@@ -29,30 +29,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
         <nav className="admin-nav">
           <ul className="admin-nav__list">
-            {NAV_ITEMS.map((item) => {
-              if (item.to === null) {
-                return (
-                  <li key={item.label} className="admin-nav__item">
-                    <span className="admin-nav__link admin-nav__link--disabled">
-                      {item.label}
-                    </span>
-                  </li>
-                )
-              }
-              return (
-                <li key={item.label} className="admin-nav__item">
-                  <NavLink
-                    to={item.to}
-                    end={item.to === '/admin'}
-                    className={({ isActive }) =>
-                      `admin-nav__link${isActive ? ' admin-nav__link--active' : ''}`
-                    }
-                  >
-                    {item.label}
-                  </NavLink>
-                </li>
-              )
-            })}
+            {NAV_ITEMS.map((item) => (
+              <li key={item.label} className="admin-nav__item">
+                <NavLink
+                  to={item.to}
+                  end={item.to === '/admin'}
+                  className={({ isActive }) =>
+                    `admin-nav__link${isActive ? ' admin-nav__link--active' : ''}`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              </li>
+            ))}
           </ul>
         </nav>
       </aside>
