@@ -1,14 +1,22 @@
 import { ApiError } from './errors'
-import type { PublicSalonEntryResponse } from '../types/publicSalon'
+import type {
+  PublicSalonEntryResponse,
+  PublicSalonWithMedia,
+} from '../types/publicSalon'
 import type {
   PublicBookingCreatePayload,
   PublicBookingCreateResponse,
 } from '../types/publicBooking'
 import type {
+  PublicCatalogServiceOut,
+  PublicCatalogServiceWithMedia,
   PublicCatalogServicesResponse,
+  PublicCatalogStaffOut,
+  PublicCatalogStaffWithMedia,
   PublicCatalogStaffResponse,
   ServiceAvailabilityResponse,
 } from '../types/publicCatalog'
+import { resolvePublicMediaUrl } from '../utils/publicMedia'
 
 type ApiErrorBody = {
   detail?: string
@@ -39,32 +47,85 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   return (await response.json()) as T
 }
 
+export function mapPublicSalonWithMedia(
+  slug: string,
+  entry: PublicSalonEntryResponse,
+): PublicSalonWithMedia {
+  return {
+    ...entry,
+    logo_url: resolvePublicMediaUrl(slug, entry.logo_media_id),
+  }
+}
+
+export function mapPublicServiceWithMedia(
+  slug: string,
+  service: PublicCatalogServiceOut,
+): PublicCatalogServiceWithMedia {
+  return {
+    ...service,
+    cover_url: resolvePublicMediaUrl(slug, service.cover_media_id),
+  }
+}
+
+export function mapPublicStaffWithMedia(
+  slug: string,
+  member: PublicCatalogStaffOut,
+): PublicCatalogStaffWithMedia {
+  return {
+    ...member,
+    avatar_url: resolvePublicMediaUrl(slug, member.avatar_media_id),
+  }
+}
+
 export async function getPublicSalon(
   slug: string,
-): Promise<PublicSalonEntryResponse> {
+): Promise<PublicSalonWithMedia> {
   const response = await fetch(
     `/api/v1/public/salons/${encodeURIComponent(slug)}`,
   )
-  return parseJsonResponse<PublicSalonEntryResponse>(response)
+  const entry = await parseJsonResponse<PublicSalonEntryResponse>(response)
+  return mapPublicSalonWithMedia(slug, entry)
+}
+
+export type PublicCatalogServicesWithMedia = {
+  salon_id: string
+  services: PublicCatalogServiceWithMedia[]
 }
 
 export async function getPublicServices(
   slug: string,
-): Promise<PublicCatalogServicesResponse> {
+): Promise<PublicCatalogServicesWithMedia> {
   const response = await fetch(
     `/api/v1/public/salons/${encodeURIComponent(slug)}/services`,
   )
-  return parseJsonResponse<PublicCatalogServicesResponse>(response)
+  const body = await parseJsonResponse<PublicCatalogServicesResponse>(response)
+  return {
+    salon_id: body.salon_id,
+    services: body.services.map((service) =>
+      mapPublicServiceWithMedia(slug, service),
+    ),
+  }
+}
+
+export type PublicCatalogStaffWithMediaResponse = {
+  salon_id: string
+  service_id: string
+  staff: PublicCatalogStaffWithMedia[]
 }
 
 export async function getPublicServiceStaff(
   slug: string,
   serviceId: string,
-): Promise<PublicCatalogStaffResponse> {
+): Promise<PublicCatalogStaffWithMediaResponse> {
   const response = await fetch(
     `/api/v1/public/salons/${encodeURIComponent(slug)}/services/${encodeURIComponent(serviceId)}/staff`,
   )
-  return parseJsonResponse<PublicCatalogStaffResponse>(response)
+  const body = await parseJsonResponse<PublicCatalogStaffResponse>(response)
+  return {
+    salon_id: body.salon_id,
+    service_id: body.service_id,
+    staff: body.staff.map((member) => mapPublicStaffWithMedia(slug, member)),
+  }
 }
 
 export type PublicServiceAvailabilityParams = {

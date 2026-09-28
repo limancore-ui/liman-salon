@@ -48,6 +48,13 @@ from app.services.booking.errors import (
     BookingValidationError,
     SlotNotAvailableError,
 )
+from app.services.media.errors import (
+    MediaConflictError,
+    MediaError,
+    MediaNotFoundError,
+    MediaStorageError,
+    MediaValidationError,
+)
 
 
 class ErrorBody(BaseModel):
@@ -273,6 +280,41 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content=ErrorBody(detail=str(exc), code="booking_error").model_dump(),
+        )
+
+    @app.exception_handler(MediaNotFoundError)
+    async def media_not_found(_request: Request, exc: MediaNotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(MediaValidationError)
+    async def media_validation(_request: Request, exc: MediaValidationError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(MediaConflictError)
+    async def media_conflict(_request: Request, exc: MediaConflictError) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content=ErrorBody(detail=str(exc), code="conflict").model_dump(),
+        )
+
+    @app.exception_handler(MediaStorageError)
+    async def media_storage(_request: Request, exc: MediaStorageError) -> JSONResponse:
+        return JSONResponse(
+            status_code=500,
+            content=ErrorBody(detail=str(exc), code="media_storage_error").model_dump(),
+        )
+
+    @app.exception_handler(MediaError)
+    async def media_error(_request: Request, exc: MediaError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="media_error").model_dump(),
         )
 
     @app.exception_handler(SQLAlchemyError)

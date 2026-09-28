@@ -13,3 +13,4 @@ class PublicSalonEntryResponse(BaseModel):
     name: str
     currency_code: str
     timezone: str
+    logo_media_id: UUID | None = None

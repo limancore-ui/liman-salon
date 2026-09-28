@@ -20,6 +20,8 @@ from app.services.service_catalog.service import ServiceCatalogService
 from app.services.customer.service import CustomerService
 from app.services.public_catalog.service import PublicCatalogService
 from app.services.salon_public.service import SalonPublicService
+from app.services.media.deps import build_media_service
+from app.services.media.service import MediaService
 from app.services.staff.service import StaffService
 
 SessionDep = Annotated[Session, Depends(get_db)]
@@ -132,3 +134,10 @@ def get_schedule_service(session: SessionDep) -> ScheduleService:
 
 
 ScheduleServiceDep = Annotated[ScheduleService, Depends(get_schedule_service)]
+
+
+def get_media_service(session: SessionDep) -> MediaService:
+    return build_media_service(session)
+
+
+MediaServiceDep = Annotated[MediaService, Depends(get_media_service)]

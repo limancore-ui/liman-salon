@@ -47,6 +47,8 @@ def test_list_active_services_excludes_inactive_via_catalog_flag() -> None:
     svc = PublicCatalogService(MagicMock())
     svc._salon_public = MagicMock()
     svc._catalog = MagicMock()
+    svc._media_repo = MagicMock()
+    svc._media_repo.resolve_attached_media_id.return_value = None
     svc._salon_public.resolve_public_salon_by_slug.return_value = _entry()
     active = _service(active=True)
     svc._catalog.list_services.return_value = [active]
@@ -76,6 +78,8 @@ def test_list_active_services_preserves_catalog_order() -> None:
     svc = PublicCatalogService(MagicMock())
     svc._salon_public = MagicMock()
     svc._catalog = MagicMock()
+    svc._media_repo = MagicMock()
+    svc._media_repo.resolve_attached_media_id.return_value = None
     svc._salon_public.resolve_public_salon_by_slug.return_value = _entry()
     first = _service(name="A", sort_order=0)
     first.id = uuid.UUID("11111111-1111-4111-8111-111111111111")
@@ -94,6 +98,8 @@ def test_list_bookable_staff_only_assigned_active_bookable() -> None:
     svc._salon_public = MagicMock()
     svc._availability_repo = MagicMock()
     svc._staff_repo = MagicMock()
+    svc._media_repo = MagicMock()
+    svc._media_repo.resolve_attached_media_id.return_value = None
     svc._salon_public.resolve_public_salon_by_slug.return_value = _entry()
     svc._availability_repo.get_active_service_for_availability.return_value = MagicMock()
     svc._availability_repo.list_bookable_staff_for_service.return_value = [

@@ -14,6 +14,7 @@ class PublicCatalogServiceItem:
     buffer_after_minutes: int
     price_cents: int
     currency_code: str
+    cover_media_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +27,7 @@ class PublicCatalogServicesResult:
 class PublicCatalogStaffMember:
     id: uuid.UUID
     display_name: str
+    avatar_media_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)

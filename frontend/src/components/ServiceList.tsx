@@ -1,4 +1,4 @@
-import type { PublicCatalogServiceOut } from '../types/publicCatalog'
+import type { PublicCatalogServiceWithMedia } from '../types/publicCatalog'
 import { ErrorState } from './ErrorState'
 import { LoadingState } from './LoadingState'
 import { ServiceCard } from './ServiceCard'
@@ -6,13 +6,13 @@ import { ServiceCard } from './ServiceCard'
 export type ServiceListState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; services: PublicCatalogServiceOut[] }
+  | { status: 'success'; services: PublicCatalogServiceWithMedia[] }
   | { status: 'error'; message: string }
 
 type ServiceListProps = {
   state: ServiceListState
   selectedServiceId?: string | null
-  onSelectService?: (service: PublicCatalogServiceOut) => void
+  onSelectService?: (service: PublicCatalogServiceWithMedia) => void
 }
 
 export function ServiceList({

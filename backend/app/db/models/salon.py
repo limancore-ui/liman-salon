@@ -25,6 +25,8 @@ if TYPE_CHECKING:
     from app.db.models.ai_message import AIMessage
     from app.db.models.notification import Notification
     from app.db.models.payment import Payment
+    from app.db.models.media_asset import MediaAsset
+    from app.db.models.media_attachment import MediaAttachment
 
 
 class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -72,6 +74,10 @@ class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="salon",
     )
     ai_messages: Mapped[list[AIMessage]] = relationship(
+        back_populates="salon",
+    )
+    media_assets: Mapped[list[MediaAsset]] = relationship(back_populates="salon")
+    media_attachments: Mapped[list[MediaAttachment]] = relationship(
         back_populates="salon",
     )
 

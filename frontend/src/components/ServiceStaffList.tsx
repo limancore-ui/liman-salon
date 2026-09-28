@@ -1,17 +1,18 @@
-import type { PublicCatalogStaffOut } from '../types/publicCatalog'
+import type { PublicCatalogStaffWithMedia } from '../types/publicCatalog'
 import { ErrorState } from './ErrorState'
 import { LoadingState } from './LoadingState'
+import { PublicImage } from './PublicImage'
 
 export type ServiceStaffListState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; staff: PublicCatalogStaffOut[] }
+  | { status: 'success'; staff: PublicCatalogStaffWithMedia[] }
   | { status: 'error'; message: string }
 
 type ServiceStaffListProps = {
   state: ServiceStaffListState
   selectedStaffId: string | null
-  onSelectStaff: (staff: PublicCatalogStaffOut) => void
+  onSelectStaff: (staff: PublicCatalogStaffWithMedia) => void
 }
 
 export function ServiceStaffList({
@@ -51,6 +52,11 @@ export function ServiceStaffList({
               className={`staff-card${selected ? ' staff-card--selected' : ''}`}
               onClick={() => onSelectStaff(member)}
             >
+              <PublicImage
+                src={member.avatar_url}
+                alt=""
+                className="staff-card__avatar"
+              />
               <span className="staff-card__name">{member.display_name}</span>
             </button>
           </li>

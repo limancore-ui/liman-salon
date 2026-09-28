@@ -1,8 +1,9 @@
-import type { PublicCatalogServiceOut } from '../types/publicCatalog'
+import type { PublicCatalogServiceWithMedia } from '../types/publicCatalog'
 import { formatDuration, formatPrice } from '../utils/format'
+import { PublicImage } from './PublicImage'
 
 type ServiceCardProps = {
-  service: PublicCatalogServiceOut
+  service: PublicCatalogServiceWithMedia
   selected?: boolean
   onSelect?: () => void
 }
@@ -12,6 +13,11 @@ export function ServiceCard({ service, selected = false, onSelect }: ServiceCard
 
   const content = (
     <>
+      <PublicImage
+        src={service.cover_url}
+        alt=""
+        className="service-card__cover"
+      />
       <div className="service-card__header">
         <h2 className="service-card__name">{service.name}</h2>
         <span className="service-card__price">

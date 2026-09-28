@@ -117,6 +117,7 @@ def test_public_services_response_field_allowlist() -> None:
             "buffer_after_minutes",
             "price_cents",
             "currency_code",
+            "cover_media_id",
         }
     finally:
         client.close()
@@ -179,7 +180,11 @@ def test_public_service_staff_response_field_allowlist() -> None:
         )
         body = response.json()
         assert set(body.keys()) == {"salon_id", "service_id", "staff"}
-        assert set(body["staff"][0].keys()) == {"id", "display_name"}
+        assert set(body["staff"][0].keys()) == {
+            "id",
+            "display_name",
+            "avatar_media_id",
+        }
     finally:
         client.close()
 

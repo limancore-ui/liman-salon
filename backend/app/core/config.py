@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_seconds: int = 900
     public_booking_hold_seconds: int = 900
+    media_storage_backend: str = "local"
+    media_storage_root: str = "./data/media"
+    media_max_upload_bytes: int = 5_242_880
 
 
 @lru_cache

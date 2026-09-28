@@ -4,7 +4,13 @@ import { useAuth } from '../auth/AuthContext'
 import { fetchAdminStaff } from '../api/staff'
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
+import { AdminEntityMediaAttach } from '../components/AdminEntityMediaAttach'
+import { useSalonMediaAttachmentIndex } from '../hooks/useSalonMediaAttachmentIndex'
 import type { StaffListItem } from '../types/staff'
+
+function canManageMedia(role: string | undefined): boolean {
+  return role === 'owner' || role === 'admin'
+}
 
 function formatBool(value: boolean): string {
   return value ? 'Yes' : 'No'
@@ -16,6 +22,13 @@ export function AdminStaffPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showInactive, setShowInactive] = useState(false)
+
+  const canWrite = canManageMedia(session?.salon.role)
+  const mediaIndex = useSalonMediaAttachmentIndex(
+    session?.token,
+    session?.salon.salon_id,
+    clearAuthAndRedirect,
+  )
 
   const load = useCallback(async () => {
     if (!session) {
@@ -53,8 +66,17 @@ export function AdminStaffPage() {
       <section className="admin-staff">
         <header className="admin-staff__header">
           <h1 className="admin-staff__title">Staff</h1>
-          <p className="admin-staff__lead">Read-only list for your salon.</p>
+          <p className="admin-staff__lead">
+            Staff roster for your salon. Owners and admins can set avatar images from
+            the media library.
+          </p>
         </header>
+
+        {mediaIndex.error ? (
+          <p className="admin-staff__state admin-staff__state--error" role="alert">
+            {mediaIndex.error}
+          </p>
+        ) : null}
 
         <div className="admin-staff__filters">
           <label className="admin-staff__filter admin-staff__filter--checkbox">
@@ -92,6 +114,7 @@ export function AdminStaffPage() {
                   <th scope="col">Title</th>
                   <th scope="col">Active</th>
                   <th scope="col">Bookable</th>
+                  <th scope="col">Avatar</th>
                 </tr>
               </thead>
               <tbody>
@@ -103,6 +126,29 @@ export function AdminStaffPage() {
                     <td>{row.title ?? '—'}</td>
                     <td>{formatBool(row.is_active)}</td>
                     <td>{formatBool(row.is_bookable)}</td>
+                    <td>
+                      {session ? (
+                        <AdminEntityMediaAttach
+                          token={session.token}
+                          salonId={session.salon.salon_id}
+                          canWrite={canWrite}
+                          entityType="staff"
+                          entityId={row.id}
+                          purpose="avatar"
+                          label="Avatar"
+                          assets={mediaIndex.assets}
+                          attachment={mediaIndex.getAttachment(
+                            'staff',
+                            row.id,
+                            'avatar',
+                          )}
+                          attachmentLoading={mediaIndex.loading}
+                          onUpdated={mediaIndex.reload}
+                          onUnauthorized={clearAuthAndRedirect}
+                          compact
+                        />
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>

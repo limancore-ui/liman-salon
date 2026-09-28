@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+from typing import BinaryIO, Protocol
+
+
+class StorageProvider(Protocol):
+    def put(self, *, key: str, data: bytes, content_type: str) -> None: ...
+
+    def open(self, *, key: str) -> BinaryIO: ...
+
+    def delete(self, *, key: str) -> None: ...
+
+    def exists(self, *, key: str) -> bool: ...

@@ -35,6 +35,7 @@ def test_resolve_returns_public_fields_only() -> None:
     svc = SalonPublicService(MagicMock())
     salon = _salon(salon_id=SALON_A, slug="liman-a", name="Liman A")
     svc._repo.get_active_salon_by_slug = MagicMock(return_value=salon)
+    svc._media_repo.resolve_attached_media_id = MagicMock(return_value=None)
 
     entry = svc.resolve_public_salon_by_slug("liman-a")
 
@@ -44,6 +45,7 @@ def test_resolve_returns_public_fields_only() -> None:
         name="Liman A",
         currency_code="KZT",
         timezone="Asia/Almaty",
+        logo_media_id=None,
     )
     svc._repo.get_active_salon_by_slug.assert_called_once_with("liman-a")
 
@@ -79,6 +81,7 @@ def test_two_salons_resolve_distinct_by_slug() -> None:
         return None
 
     svc._repo.get_active_salon_by_slug = MagicMock(side_effect=_lookup)
+    svc._media_repo.resolve_attached_media_id = MagicMock(return_value=None)
 
     a = svc.resolve_public_salon_by_slug("salon-a")
     b = svc.resolve_public_salon_by_slug("salon-b")

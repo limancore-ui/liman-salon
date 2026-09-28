@@ -5,6 +5,8 @@ from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
+from app.services.media.repository import MediaRepository
+from app.services.media.types import MediaEntityType, MediaPurpose
 from app.services.availability.repository import AvailabilityRepository
 from app.services.availability.service import AvailabilityService
 from app.services.availability.types import ServiceAvailabilityResult
@@ -29,6 +31,7 @@ class PublicCatalogService:
         self._availability = AvailabilityService(session)
         self._availability_repo = AvailabilityRepository(session)
         self._staff_repo = StaffRepository(session)
+        self._media_repo = MediaRepository(session)
 
     def list_active_services_by_slug(self, slug: str) -> PublicCatalogServicesResult:
         entry = self._salon_public.resolve_public_salon_by_slug(slug)
@@ -43,6 +46,12 @@ class PublicCatalogService:
                 buffer_after_minutes=row.buffer_after_minutes,
                 price_cents=row.price_cents,
                 currency_code=entry.currency_code,
+                cover_media_id=self._media_repo.resolve_attached_media_id(
+                    salon_id=entry.salon_id,
+                    entity_type=MediaEntityType.SERVICE,
+                    entity_id=row.id,
+                    purpose=MediaPurpose.COVER,
+                ),
             )
             for row in rows
         )
@@ -73,7 +82,16 @@ class PublicCatalogService:
             if row is None:
                 continue
             members.append(
-                PublicCatalogStaffMember(id=row.id, display_name=row.display_name)
+                PublicCatalogStaffMember(
+                    id=row.id,
+                    display_name=row.display_name,
+                    avatar_media_id=self._media_repo.resolve_attached_media_id(
+                        salon_id=salon_id,
+                        entity_type=MediaEntityType.STAFF,
+                        entity_id=row.id,
+                        purpose=MediaPurpose.AVATAR,
+                    ),
+                )
             )
         return PublicCatalogStaffResult(
             salon_id=salon_id,

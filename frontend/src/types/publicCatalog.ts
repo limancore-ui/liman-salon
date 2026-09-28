@@ -8,6 +8,11 @@ export type PublicCatalogServiceOut = {
   buffer_after_minutes: number
   price_cents: number
   currency_code: string
+  cover_media_id: string | null
+}
+
+export type PublicCatalogServiceWithMedia = PublicCatalogServiceOut & {
+  cover_url: string | null
 }
 
 /** Matches backend `PublicCatalogServicesResponse`. */
@@ -20,6 +25,11 @@ export type PublicCatalogServicesResponse = {
 export type PublicCatalogStaffOut = {
   id: string
   display_name: string
+  avatar_media_id: string | null
+}
+
+export type PublicCatalogStaffWithMedia = PublicCatalogStaffOut & {
+  avatar_url: string | null
 }
 
 /** Matches backend `PublicCatalogStaffResponse`. */

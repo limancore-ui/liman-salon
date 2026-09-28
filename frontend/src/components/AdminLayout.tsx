@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { label: 'Staff', to: '/admin/staff' },
   { label: 'Services', to: '/admin/services' },
   { label: 'Schedule', to: '/admin/schedule' },
+  { label: 'Media', to: '/admin/media' },
 ] as const
 
 type AdminLayoutProps = {

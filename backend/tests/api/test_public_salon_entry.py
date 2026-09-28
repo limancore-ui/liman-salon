@@ -40,6 +40,7 @@ def test_get_public_salon_no_auth_required() -> None:
             "name": "Liman Demo",
             "currency_code": "KZT",
             "timezone": "Asia/Almaty",
+            "logo_media_id": None,
         }
         assert set(body.keys()) == {
             "salon_id",
@@ -47,6 +48,7 @@ def test_get_public_salon_no_auth_required() -> None:
             "name",
             "currency_code",
             "timezone",
+            "logo_media_id",
         }
         mock_svc.resolve_public_salon_by_slug.assert_called_once_with("liman-demo")
     finally:

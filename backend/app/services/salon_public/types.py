@@ -11,3 +11,4 @@ class PublicSalonEntry:
     name: str
     currency_code: str
     timezone: str
+    logo_media_id: uuid.UUID | None = None

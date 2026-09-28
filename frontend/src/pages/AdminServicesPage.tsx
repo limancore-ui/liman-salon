@@ -4,8 +4,14 @@ import { useAuth } from '../auth/AuthContext'
 import { fetchAdminServices } from '../api/services'
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
+import { AdminEntityMediaAttach } from '../components/AdminEntityMediaAttach'
+import { useSalonMediaAttachmentIndex } from '../hooks/useSalonMediaAttachmentIndex'
 import type { ServiceListItem } from '../types/services'
 import { formatDuration, formatPrice } from '../utils/format'
+
+function canManageMedia(role: string | undefined): boolean {
+  return role === 'owner' || role === 'admin'
+}
 
 function formatBool(value: boolean): string {
   return value ? 'Yes' : 'No'
@@ -21,6 +27,13 @@ export function AdminServicesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showInactive, setShowInactive] = useState(false)
+
+  const canWrite = canManageMedia(session?.salon.role)
+  const mediaIndex = useSalonMediaAttachmentIndex(
+    session?.token,
+    session?.salon.salon_id,
+    clearAuthAndRedirect,
+  )
 
   const load = useCallback(async () => {
     if (!session) {
@@ -58,8 +71,17 @@ export function AdminServicesPage() {
       <section className="admin-services">
         <header className="admin-services__header">
           <h1 className="admin-services__title">Services</h1>
-          <p className="admin-services__lead">Read-only list for your salon.</p>
+          <p className="admin-services__lead">
+            Service catalog for your salon. Owners and admins can set cover images from
+            the media library.
+          </p>
         </header>
+
+        {mediaIndex.error ? (
+          <p className="admin-services__state admin-services__state--error" role="alert">
+            {mediaIndex.error}
+          </p>
+        ) : null}
 
         <div className="admin-services__filters">
           <label className="admin-services__filter admin-services__filter--checkbox">
@@ -98,6 +120,7 @@ export function AdminServicesPage() {
                   <th scope="col">Duration</th>
                   <th scope="col">Price</th>
                   <th scope="col">Active</th>
+                  <th scope="col">Cover</th>
                 </tr>
               </thead>
               <tbody>
@@ -110,6 +133,29 @@ export function AdminServicesPage() {
                     <td>{formatDuration(row.duration_minutes)}</td>
                     <td>{servicePrice(row)}</td>
                     <td>{formatBool(row.is_active)}</td>
+                    <td>
+                      {session ? (
+                        <AdminEntityMediaAttach
+                          token={session.token}
+                          salonId={session.salon.salon_id}
+                          canWrite={canWrite}
+                          entityType="service"
+                          entityId={row.id}
+                          purpose="cover"
+                          label="Cover"
+                          assets={mediaIndex.assets}
+                          attachment={mediaIndex.getAttachment(
+                            'service',
+                            row.id,
+                            'cover',
+                          )}
+                          attachmentLoading={mediaIndex.loading}
+                          onUpdated={mediaIndex.reload}
+                          onUnauthorized={clearAuthAndRedirect}
+                          compact
+                        />
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>

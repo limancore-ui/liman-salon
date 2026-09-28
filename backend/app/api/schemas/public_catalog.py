@@ -14,6 +14,7 @@ class PublicCatalogServiceOut(BaseModel):
     buffer_after_minutes: int
     price_cents: int
     currency_code: str
+    cover_media_id: UUID | None = None
 
 
 class PublicCatalogServicesResponse(BaseModel):
@@ -24,6 +25,7 @@ class PublicCatalogServicesResponse(BaseModel):
 class PublicCatalogStaffOut(BaseModel):
     id: UUID
     display_name: str
+    avatar_media_id: UUID | None = None
 
 
 class PublicCatalogStaffResponse(BaseModel):

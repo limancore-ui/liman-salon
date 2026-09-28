@@ -4,8 +4,15 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 
-from app.api.deps import AsOfDep, PublicBookingOrchestratorDep, PublicCatalogServiceDep, SalonPublicServiceDep
+from app.api.deps import (
+    AsOfDep,
+    MediaServiceDep,
+    PublicBookingOrchestratorDep,
+    PublicCatalogServiceDep,
+    SalonPublicServiceDep,
+)
 from app.api.schemas.availability import (
     ServiceAvailabilityResponse,
     ServiceAvailabilitySlotOut,
@@ -64,6 +71,32 @@ def get_public_salon_by_slug(
         name=entry.name,
         currency_code=entry.currency_code,
         timezone=entry.timezone,
+        logo_media_id=entry.logo_media_id,
+    )
+
+
+@router.get(
+    "/public/salons/{slug}/media/{media_id}/content",
+    status_code=200,
+)
+def get_public_media_content_by_slug(
+    slug: str,
+    media_id: uuid.UUID,
+    salon_public_service: SalonPublicServiceDep,
+    media_service: MediaServiceDep,
+) -> StreamingResponse:
+    entry = salon_public_service.resolve_public_salon_by_slug(slug)
+    asset, stream = media_service.open_public_asset_content(
+        salon_id=entry.salon_id,
+        media_id=media_id,
+    )
+    headers: dict[str, str] = {"Cache-Control": "public, max-age=86400"}
+    if asset.checksum_sha256:
+        headers["ETag"] = f'"{asset.checksum_sha256}"'
+    return StreamingResponse(
+        stream,
+        media_type=asset.content_type,
+        headers=headers,
     )
 
 
@@ -89,6 +122,7 @@ def list_public_services_by_slug(
                 buffer_after_minutes=item.buffer_after_minutes,
                 price_cents=item.price_cents,
                 currency_code=item.currency_code,
+                cover_media_id=item.cover_media_id,
             )
             for item in result.services
         ],
@@ -113,7 +147,11 @@ def list_public_staff_for_service_by_slug(
         salon_id=result.salon_id,
         service_id=result.service_id,
         staff=[
-            PublicCatalogStaffOut(id=member.id, display_name=member.display_name)
+            PublicCatalogStaffOut(
+                id=member.id,
+                display_name=member.display_name,
+                avatar_media_id=member.avatar_media_id,
+            )
             for member in result.staff
         ],
     )

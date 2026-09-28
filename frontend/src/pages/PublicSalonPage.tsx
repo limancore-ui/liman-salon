@@ -28,8 +28,8 @@ import {
   type ServiceStaffListState,
 } from '../components/ServiceStaffList'
 import type {
-  PublicCatalogServiceOut,
-  PublicCatalogStaffOut,
+  PublicCatalogServiceWithMedia,
+  PublicCatalogStaffWithMedia,
   ServiceAvailabilitySlotOut,
 } from '../types/publicCatalog'
 import type {
@@ -38,7 +38,7 @@ import type {
   PublicBookingCreateResponse,
 } from '../types/publicBooking'
 import { EMPTY_CUSTOMER_FORM } from '../types/publicBooking'
-import type { PublicSalonEntryResponse } from '../types/publicSalon'
+import type { PublicSalonWithMedia } from '../types/publicSalon'
 import { toIsoDateLocal } from '../utils/date'
 import {
   isSlotConflictError,
@@ -51,7 +51,7 @@ import {
 
 type SalonLoadState =
   | { status: 'loading' }
-  | { status: 'success'; salon: PublicSalonEntryResponse }
+  | { status: 'success'; salon: PublicSalonWithMedia }
   | { status: 'error'; statusCode: number; message: string }
 
 type BookingFlowStep = 'schedule' | 'customer' | 'confirmation'
@@ -85,12 +85,12 @@ export function PublicSalonPage() {
     status: 'idle',
   })
   const [selectedService, setSelectedService] =
-    useState<PublicCatalogServiceOut | null>(null)
+    useState<PublicCatalogServiceWithMedia | null>(null)
   const [staffState, setStaffState] = useState<ServiceStaffListState>({
     status: 'idle',
   })
   const [selectedStaff, setSelectedStaff] =
-    useState<PublicCatalogStaffOut | null>(null)
+    useState<PublicCatalogStaffWithMedia | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] =
     useState<ServiceAvailabilitySlotOut | null>(null)
@@ -273,7 +273,7 @@ export function PublicSalonPage() {
   }, [])
 
   const handleSelectService = useCallback(
-    (service: PublicCatalogServiceOut) => {
+    (service: PublicCatalogServiceWithMedia) => {
       setSelectedService(service)
       setSelectedStaff(null)
       setSelectedDate(null)
@@ -297,7 +297,7 @@ export function PublicSalonPage() {
   }, [applyCustomerReset])
 
   const handleSelectStaff = useCallback(
-    (staff: PublicCatalogStaffOut) => {
+    (staff: PublicCatalogStaffWithMedia) => {
       setSelectedStaff(staff)
       setSelectedTime(null)
       setSelectedDate((prev) => prev ?? defaultSelectedDate())
@@ -426,7 +426,10 @@ export function PublicSalonPage() {
 
   return (
     <main className="page public-salon-page">
-      <SalonHeader name={salonState.salon.name} />
+      <SalonHeader
+        name={salonState.salon.name}
+        logoUrl={salonState.salon.logo_url}
+      />
 
       {showBookingStep ? (
         <section
