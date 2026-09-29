@@ -15,7 +15,7 @@ from app.services.customer.errors import (
     CustomerValidationError,
 )
 from app.services.customer.repository import CustomerRepository
-from app.services.customer.types import CustomerResolveResult
+from app.services.customer.types import CustomerResolveResult, PublicCustomerLookupResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +166,20 @@ class CustomerService:
         except IntegrityError as exc:
             raise CustomerConflictError("customer conflicts with an existing record") from exc
         return CustomerResolveResult(customer_id=customer.id, created=True)
+
+    def lookup_public_customer(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        phone: str,
+    ) -> PublicCustomerLookupResult:
+        phone = phone.strip()
+        if not phone:
+            raise CustomerValidationError("phone must not be blank")
+        existing = self._repo.get_customer_by_phone(salon_id=salon_id, phone=phone)
+        if existing is not None:
+            return PublicCustomerLookupResult(found=True, full_name=existing.full_name)
+        return PublicCustomerLookupResult(found=False, full_name=None)
 
     @staticmethod
     def _validate_full_name(value: str) -> str:

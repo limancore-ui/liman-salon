@@ -8,3 +8,9 @@ from dataclasses import dataclass
 class CustomerResolveResult:
     customer_id: uuid.UUID
     created: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PublicCustomerLookupResult:
+    found: bool
+    full_name: str | None

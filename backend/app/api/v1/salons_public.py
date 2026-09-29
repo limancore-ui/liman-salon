@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import (
     AsOfDep,
+    CustomerServiceDep,
     MediaServiceDep,
     PublicBookingOrchestratorDep,
     PublicCatalogServiceDep,
@@ -27,6 +29,10 @@ from app.api.schemas.public_catalog import (
     PublicCatalogServicesResponse,
     PublicCatalogStaffOut,
     PublicCatalogStaffResponse,
+)
+from app.api.schemas.public_customer import (
+    PublicCustomerLookupRequest,
+    PublicCustomerLookupResponse,
 )
 from app.api.schemas.salon_public import PublicSalonEntryResponse
 from app.services.availability.types import ServiceAvailabilityResult
@@ -52,6 +58,28 @@ def _to_service_availability_response(
             )
             for row in result.staff
         ],
+    )
+
+
+@router.get(
+    "/public/salons/{slug}/customer",
+    response_model=PublicCustomerLookupResponse,
+    status_code=200,
+)
+def lookup_public_customer_by_slug(
+    slug: str,
+    query: Annotated[PublicCustomerLookupRequest, Query()],
+    salon_public_service: SalonPublicServiceDep,
+    customer_service: CustomerServiceDep,
+) -> PublicCustomerLookupResponse:
+    entry = salon_public_service.resolve_public_salon_by_slug(slug)
+    result = customer_service.lookup_public_customer(
+        salon_id=entry.salon_id,
+        phone=query.phone,
+    )
+    return PublicCustomerLookupResponse(
+        found=result.found,
+        full_name=result.full_name,
     )
 
 

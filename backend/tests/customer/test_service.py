@@ -15,7 +15,7 @@ from app.services.customer.service import (
     CustomerUpdateData,
     PublicCustomerResolveData,
 )
-from app.services.customer.types import CustomerResolveResult
+from app.services.customer.types import CustomerResolveResult, PublicCustomerLookupResult
 
 SALON_ID = uuid.uuid4()
 CUSTOMER_ID = uuid.uuid4()
@@ -134,3 +134,38 @@ def test_blank_phone_on_resolve_raises() -> None:
             salon_id=SALON_ID,
             data=PublicCustomerResolveData(full_name="A", phone="   "),
         )
+
+
+def test_lookup_public_customer_found() -> None:
+    svc = _svc()
+    existing = Customer(
+        id=CUSTOMER_ID,
+        salon_id=SALON_ID,
+        full_name="Jane Doe",
+        phone="+77001112233",
+        email="jane@example.com",
+    )
+    svc._repo.get_customer_by_phone = MagicMock(return_value=existing)
+
+    result = svc.lookup_public_customer(salon_id=SALON_ID, phone="  +77001112233  ")
+
+    assert result == PublicCustomerLookupResult(found=True, full_name="Jane Doe")
+    svc._repo.get_customer_by_phone.assert_called_once_with(
+        salon_id=SALON_ID,
+        phone="+77001112233",
+    )
+
+
+def test_lookup_public_customer_not_found() -> None:
+    svc = _svc()
+    svc._repo.get_customer_by_phone = MagicMock(return_value=None)
+
+    result = svc.lookup_public_customer(salon_id=SALON_ID, phone="+77009999999")
+
+    assert result == PublicCustomerLookupResult(found=False, full_name=None)
+
+
+def test_lookup_public_customer_blank_phone_raises() -> None:
+    svc = _svc()
+    with pytest.raises(CustomerValidationError):
+        svc.lookup_public_customer(salon_id=SALON_ID, phone="   ")
