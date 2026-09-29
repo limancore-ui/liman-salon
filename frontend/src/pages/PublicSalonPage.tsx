@@ -6,6 +6,7 @@ import {
   getPublicServiceAvailability,
   getPublicServices,
   getPublicServiceStaff,
+  lookupPublicCustomer,
   mapServiceAvailabilityToSelectedSlots,
 } from '../api/publicSalon'
 import { ApiError } from '../api/errors'
@@ -49,8 +50,11 @@ import {
 } from '../utils/mapPublicBookingError'
 import {
   customerFormHasErrors,
+  isCustomerPhoneLookupEligible,
   validateCustomerForm,
 } from '../utils/validateCustomerForm'
+
+const CUSTOMER_PHONE_LOOKUP_DEBOUNCE_MS = 500
 
 type SalonLoadState =
   | { status: 'loading' }
@@ -129,7 +133,11 @@ export function PublicSalonPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [bookingResult, setBookingResult] =
     useState<PublicBookingCreateResponse | null>(null)
+  const [phoneLookupPending, setPhoneLookupPending] = useState(false)
   const submitInFlightRef = useRef(false)
+  const userEditedNameRef = useRef(false)
+  const customerLookupAbortRef = useRef<AbortController | null>(null)
+  const customerLookupSeqRef = useRef(0)
 
   const salonTimeZone =
     salonState.status === 'success' ? salonState.salon.timezone : 'UTC'
@@ -161,6 +169,11 @@ export function PublicSalonPage() {
     setSubmitError(reset.submitError)
     setBookingResult(reset.bookingResult)
     setSubmitting(reset.submitting)
+    userEditedNameRef.current = false
+    customerLookupAbortRef.current?.abort()
+    customerLookupAbortRef.current = null
+    customerLookupSeqRef.current += 1
+    setPhoneLookupPending(false)
 
     getPublicSalon(slug)
       .then((salon) => {
@@ -191,6 +204,63 @@ export function PublicSalonPage() {
       cancelled = true
     }
   }, [slug])
+
+  useEffect(() => {
+    if (!slug || flowStep !== 'customer') {
+      customerLookupAbortRef.current?.abort()
+      customerLookupAbortRef.current = null
+      setPhoneLookupPending(false)
+      return
+    }
+
+    const trimmedPhone = customerForm.phone.trim()
+    if (!isCustomerPhoneLookupEligible(trimmedPhone)) {
+      customerLookupAbortRef.current?.abort()
+      customerLookupAbortRef.current = null
+      setPhoneLookupPending(false)
+      return
+    }
+
+    const debounceTimer = window.setTimeout(() => {
+      customerLookupAbortRef.current?.abort()
+      const controller = new AbortController()
+      customerLookupAbortRef.current = controller
+      const seq = (customerLookupSeqRef.current += 1)
+      setPhoneLookupPending(true)
+
+      void lookupPublicCustomer(slug, trimmedPhone, controller.signal)
+        .then((result) => {
+          if (seq !== customerLookupSeqRef.current) {
+            return
+          }
+          if (
+            result.found &&
+            result.full_name !== null &&
+            !userEditedNameRef.current
+          ) {
+            setCustomerForm((prev) => ({
+              ...prev,
+              full_name: result.full_name ?? prev.full_name,
+            }))
+          }
+        })
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            return
+          }
+          /* lookup failure is silent and non-blocking */
+        })
+        .finally(() => {
+          if (seq === customerLookupSeqRef.current) {
+            setPhoneLookupPending(false)
+          }
+        })
+    }, CUSTOMER_PHONE_LOOKUP_DEBOUNCE_MS)
+
+    return () => {
+      window.clearTimeout(debounceTimer)
+    }
+  }, [slug, flowStep, customerForm.phone])
 
   useEffect(() => {
     if (salonState.status !== 'success' || !slug) {
@@ -309,6 +379,11 @@ export function PublicSalonPage() {
     setBookingResult(reset.bookingResult)
     setSubmitting(reset.submitting)
     submitInFlightRef.current = false
+    userEditedNameRef.current = false
+    customerLookupAbortRef.current?.abort()
+    customerLookupAbortRef.current = null
+    customerLookupSeqRef.current += 1
+    setPhoneLookupPending(false)
   }, [])
 
   const handleSelectService = useCallback(
@@ -397,6 +472,9 @@ export function PublicSalonPage() {
 
   const handleCustomerFieldChange = useCallback(
     (field: keyof CustomerFormState, value: string) => {
+      if (field === 'full_name') {
+        userEditedNameRef.current = true
+      }
       setCustomerForm((prev) => ({ ...prev, [field]: value }))
       setFieldErrors((prev) => {
         if (!prev[field]) {
@@ -525,6 +603,7 @@ export function PublicSalonPage() {
                 form={customerForm}
                 fieldErrors={fieldErrors}
                 disabled={submitting}
+                phoneLookupPending={phoneLookupPending}
                 onChange={handleCustomerFieldChange}
               />
               {submitError ? (

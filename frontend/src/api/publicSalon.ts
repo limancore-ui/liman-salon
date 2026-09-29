@@ -1,5 +1,6 @@
 import { ApiError } from './errors'
 import type {
+  PublicCustomerLookupResponse,
   PublicSalonEntryResponse,
   PublicSalonWithMedia,
   PublicSelectedSlot,
@@ -76,6 +77,27 @@ export function mapPublicStaffWithMedia(
     ...member,
     avatar_url: resolvePublicMediaUrl(slug, member.avatar_media_id),
   }
+}
+
+export async function lookupPublicCustomer(
+  slug: string,
+  phone: string,
+  signal?: AbortSignal,
+): Promise<PublicCustomerLookupResponse> {
+  const query = new URLSearchParams({ phone: phone.trim() })
+  let response: Response
+  try {
+    response = await fetch(
+      `/api/v1/public/salons/${encodeURIComponent(slug)}/customer?${query.toString()}`,
+      { signal },
+    )
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err
+    }
+    throw new ApiError(0, 'network error')
+  }
+  return parseJsonResponse<PublicCustomerLookupResponse>(response)
 }
 
 export async function getPublicSalon(

@@ -7,6 +7,7 @@ type CustomerDetailsFormProps = {
   form: CustomerFormState
   fieldErrors: CustomerFormFieldErrors
   disabled: boolean
+  phoneLookupPending?: boolean
   onChange: (field: keyof CustomerFormState, value: string) => void
 }
 
@@ -14,6 +15,7 @@ export function CustomerDetailsForm({
   form,
   fieldErrors,
   disabled,
+  phoneLookupPending = false,
   onChange,
 }: CustomerDetailsFormProps) {
   return (
@@ -64,6 +66,10 @@ export function CustomerDetailsForm({
         {fieldErrors.phone ? (
           <p className="form-field__error" role="alert">
             {fieldErrors.phone}
+          </p>
+        ) : phoneLookupPending ? (
+          <p className="form-field__hint" role="status" aria-live="polite">
+            Проверяем номер…
           </p>
         ) : null}
       </div>

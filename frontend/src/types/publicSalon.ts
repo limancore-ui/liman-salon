@@ -29,3 +29,9 @@ export type BookingWizardStep =
   | 'time'
   | 'customer'
   | 'confirmation'
+
+/** Matches backend `PublicCustomerLookupResponse`. */
+export type PublicCustomerLookupResponse = {
+  found: boolean
+  full_name: string | null
+}

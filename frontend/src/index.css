@@ -568,6 +568,12 @@ body {
   color: #b42318;
 }
 
+.form-field__hint {
+  margin: var(--space-xs) 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #5c6670);
+}
+
 .form-error-banner {
   margin-bottom: var(--space-md);
   padding: var(--space-md);

@@ -35,3 +35,9 @@ export function customerFormHasErrors(
 ): boolean {
   return Object.keys(errors).length > 0
 }
+
+/** Same trim/length rules as phone validation; used before public lookup. */
+export function isCustomerPhoneLookupEligible(phone: string): boolean {
+  const trimmed = phone.trim()
+  return trimmed.length > 0 && trimmed.length <= 32
+}
