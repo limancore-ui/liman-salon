@@ -1,4 +1,5 @@
 import type { PublicCatalogStaffWithMedia } from '../types/publicCatalog'
+import { ANY_STAFF_CHOICE_ID } from '../types/publicSalon'
 import { ErrorState } from './ErrorState'
 import { LoadingState } from './LoadingState'
 import { PublicImage } from './PublicImage'
@@ -13,12 +14,39 @@ type ServiceStaffListProps = {
   state: ServiceStaffListState
   selectedStaffId: string | null
   onSelectStaff: (staff: PublicCatalogStaffWithMedia) => void
+  onSelectAnyStaff: () => void
+}
+
+function AnyStaffOption({
+  selected,
+  onSelect,
+}: {
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <li className="staff-list__item">
+      <button
+        type="button"
+        role="option"
+        aria-selected={selected}
+        className={`staff-card staff-card--any${selected ? ' staff-card--selected' : ''}`}
+        onClick={onSelect}
+      >
+        <span className="staff-card__any-icon" aria-hidden="true">
+          ✦
+        </span>
+        <span className="staff-card__name">Любой мастер</span>
+      </button>
+    </li>
+  )
 }
 
 export function ServiceStaffList({
   state,
   selectedStaffId,
   onSelectStaff,
+  onSelectAnyStaff,
 }: ServiceStaffListProps) {
   if (state.status === 'idle' || state.status === 'loading') {
     return <LoadingState message="Загрузка мастеров…" />
@@ -41,6 +69,10 @@ export function ServiceStaffList({
 
   return (
     <ul className="staff-list" role="listbox" aria-label="Выберите мастера">
+      <AnyStaffOption
+        selected={selectedStaffId === ANY_STAFF_CHOICE_ID}
+        onSelect={onSelectAnyStaff}
+      />
       {state.staff.map((member) => {
         const selected = member.id === selectedStaffId
         return (

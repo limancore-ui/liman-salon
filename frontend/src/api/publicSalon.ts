@@ -2,6 +2,7 @@ import { ApiError } from './errors'
 import type {
   PublicSalonEntryResponse,
   PublicSalonWithMedia,
+  PublicSelectedSlot,
 } from '../types/publicSalon'
 import type {
   PublicBookingCreatePayload,
@@ -130,9 +131,33 @@ export async function getPublicServiceStaff(
 
 export type PublicServiceAvailabilityParams = {
   serviceId: string
-  staffId: string
+  /** Omit when aggregating slots for any bookable staff. */
+  staffId?: string
   startDate: string
   endDate: string
+}
+
+export function mapServiceAvailabilityToSelectedSlots(
+  response: ServiceAvailabilityResponse,
+  staffId: string | undefined,
+): PublicSelectedSlot[] {
+  const rows =
+    staffId !== undefined
+      ? response.staff.filter((entry) => entry.staff_id === staffId)
+      : response.staff
+
+  const slots: PublicSelectedSlot[] = []
+  for (const row of rows) {
+    for (const slot of row.slots) {
+      slots.push({
+        staff_id: row.staff_id,
+        service_start: slot.service_start,
+        service_end: slot.service_end,
+      })
+    }
+  }
+  slots.sort((a, b) => a.service_start.localeCompare(b.service_start))
+  return slots
 }
 
 export async function getPublicServiceAvailability(
@@ -143,8 +168,10 @@ export async function getPublicServiceAvailability(
     service_id: params.serviceId,
     start_date: params.startDate,
     end_date: params.endDate,
-    staff_id: params.staffId,
   })
+  if (params.staffId !== undefined) {
+    query.set('staff_id', params.staffId)
+  }
   const response = await fetch(
     `/api/v1/public/salons/${encodeURIComponent(slug)}/availability/service?${query.toString()}`,
   )

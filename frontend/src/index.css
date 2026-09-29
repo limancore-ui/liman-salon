@@ -211,6 +211,39 @@ body {
   color: var(--color-muted);
 }
 
+.selected-service-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) var(--space-lg);
+  padding: var(--space-md) var(--space-md);
+  background: rgb(246 245 243 / 92%);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.selected-service-bar__name {
+  margin: 0 0 var(--space-xs);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.selected-service-bar__meta {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-muted);
+}
+
+.selected-service-bar__price {
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.selected-service-bar__sep {
+  margin: 0 0.35rem;
+}
+
 .booking-step__context {
   margin-bottom: var(--space-md);
 }
@@ -293,6 +326,20 @@ body {
 
 .staff-card__name {
   flex: 1;
+}
+
+.staff-card--any .staff-card__any-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-right: var(--space-md);
+  flex-shrink: 0;
+  font-size: 1.125rem;
+  color: var(--color-accent);
+  background: rgb(45 74 62 / 8%);
+  border-radius: 50%;
 }
 
 .booking-step__actions {

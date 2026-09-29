@@ -1,20 +1,17 @@
-import type {
-  PublicCatalogServiceOut,
-  PublicCatalogStaffOut,
-} from '../types/publicCatalog'
+import type { PublicCatalogServiceOut } from '../types/publicCatalog'
 import { formatPrice } from '../utils/format'
 import { formatDateChipLabel, formatServiceStartTime } from '../utils/formatTime'
 
 type BookingSummaryProps = {
   service: PublicCatalogServiceOut
-  staff: PublicCatalogStaffOut
+  staffDisplayName: string
   selectedDate: string
   serviceStartIso: string
 }
 
 export function BookingSummary({
   service,
-  staff,
+  staffDisplayName,
   selectedDate,
   serviceStartIso,
 }: BookingSummaryProps) {
@@ -28,7 +25,7 @@ export function BookingSummary({
         </div>
         <div className="booking-summary__row">
           <dt>Мастер</dt>
-          <dd>{staff.display_name}</dd>
+          <dd>{staffDisplayName}</dd>
         </div>
         <div className="booking-summary__row">
           <dt>Дата</dt>

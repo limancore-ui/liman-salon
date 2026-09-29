@@ -1,4 +1,4 @@
-import { upcomingLocalDates } from '../utils/date'
+import { upcomingDatesInTimeZone } from '../utils/date'
 import { formatDateChipLabel } from '../utils/formatTime'
 
 const DATE_STRIP_DAYS = 14
@@ -6,10 +6,15 @@ const DATE_STRIP_DAYS = 14
 type DateSelectorProps = {
   selectedDate: string
   onSelectDate: (isoDate: string) => void
+  timeZone: string
 }
 
-export function DateSelector({ selectedDate, onSelectDate }: DateSelectorProps) {
-  const dates = upcomingLocalDates(DATE_STRIP_DAYS)
+export function DateSelector({
+  selectedDate,
+  onSelectDate,
+  timeZone,
+}: DateSelectorProps) {
+  const dates = upcomingDatesInTimeZone(DATE_STRIP_DAYS, timeZone)
 
   return (
     <div className="date-selector">

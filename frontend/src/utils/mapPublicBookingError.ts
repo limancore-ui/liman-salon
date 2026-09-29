@@ -21,5 +21,11 @@ export function mapPublicBookingError(err: unknown): string {
 }
 
 export function isSlotConflictError(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 409
+  if (!(err instanceof ApiError) || err.status !== 409) {
+    return false
+  }
+  if (err.code === 'slot_not_available' || err.code === 'booking_overlap') {
+    return true
+  }
+  return err.code === undefined
 }

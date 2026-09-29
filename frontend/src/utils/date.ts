@@ -23,3 +23,33 @@ export function upcomingLocalDates(count: number): string[] {
   }
   return dates
 }
+
+/** Calendar date `YYYY-MM-DD` for an instant in the given IANA timezone. */
+export function toIsoDateInTimeZone(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
+/** Next `count` distinct calendar days starting from “today” in `timeZone`. */
+export function upcomingDatesInTimeZone(count: number, timeZone: string): string[] {
+  const dates: string[] = []
+  const seen = new Set<string>()
+  let cursor = new Date()
+  while (dates.length < count) {
+    const iso = toIsoDateInTimeZone(cursor, timeZone)
+    if (!seen.has(iso)) {
+      seen.add(iso)
+      dates.push(iso)
+    }
+    cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000)
+  }
+  return dates
+}
+
+export function defaultDateInTimeZone(timeZone: string): string {
+  return toIsoDateInTimeZone(new Date(), timeZone)
+}

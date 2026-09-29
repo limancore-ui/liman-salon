@@ -1,4 +1,4 @@
-import type { ServiceAvailabilitySlotOut } from '../types/publicCatalog'
+import type { PublicSelectedSlot } from '../types/publicSalon'
 import { formatServiceStartTime } from '../utils/formatTime'
 import { ErrorState } from './ErrorState'
 import { LoadingState } from './LoadingState'
@@ -6,17 +6,17 @@ import { LoadingState } from './LoadingState'
 export type AvailabilityTimeListState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; slots: ServiceAvailabilitySlotOut[] }
+  | { status: 'success'; slots: PublicSelectedSlot[] }
   | { status: 'error' }
 
 type AvailabilityTimeListProps = {
   state: AvailabilityTimeListState
-  selectedSlot: ServiceAvailabilitySlotOut | null
-  onSelectSlot: (slot: ServiceAvailabilitySlotOut) => void
+  selectedSlot: PublicSelectedSlot | null
+  onSelectSlot: (slot: PublicSelectedSlot) => void
 }
 
-function slotKey(slot: ServiceAvailabilitySlotOut): string {
-  return `${slot.service_start}|${slot.service_end}`
+function slotKey(slot: PublicSelectedSlot): string {
+  return `${slot.staff_id}|${slot.service_start}|${slot.service_end}`
 }
 
 export function AvailabilityTimeList({

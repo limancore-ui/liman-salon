@@ -6,6 +6,7 @@ import {
   getPublicServiceAvailability,
   getPublicServices,
   getPublicServiceStaff,
+  mapServiceAvailabilityToSelectedSlots,
 } from '../api/publicSalon'
 import { ApiError } from '../api/errors'
 import {
@@ -19,6 +20,7 @@ import { DateSelector } from '../components/DateSelector'
 import { ErrorState } from '../components/ErrorState'
 import { LoadingState } from '../components/LoadingState'
 import { SalonHeader } from '../components/SalonHeader'
+import { SelectedServiceBar } from '../components/SelectedServiceBar'
 import {
   ServiceList,
   type ServiceListState,
@@ -27,19 +29,20 @@ import {
   ServiceStaffList,
   type ServiceStaffListState,
 } from '../components/ServiceStaffList'
-import type {
-  PublicCatalogServiceWithMedia,
-  PublicCatalogStaffWithMedia,
-  ServiceAvailabilitySlotOut,
-} from '../types/publicCatalog'
+import type { PublicCatalogServiceWithMedia } from '../types/publicCatalog'
 import type {
   CustomerFormFieldErrors,
   CustomerFormState,
   PublicBookingCreateResponse,
 } from '../types/publicBooking'
 import { EMPTY_CUSTOMER_FORM } from '../types/publicBooking'
-import type { PublicSalonWithMedia } from '../types/publicSalon'
-import { toIsoDateLocal } from '../utils/date'
+import type {
+  BookingWizardStep,
+  PublicSalonWithMedia,
+  PublicSelectedSlot,
+} from '../types/publicSalon'
+import { ANY_STAFF_CHOICE_ID } from '../types/publicSalon'
+import { defaultDateInTimeZone } from '../utils/date'
 import {
   isSlotConflictError,
   mapPublicBookingError,
@@ -54,11 +57,9 @@ type SalonLoadState =
   | { status: 'success'; salon: PublicSalonWithMedia }
   | { status: 'error'; statusCode: number; message: string }
 
-type BookingFlowStep = 'schedule' | 'customer' | 'confirmation'
-
-function defaultSelectedDate(): string {
-  return toIsoDateLocal(new Date())
-}
+type StaffChoice =
+  | { kind: 'any' }
+  | { kind: 'specific'; staffId: string }
 
 function resetCustomerBookingState(): {
   customerForm: CustomerFormState
@@ -76,6 +77,29 @@ function resetCustomerBookingState(): {
   }
 }
 
+function staffChoiceToSelectedId(choice: StaffChoice | null): string | null {
+  if (choice === null) {
+    return null
+  }
+  if (choice.kind === 'any') {
+    return ANY_STAFF_CHOICE_ID
+  }
+  return choice.staffId
+}
+
+function resolveStaffDisplayName(
+  staffState: ServiceStaffListState,
+  staffId: string,
+): string {
+  if (staffState.status === 'success') {
+    const member = staffState.staff.find((s) => s.id === staffId)
+    if (member) {
+      return member.display_name
+    }
+  }
+  return 'Мастер'
+}
+
 export function PublicSalonPage() {
   const { slug } = useParams<{ slug: string }>()
   const [salonState, setSalonState] = useState<SalonLoadState>({
@@ -89,14 +113,15 @@ export function PublicSalonPage() {
   const [staffState, setStaffState] = useState<ServiceStaffListState>({
     status: 'idle',
   })
-  const [selectedStaff, setSelectedStaff] =
-    useState<PublicCatalogStaffWithMedia | null>(null)
+  const [staffChoice, setStaffChoice] = useState<StaffChoice | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [selectedTime, setSelectedTime] =
-    useState<ServiceAvailabilitySlotOut | null>(null)
+  const [selectedSlot, setSelectedSlot] = useState<PublicSelectedSlot | null>(
+    null,
+  )
   const [availabilityState, setAvailabilityState] =
     useState<AvailabilityTimeListState>({ status: 'idle' })
-  const [flowStep, setFlowStep] = useState<BookingFlowStep>('schedule')
+  const [availabilityNonce, setAvailabilityNonce] = useState(0)
+  const [flowStep, setFlowStep] = useState<BookingWizardStep>('staff')
   const [customerForm, setCustomerForm] =
     useState<CustomerFormState>(EMPTY_CUSTOMER_FORM)
   const [fieldErrors, setFieldErrors] = useState<CustomerFormFieldErrors>({})
@@ -104,8 +129,10 @@ export function PublicSalonPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [bookingResult, setBookingResult] =
     useState<PublicBookingCreateResponse | null>(null)
-  const [slotNeedsRefresh, setSlotNeedsRefresh] = useState(false)
   const submitInFlightRef = useRef(false)
+
+  const salonTimeZone =
+    salonState.status === 'success' ? salonState.salon.timezone : 'UTC'
 
   useEffect(() => {
     if (!slug) {
@@ -122,18 +149,18 @@ export function PublicSalonPage() {
     setServicesState({ status: 'idle' })
     setSelectedService(null)
     setStaffState({ status: 'idle' })
-    setSelectedStaff(null)
+    setStaffChoice(null)
     setSelectedDate(null)
-    setSelectedTime(null)
+    setSelectedSlot(null)
     setAvailabilityState({ status: 'idle' })
-    setFlowStep('schedule')
+    setAvailabilityNonce(0)
+    setFlowStep('staff')
     const reset = resetCustomerBookingState()
     setCustomerForm(reset.customerForm)
     setFieldErrors(reset.fieldErrors)
     setSubmitError(reset.submitError)
     setBookingResult(reset.bookingResult)
     setSubmitting(reset.submitting)
-    setSlotNeedsRefresh(false)
 
     getPublicSalon(slug)
       .then((salon) => {
@@ -225,30 +252,36 @@ export function PublicSalonPage() {
     if (
       !slug ||
       !selectedService ||
-      !selectedStaff ||
-      selectedDate === null
+      staffChoice === null ||
+      selectedDate === null ||
+      flowStep !== 'time'
     ) {
-      setAvailabilityState({ status: 'idle' })
+      if (flowStep !== 'time') {
+        setAvailabilityState({ status: 'idle' })
+      }
       return
     }
 
     let cancelled = false
     setAvailabilityState({ status: 'loading' })
 
+    const staffIdForQuery =
+      staffChoice.kind === 'specific' ? staffChoice.staffId : undefined
+
     getPublicServiceAvailability(slug, {
       serviceId: selectedService.id,
-      staffId: selectedStaff.id,
+      staffId: staffIdForQuery,
       startDate: selectedDate,
       endDate: selectedDate,
     })
       .then((result) => {
         if (cancelled) return
-        const row = result.staff.find(
-          (entry) => entry.staff_id === selectedStaff.id,
-        )
         setAvailabilityState({
           status: 'success',
-          slots: row?.slots ?? [],
+          slots: mapServiceAvailabilityToSelectedSlots(
+            result,
+            staffIdForQuery,
+          ),
         })
       })
       .catch(() => {
@@ -259,7 +292,14 @@ export function PublicSalonPage() {
     return () => {
       cancelled = true
     }
-  }, [slug, selectedService, selectedStaff, selectedDate])
+  }, [
+    slug,
+    selectedService,
+    staffChoice,
+    selectedDate,
+    flowStep,
+    availabilityNonce,
+  ])
 
   const applyCustomerReset = useCallback(() => {
     const reset = resetCustomerBookingState()
@@ -268,18 +308,18 @@ export function PublicSalonPage() {
     setSubmitError(reset.submitError)
     setBookingResult(reset.bookingResult)
     setSubmitting(reset.submitting)
-    setSlotNeedsRefresh(false)
     submitInFlightRef.current = false
   }, [])
 
   const handleSelectService = useCallback(
     (service: PublicCatalogServiceWithMedia) => {
       setSelectedService(service)
-      setSelectedStaff(null)
+      setStaffChoice(null)
       setSelectedDate(null)
-      setSelectedTime(null)
+      setSelectedSlot(null)
       setAvailabilityState({ status: 'idle' })
-      setFlowStep('schedule')
+      setAvailabilityNonce(0)
+      setFlowStep('staff')
       applyCustomerReset()
     },
     [applyCustomerReset],
@@ -287,51 +327,72 @@ export function PublicSalonPage() {
 
   const handleBackToServices = useCallback(() => {
     setSelectedService(null)
-    setSelectedStaff(null)
+    setStaffChoice(null)
     setSelectedDate(null)
-    setSelectedTime(null)
+    setSelectedSlot(null)
     setStaffState({ status: 'idle' })
     setAvailabilityState({ status: 'idle' })
-    setFlowStep('schedule')
+    setAvailabilityNonce(0)
+    setFlowStep('staff')
     applyCustomerReset()
   }, [applyCustomerReset])
 
   const handleSelectStaff = useCallback(
-    (staff: PublicCatalogStaffWithMedia) => {
-      setSelectedStaff(staff)
-      setSelectedTime(null)
-      setSelectedDate((prev) => prev ?? defaultSelectedDate())
-      setFlowStep('schedule')
+    (staffId: string) => {
+      setStaffChoice({ kind: 'specific', staffId })
+      setSelectedSlot(null)
+      setSelectedDate(defaultDateInTimeZone(salonTimeZone))
+      setSubmitError(null)
+      setFlowStep('date')
       applyCustomerReset()
     },
-    [applyCustomerReset],
+    [applyCustomerReset, salonTimeZone],
   )
+
+  const handleSelectAnyStaff = useCallback(() => {
+    setStaffChoice({ kind: 'any' })
+    setSelectedSlot(null)
+    setSelectedDate(defaultDateInTimeZone(salonTimeZone))
+    setSubmitError(null)
+    setFlowStep('date')
+    applyCustomerReset()
+  }, [applyCustomerReset, salonTimeZone])
 
   const handleSelectDate = useCallback((isoDate: string) => {
     setSelectedDate(isoDate)
-    setSelectedTime(null)
+    setSelectedSlot(null)
     setSubmitError(null)
-    setFlowStep('schedule')
+    setFlowStep('time')
   }, [])
 
-  const handleSelectTime = useCallback((slot: ServiceAvailabilitySlotOut) => {
-    setSelectedTime(slot)
+  const handleSelectSlot = useCallback((slot: PublicSelectedSlot) => {
+    setSelectedSlot(slot)
     setSubmitError(null)
-    setSlotNeedsRefresh(false)
-    setFlowStep('schedule')
+    setFlowStep('time')
   }, [])
 
   const handleNextToCustomer = useCallback(() => {
-    if (selectedTime === null) {
+    if (selectedSlot === null) {
       return
     }
     setSubmitError(null)
     setFlowStep('customer')
-  }, [selectedTime])
+  }, [selectedSlot])
 
-  const handleBackToSchedule = useCallback(() => {
+  const handleBackToStaff = useCallback(() => {
     setSubmitError(null)
-    setFlowStep('schedule')
+    setFlowStep('staff')
+  }, [])
+
+  const handleBackToDate = useCallback(() => {
+    setSelectedSlot(null)
+    setSubmitError(null)
+    setFlowStep('date')
+  }, [])
+
+  const handleBackToTime = useCallback(() => {
+    setSubmitError(null)
+    setFlowStep('time')
   }, [])
 
   const handleCustomerFieldChange = useCallback(
@@ -353,9 +414,9 @@ export function PublicSalonPage() {
     if (
       !slug ||
       !selectedService ||
-      !selectedStaff ||
+      staffChoice === null ||
       selectedDate === null ||
-      selectedTime === null ||
+      selectedSlot === null ||
       submitInFlightRef.current
     ) {
       return
@@ -377,15 +438,17 @@ export function PublicSalonPage() {
         phone: customerForm.phone.trim(),
         customer_notes: customerForm.customer_notes.trim() || undefined,
         service_id: selectedService.id,
-        staff_id: selectedStaff.id,
-        service_start: selectedTime.service_start,
+        staff_id: selectedSlot.staff_id,
+        service_start: selectedSlot.service_start,
       })
       setBookingResult(result)
       setFlowStep('confirmation')
     } catch (err: unknown) {
       setSubmitError(mapPublicBookingError(err))
       if (isSlotConflictError(err)) {
-        setSlotNeedsRefresh(true)
+        setSelectedSlot(null)
+        setAvailabilityNonce((n) => n + 1)
+        setFlowStep('time')
       }
     } finally {
       setSubmitting(false)
@@ -394,9 +457,9 @@ export function PublicSalonPage() {
   }, [
     slug,
     selectedService,
-    selectedStaff,
+    staffChoice,
     selectedDate,
-    selectedTime,
+    selectedSlot,
     customerForm,
   ])
 
@@ -422,7 +485,8 @@ export function PublicSalonPage() {
     )
   }
 
-  const showBookingStep = selectedService !== null
+  const showBookingWizard = selectedService !== null
+  const selectedStaffListId = staffChoiceToSelectedId(staffChoice)
 
   return (
     <main className="page public-salon-page">
@@ -431,31 +495,31 @@ export function PublicSalonPage() {
         logoUrl={salonState.salon.logo_url}
       />
 
-      {showBookingStep ? (
+      {showBookingWizard ? (
         <section
           className="public-salon-page__booking booking-step"
           aria-label="Booking"
         >
+          <SelectedServiceBar service={selectedService} />
+
           {flowStep === 'confirmation' && bookingResult !== null ? (
             <BookingConfirmation
               booking={bookingResult}
               onDone={handleBookingDone}
             />
           ) : flowStep === 'customer' &&
-            selectedStaff !== null &&
+            staffChoice !== null &&
             selectedDate !== null &&
-            selectedTime !== null ? (
+            selectedSlot !== null ? (
             <>
-              <div className="booking-step__context">
-                <p className="booking-step__service-name">
-                  {selectedService.name}
-                </p>
-              </div>
               <BookingSummary
                 service={selectedService}
-                staff={selectedStaff}
+                staffDisplayName={resolveStaffDisplayName(
+                  staffState,
+                  selectedSlot.staff_id,
+                )}
                 selectedDate={selectedDate}
-                serviceStartIso={selectedTime.service_start}
+                serviceStartIso={selectedSlot.service_start}
               />
               <CustomerDetailsForm
                 form={customerForm}
@@ -466,15 +530,6 @@ export function PublicSalonPage() {
               {submitError ? (
                 <div className="form-error-banner" role="alert">
                   <p>{submitError}</p>
-                  {slotNeedsRefresh ? (
-                    <button
-                      type="button"
-                      className="btn btn--secondary btn--compact"
-                      onClick={handleBackToSchedule}
-                    >
-                      Выбрать другое время
-                    </button>
-                  ) : null}
                 </div>
               ) : null}
               <div className="booking-step__actions">
@@ -482,48 +537,82 @@ export function PublicSalonPage() {
                   type="button"
                   className="btn btn--secondary"
                   disabled={submitting}
-                  onClick={handleBackToSchedule}
+                  onClick={handleBackToTime}
                 >
                   К выбору времени
                 </button>
                 <button
                   type="button"
                   className="btn btn--primary btn--block"
-                  disabled={submitting || slotNeedsRefresh}
+                  disabled={submitting}
                   onClick={() => void handleSubmitBooking()}
                 >
                   {submitting ? 'Отправка…' : 'Записаться'}
                 </button>
               </div>
             </>
+          ) : flowStep === 'time' &&
+            staffChoice !== null &&
+            selectedDate !== null ? (
+            <>
+              <h2 className="booking-step__heading">Выберите время</h2>
+              {submitError ? (
+                <div className="form-error-banner" role="alert">
+                  <p>{submitError}</p>
+                </div>
+              ) : null}
+              <AvailabilityTimeList
+                state={availabilityState}
+                selectedSlot={selectedSlot}
+                onSelectSlot={handleSelectSlot}
+              />
+              <div className="booking-step__actions">
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={handleBackToDate}
+                >
+                  К выбору даты
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  disabled={selectedSlot === null}
+                  onClick={handleNextToCustomer}
+                >
+                  Далее: ваши данные
+                </button>
+              </div>
+            </>
+          ) : flowStep === 'date' && staffChoice !== null ? (
+            <>
+              <h2 className="booking-step__heading">Выберите дату</h2>
+              <DateSelector
+                selectedDate={
+                  selectedDate ?? defaultDateInTimeZone(salonTimeZone)
+                }
+                timeZone={salonTimeZone}
+                onSelectDate={handleSelectDate}
+              />
+              <div className="booking-step__actions">
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={handleBackToStaff}
+                >
+                  К выбору мастера
+                </button>
+              </div>
+            </>
           ) : (
             <>
-              <div className="booking-step__context">
-                <p className="booking-step__service-name">
-                  {selectedService.name}
-                </p>
-              </div>
               <h2 className="booking-step__heading">Выберите мастера</h2>
               <ServiceStaffList
                 state={staffState}
-                selectedStaffId={selectedStaff?.id ?? null}
-                onSelectStaff={handleSelectStaff}
+                selectedStaffId={selectedStaffListId}
+                onSelectStaff={(member) => handleSelectStaff(member.id)}
+                onSelectAnyStaff={handleSelectAnyStaff}
               />
-
-              {selectedStaff !== null && selectedDate !== null ? (
-                <>
-                  <DateSelector
-                    selectedDate={selectedDate}
-                    onSelectDate={handleSelectDate}
-                  />
-                  <AvailabilityTimeList
-                    state={availabilityState}
-                    selectedSlot={selectedTime}
-                    onSelectSlot={handleSelectTime}
-                  />
-                </>
-              ) : null}
-
               <div className="booking-step__actions">
                 <button
                   type="button"
@@ -531,14 +620,6 @@ export function PublicSalonPage() {
                   onClick={handleBackToServices}
                 >
                   К услугам
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--primary"
-                  disabled={selectedTime === null}
-                  onClick={handleNextToCustomer}
-                >
-                  Далее: ваши данные
                 </button>
               </div>
             </>

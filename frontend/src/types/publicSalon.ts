@@ -12,3 +12,20 @@ export type PublicSalonEntryResponse = {
 export type PublicSalonWithMedia = PublicSalonEntryResponse & {
   logo_url: string | null
 }
+
+/** Selected availability slot including assignable staff (required for POST). */
+export type PublicSelectedSlot = {
+  staff_id: string
+  service_start: string
+  service_end: string
+}
+
+/** Sentinel id for “any bookable staff” in staff picker UI state. */
+export const ANY_STAFF_CHOICE_ID = '__any_staff__'
+
+export type BookingWizardStep =
+  | 'staff'
+  | 'date'
+  | 'time'
+  | 'customer'
+  | 'confirmation'
