@@ -54,6 +54,8 @@ def _auth_app(*, role: str = "owner", salon_id: uuid.UUID = SALON_A) -> tuple[Te
         name="Salon",
         slug="salon",
         is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = SimpleNamespace(
         salon_id=salon_id,
@@ -104,7 +106,12 @@ def test_list_staff_no_membership_403() -> None:
         is_active=True,
     )
     mock_auth.get_active_salon.return_value = SimpleNamespace(
-        id=SALON_A, name="S", slug="s", is_active=True
+        id=SALON_A,
+        name="S",
+        slug="s",
+        is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = None
     app.dependency_overrides[get_auth_repository] = lambda: mock_auth
@@ -339,7 +346,12 @@ def test_cannot_create_in_salon_b_without_membership() -> None:
         is_active=True,
     )
     mock_auth.get_active_salon.return_value = SimpleNamespace(
-        id=SALON_B, name="B", slug="b", is_active=True
+        id=SALON_B,
+        name="B",
+        slug="b",
+        is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = None
     app.dependency_overrides[get_auth_repository] = lambda: mock_auth

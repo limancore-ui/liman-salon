@@ -60,6 +60,8 @@ def _auth_app(*, role: str = "owner", salon_id: uuid.UUID = SALON_A) -> tuple[Te
         name="Salon",
         slug="salon",
         is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = SimpleNamespace(
         salon_id=salon_id,

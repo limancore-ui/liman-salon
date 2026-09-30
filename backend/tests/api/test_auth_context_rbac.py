@@ -39,6 +39,8 @@ def _salon(*, active: bool = True) -> SimpleNamespace:
         name="Liman Demo",
         slug="liman-demo",
         is_active=active,
+        timezone="Asia/Almaty",
+        currency_code="KZT",
     )
 
 
@@ -235,6 +237,8 @@ def test_salon_context_active_membership() -> None:
     assert body["role"] == "admin"
     assert body["salon_name"] == "Liman Demo"
     assert body["salon_slug"] == "liman-demo"
+    assert body["timezone"] == "Asia/Almaty"
+    assert body["currency_code"] == "KZT"
 
 
 def test_salon_context_missing_membership_403() -> None:
@@ -314,6 +318,8 @@ def test_rbac_owner_allowed() -> None:
         role="owner",
         salon_name="n",
         salon_slug="s",
+        timezone="UTC",
+        currency_code="KZT",
     )
     ensure_role_allowed(ctx, "owner", "admin")
 
@@ -325,6 +331,8 @@ def test_rbac_admin_allowed() -> None:
         role="admin",
         salon_name="n",
         salon_slug="s",
+        timezone="UTC",
+        currency_code="KZT",
     )
     ensure_role_allowed(ctx, "owner", "admin")
 
@@ -336,6 +344,8 @@ def test_rbac_staff_denied_for_owner_admin() -> None:
         role="staff",
         salon_name="n",
         salon_slug="s",
+        timezone="UTC",
+        currency_code="KZT",
     )
     with pytest.raises(ForbiddenRoleError):
         ensure_role_allowed(ctx, "owner", "admin")
@@ -348,6 +358,8 @@ def test_rbac_receptionist_denied_owner_only() -> None:
         role="receptionist",
         salon_name="n",
         salon_slug="s",
+        timezone="UTC",
+        currency_code="KZT",
     )
     with pytest.raises(ForbiddenRoleError):
         ensure_role_allowed(ctx, "owner")

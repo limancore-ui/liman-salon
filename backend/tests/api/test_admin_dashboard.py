@@ -76,6 +76,8 @@ def _auth_app(
         name="Salon",
         slug="salon",
         is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = SimpleNamespace(
         salon_id=salon_id,
@@ -199,6 +201,8 @@ def test_dashboard_cross_tenant_403() -> None:
         name="Other Salon",
         slug="other",
         is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = None
     mock_dashboard = MagicMock(spec=DashboardService)

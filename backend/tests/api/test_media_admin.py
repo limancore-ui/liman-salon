@@ -84,6 +84,8 @@ def _auth_app(
         name="Salon",
         slug="salon",
         is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = SimpleNamespace(
         salon_id=salon_id,
@@ -386,7 +388,12 @@ def test_attachment_index_salon_b_without_membership_403() -> None:
         is_active=True,
     )
     mock_auth.get_active_salon.return_value = SimpleNamespace(
-        id=SALON_B, name="B", slug="b", is_active=True
+        id=SALON_B,
+        name="B",
+        slug="b",
+        is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = None
     app.dependency_overrides[get_auth_repository] = lambda: mock_auth
@@ -410,7 +417,12 @@ def test_cannot_access_salon_b_without_membership() -> None:
         is_active=True,
     )
     mock_auth.get_active_salon.return_value = SimpleNamespace(
-        id=SALON_B, name="B", slug="b", is_active=True
+        id=SALON_B,
+        name="B",
+        slug="b",
+        is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = None
     app.dependency_overrides[get_auth_repository] = lambda: mock_auth

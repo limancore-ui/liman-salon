@@ -63,6 +63,8 @@ def get_salon_context(
         role=membership.role,
         salon_name=salon.name,
         salon_slug=salon.slug,
+        timezone=salon.timezone,
+        currency_code=salon.currency_code,
     )
 
 

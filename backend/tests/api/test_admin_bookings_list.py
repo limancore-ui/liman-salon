@@ -60,6 +60,8 @@ def _auth_app(
         name="Salon",
         slug="salon",
         is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     if membership is None:
         membership = SimpleNamespace(
@@ -161,6 +163,8 @@ def test_list_bookings_missing_membership_403() -> None:
         name="Salon",
         slug="salon",
         is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = None
     mock_booking_svc = MagicMock(spec=BookingService)
@@ -192,6 +196,8 @@ def test_list_bookings_cross_tenant_403() -> None:
         name="Other Salon",
         slug="other",
         is_active=True,
+        timezone="UTC",
+        currency_code="KZT",
     )
     mock_auth.get_active_membership.return_value = None
     mock_booking = MagicMock(spec=BookingService)

@@ -48,4 +48,6 @@ def salon_context(
         email=current_user.email,
         salon_name=context.salon_name,
         salon_slug=context.salon_slug,
+        timezone=context.timezone,
+        currency_code=context.currency_code,
     )

@@ -29,3 +29,5 @@ class SalonContextResponse(BaseModel):
     email: EmailStr
     salon_name: str
     salon_slug: str
+    timezone: str
+    currency_code: str

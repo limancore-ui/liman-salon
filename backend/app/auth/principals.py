@@ -18,3 +18,5 @@ class SalonContext:
     role: str
     salon_name: str
     salon_slug: str
+    timezone: str
+    currency_code: str
