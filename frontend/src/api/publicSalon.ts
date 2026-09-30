@@ -6,8 +6,12 @@ import type {
   PublicSelectedSlot,
 } from '../types/publicSalon'
 import type {
+  PublicBookingCancelRequest,
+  PublicBookingCancelResponse,
   PublicBookingCreatePayload,
   PublicBookingCreateResponse,
+  PublicBookingRescheduleRequest,
+  PublicBookingRescheduleResponse,
 } from '../types/publicBooking'
 import type {
   PublicCatalogServiceOut,
@@ -239,4 +243,65 @@ export async function createPublicBookingBySlug(
     throw new ApiError(0, 'network error')
   }
   return parseJsonResponse<PublicBookingCreateResponse>(response)
+}
+
+export async function cancelPublicBookingBySlug(
+  slug: string,
+  bookingId: string,
+  body: PublicBookingCancelRequest,
+  signal?: AbortSignal,
+): Promise<PublicBookingCancelResponse> {
+  const payload: Record<string, string> = { token: body.token }
+  const reason = body.reason?.trim()
+  if (reason) {
+    payload.reason = reason
+  }
+  let response: Response
+  try {
+    response = await fetch(
+      `/api/v1/public/salons/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/cancel`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal,
+      },
+    )
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err
+    }
+    throw new ApiError(0, 'network error')
+  }
+  return parseJsonResponse<PublicBookingCancelResponse>(response)
+}
+
+export async function reschedulePublicBookingBySlug(
+  slug: string,
+  bookingId: string,
+  body: PublicBookingRescheduleRequest,
+  signal?: AbortSignal,
+): Promise<PublicBookingRescheduleResponse> {
+  let response: Response
+  try {
+    response = await fetch(
+      `/api/v1/public/salons/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/reschedule`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: body.token,
+          staff_id: body.staff_id,
+          service_start: body.service_start,
+        }),
+        signal,
+      },
+    )
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err
+    }
+    throw new ApiError(0, 'network error')
+  }
+  return parseJsonResponse<PublicBookingRescheduleResponse>(response)
 }

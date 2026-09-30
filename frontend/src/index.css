@@ -658,6 +658,102 @@ body {
   color: var(--color-muted);
 }
 
+.booking-confirmation__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.booking-confirmation__copy-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.public-manage-page__panel {
+  margin-top: var(--space-lg);
+}
+
+.public-manage-page__title {
+  margin: 0 0 var(--space-md);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.public-manage-page__status {
+  margin: 0 0 var(--space-md);
+  font-size: 0.9375rem;
+  color: var(--color-muted);
+}
+
+.public-manage-page__status--cancelled {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.public-manage-page__details {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.public-manage-page__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.public-manage-page__subflow {
+  margin-bottom: var(--space-lg);
+}
+
+.public-manage-page__lead {
+  margin: 0 0 var(--space-md);
+  color: var(--color-muted);
+}
+
+.public-manage-page__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.public-manage-page__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.public-manage-page__textarea {
+  width: 100%;
+  padding: var(--space-sm);
+  font: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  resize: vertical;
+}
+
+.public-manage-page__back {
+  margin: var(--space-lg) 0 0;
+  text-align: center;
+  font-size: 0.9375rem;
+}
+
+.public-manage-page__back a {
+  color: var(--color-accent);
+}
+
+.public-manage-page__salon-hint {
+  margin: 0 0 var(--space-md);
+  font-size: 0.875rem;
+  color: var(--color-muted);
+  text-align: center;
+}
+
 .btn--block {
   width: 100%;
 }

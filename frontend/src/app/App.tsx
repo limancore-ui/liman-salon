@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AdminRoutes } from './AdminRoutes'
+import { PublicManageBookingPage } from '../pages/PublicManageBookingPage'
 import { PublicSalonPage } from '../pages/PublicSalonPage'
 
 export function App() {
@@ -7,6 +8,10 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/s/:slug" element={<PublicSalonPage />} />
+        <Route
+          path="/s/:slug/bookings/:bookingId/manage"
+          element={<PublicManageBookingPage />}
+        />
         <Route path="/admin/*" element={<AdminRoutes />} />
         <Route
           path="*"

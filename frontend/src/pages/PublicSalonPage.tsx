@@ -44,6 +44,7 @@ import type {
 } from '../types/publicSalon'
 import { ANY_STAFF_CHOICE_ID } from '../types/publicSalon'
 import { defaultDateInTimeZone } from '../utils/date'
+import { persistManageSnapshot } from '../utils/manageBookingStorage'
 import {
   isSlotConflictError,
   mapPublicBookingError,
@@ -519,6 +520,22 @@ export function PublicSalonPage() {
         staff_id: selectedSlot.staff_id,
         service_start: selectedSlot.service_start,
       })
+      persistManageSnapshot({
+        token: result.manage_token,
+        booking_id: result.booking_id,
+        slug,
+        salon_id: result.salon_id,
+        service_id: selectedService.id,
+        staff_id: selectedSlot.staff_id,
+        service_name: selectedService.name,
+        staff_display_name: resolveStaffDisplayName(
+          staffState,
+          selectedSlot.staff_id,
+        ),
+        service_start: result.service_start,
+        service_end: result.service_end,
+        hold_expires_at: result.hold_expires_at,
+      })
       setBookingResult(result)
       setFlowStep('confirmation')
     } catch (err: unknown) {
@@ -539,6 +556,7 @@ export function PublicSalonPage() {
     selectedDate,
     selectedSlot,
     customerForm,
+    staffState,
   ])
 
   const handleBookingDone = useCallback(() => {
@@ -583,6 +601,7 @@ export function PublicSalonPage() {
           {flowStep === 'confirmation' && bookingResult !== null ? (
             <BookingConfirmation
               booking={bookingResult}
+              slug={slug ?? ''}
               onDone={handleBookingDone}
             />
           ) : flowStep === 'customer' &&

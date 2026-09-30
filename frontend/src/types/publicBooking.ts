@@ -17,6 +17,53 @@ export type PublicBookingCreateResponse = {
   service_start: string
   service_end: string
   hold_expires_at: string
+  manage_token: string
+}
+
+/** Matches backend `PublicBookingCancelRequest`. */
+export type PublicBookingCancelRequest = {
+  token: string
+  reason?: string | null
+}
+
+/** Matches backend `PublicBookingCancelResponse`. */
+export type PublicBookingCancelResponse = {
+  booking_id: string
+  status: string
+  cancelled_at: string
+}
+
+/** Matches backend `PublicBookingRescheduleRequest`. */
+export type PublicBookingRescheduleRequest = {
+  token: string
+  staff_id: string
+  service_start: string
+}
+
+/** Matches backend `PublicBookingRescheduleResponse`. */
+export type PublicBookingRescheduleResponse = {
+  booking_id: string
+  status: string
+  staff_id: string
+  service_start: string
+  service_end: string
+}
+
+/** Client-side session snapshot for manage/cancel/reschedule (not from backend). */
+export type ManageBookingSnapshot = {
+  token: string
+  booking_id: string
+  slug: string
+  salon_id: string
+  service_id: string
+  staff_id: string
+  service_name: string
+  staff_display_name: string
+  service_start: string
+  service_end: string
+  hold_expires_at: string
+  status?: string
+  cancelled_at?: string
 }
 
 export type CustomerFormState = {
