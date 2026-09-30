@@ -217,3 +217,72 @@ def test_reschedule_naive_as_of_rejected() -> None:
             new_service_start=NEW_START,
             as_of=datetime(2026, 6, 1, 12, 0),
         )
+
+
+def test_admin_reschedule_pending_success_without_token() -> None:
+    booking = _booking(status="pending")
+    svc, session, _repo, availability = _service_with_booking(booking)
+    result = svc.admin_reschedule_booking(
+        salon_id=SALON_ID,
+        booking_id=BOOKING_ID,
+        new_staff_id=STAFF_B,
+        new_service_start=NEW_START,
+        as_of=AS_OF,
+    )
+    assert result.status == "pending"
+    availability.is_occupied_interval_available.assert_called_once()
+    session.flush.assert_called_once()
+
+
+def test_admin_reschedule_confirmed_success_without_token() -> None:
+    svc, _session, _repo, _availability = _service_with_booking(
+        _booking(status="confirmed")
+    )
+    result = svc.admin_reschedule_booking(
+        salon_id=SALON_ID,
+        booking_id=BOOKING_ID,
+        new_staff_id=STAFF_B,
+        new_service_start=NEW_START,
+        as_of=AS_OF,
+    )
+    assert result.status == "confirmed"
+
+
+def test_admin_reschedule_in_progress_rejected() -> None:
+    svc, _session, _repo, _availability = _service_with_booking(
+        _booking(status="in_progress")
+    )
+    with pytest.raises(BookingValidationError, match="cannot be rescheduled"):
+        svc.admin_reschedule_booking(
+            salon_id=SALON_ID,
+            booking_id=BOOKING_ID,
+            new_staff_id=STAFF_B,
+            new_service_start=NEW_START,
+            as_of=AS_OF,
+        )
+
+
+def test_admin_reschedule_slot_unavailable() -> None:
+    svc, _session, _repo, availability = _service_with_booking(_booking())
+    availability.is_occupied_interval_available.return_value = False
+    with pytest.raises(SlotNotAvailableError):
+        svc.admin_reschedule_booking(
+            salon_id=SALON_ID,
+            booking_id=BOOKING_ID,
+            new_staff_id=STAFF_B,
+            new_service_start=NEW_START,
+            as_of=AS_OF,
+        )
+
+
+def test_admin_reschedule_flush_integrity_error_becomes_overlap() -> None:
+    svc, session, _repo, _availability = _service_with_booking(_booking())
+    session.flush.side_effect = IntegrityError("stmt", {}, Exception("overlap"))
+    with pytest.raises(BookingOverlapError):
+        svc.admin_reschedule_booking(
+            salon_id=SALON_ID,
+            booking_id=BOOKING_ID,
+            new_staff_id=STAFF_B,
+            new_service_start=NEW_START,
+            as_of=AS_OF,
+        )

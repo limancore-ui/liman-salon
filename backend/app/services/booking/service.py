@@ -259,30 +259,21 @@ class BookingService:
         if status == "confirmed" and expires_at is not None:
             raise BookingValidationError("confirmed booking must not set expires_at")
 
-    def cancel_booking(
-        self,
-        *,
-        salon_id: uuid.UUID,
-        booking_id: uuid.UUID,
-        token: str,
-        as_of: datetime,
-        reason: str | None = None,
-    ) -> CancelBookingResult:
-        if as_of.tzinfo is None:
-            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+    @staticmethod
+    def _normalize_cancellation_reason(reason: str | None) -> str | None:
         if reason is not None and not reason.strip():
             reason = None
         if reason is not None and len(reason) > 255:
             raise BookingValidationError("cancellation reason must be at most 255 characters")
+        return reason
 
-        booking = self._repo.get_booking(salon_id, booking_id)
-        if booking is None:
-            raise BookingNotFoundError("booking not found")
-
-        pepper = get_settings().booking_manage_token_pepper
-        if not verify_manage_token(token, booking.manage_token_hash, pepper=pepper):
-            raise BookingNotFoundError("booking not found")
-
+    def _cancel_booking_loaded(
+        self,
+        booking: Booking,
+        *,
+        as_of: datetime,
+        reason: str | None,
+    ) -> CancelBookingResult:
         if booking.status not in ("pending", "confirmed"):
             raise BookingValidationError(
                 "booking cannot be cancelled in its current status"
@@ -299,22 +290,18 @@ class BookingService:
             cancelled_at=booking.cancelled_at,
         )
 
-    def reschedule_booking(
+    def cancel_booking(
         self,
         *,
         salon_id: uuid.UUID,
         booking_id: uuid.UUID,
         token: str,
-        new_staff_id: uuid.UUID,
-        new_service_start: datetime,
         as_of: datetime,
-    ) -> RescheduleBookingResult:
+        reason: str | None = None,
+    ) -> CancelBookingResult:
         if as_of.tzinfo is None:
             raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
-        if new_service_start.tzinfo is None:
-            raise BookingValidationError(
-                "new_service_start must be timezone-aware (UTC recommended)"
-            )
+        reason = self._normalize_cancellation_reason(reason)
 
         booking = self._repo.get_booking(salon_id, booking_id)
         if booking is None:
@@ -324,6 +311,35 @@ class BookingService:
         if not verify_manage_token(token, booking.manage_token_hash, pepper=pepper):
             raise BookingNotFoundError("booking not found")
 
+        return self._cancel_booking_loaded(booking, as_of=as_of, reason=reason)
+
+    def admin_cancel_booking(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        as_of: datetime,
+        reason: str | None = None,
+    ) -> CancelBookingResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+        reason = self._normalize_cancellation_reason(reason)
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        return self._cancel_booking_loaded(booking, as_of=as_of, reason=reason)
+
+    def _reschedule_booking_loaded(
+        self,
+        booking: Booking,
+        *,
+        salon_id: uuid.UUID,
+        new_staff_id: uuid.UUID,
+        new_service_start: datetime,
+        as_of: datetime,
+    ) -> RescheduleBookingResult:
         if booking.status not in ("pending", "confirmed"):
             raise BookingValidationError(
                 "booking cannot be rescheduled in its current status"
@@ -387,4 +403,65 @@ class BookingService:
             staff_id=booking.staff_id,
             service_start=new_service_start,
             service_end=service_end,
+        )
+
+    def reschedule_booking(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        token: str,
+        new_staff_id: uuid.UUID,
+        new_service_start: datetime,
+        as_of: datetime,
+    ) -> RescheduleBookingResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+        if new_service_start.tzinfo is None:
+            raise BookingValidationError(
+                "new_service_start must be timezone-aware (UTC recommended)"
+            )
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        pepper = get_settings().booking_manage_token_pepper
+        if not verify_manage_token(token, booking.manage_token_hash, pepper=pepper):
+            raise BookingNotFoundError("booking not found")
+
+        return self._reschedule_booking_loaded(
+            booking,
+            salon_id=salon_id,
+            new_staff_id=new_staff_id,
+            new_service_start=new_service_start,
+            as_of=as_of,
+        )
+
+    def admin_reschedule_booking(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        new_staff_id: uuid.UUID,
+        new_service_start: datetime,
+        as_of: datetime,
+    ) -> RescheduleBookingResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+        if new_service_start.tzinfo is None:
+            raise BookingValidationError(
+                "new_service_start must be timezone-aware (UTC recommended)"
+            )
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        return self._reschedule_booking_loaded(
+            booking,
+            salon_id=salon_id,
+            new_staff_id=new_staff_id,
+            new_service_start=new_service_start,
+            as_of=as_of,
         )

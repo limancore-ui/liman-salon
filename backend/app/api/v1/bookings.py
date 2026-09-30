@@ -8,9 +8,13 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import AsOfDep, BookingServiceDep, PublicBookingServiceDep
 from app.api.schemas.bookings import (
+    BookingCancelRequest,
+    BookingCancelResponse,
     BookingCreateRequest,
     BookingCreateResponse,
     BookingListItemResponse,
+    BookingRescheduleRequest,
+    BookingRescheduleResponse,
 )
 from app.api.schemas.public_booking import (
     PublicBookingCreateRequest,
@@ -111,6 +115,63 @@ def create_booking(
         starts_at=result.starts_at,
         ends_at=result.ends_at,
         status=result.status,
+    )
+
+
+@router.post(
+    "/salons/{salon_id}/bookings/{booking_id}/cancel",
+    response_model=BookingCancelResponse,
+    status_code=200,
+)
+def admin_cancel_booking(
+    salon_id: uuid.UUID,
+    booking_id: uuid.UUID,
+    body: BookingCancelRequest,
+    context: WriteSalonContext,
+    as_of: AsOfDep,
+    booking_service: BookingServiceDep,
+) -> BookingCancelResponse:
+    _assert_path_salon(context, salon_id)
+    result = booking_service.admin_cancel_booking(
+        salon_id=context.salon_id,
+        booking_id=booking_id,
+        as_of=as_of,
+        reason=body.reason,
+    )
+    return BookingCancelResponse(
+        booking_id=result.booking_id,
+        status=result.status,
+        cancelled_at=result.cancelled_at,
+    )
+
+
+@router.post(
+    "/salons/{salon_id}/bookings/{booking_id}/reschedule",
+    response_model=BookingRescheduleResponse,
+    status_code=200,
+)
+def admin_reschedule_booking(
+    salon_id: uuid.UUID,
+    booking_id: uuid.UUID,
+    body: BookingRescheduleRequest,
+    context: WriteSalonContext,
+    as_of: AsOfDep,
+    booking_service: BookingServiceDep,
+) -> BookingRescheduleResponse:
+    _assert_path_salon(context, salon_id)
+    result = booking_service.admin_reschedule_booking(
+        salon_id=context.salon_id,
+        booking_id=booking_id,
+        new_staff_id=body.staff_id,
+        new_service_start=body.service_start,
+        as_of=as_of,
+    )
+    return BookingRescheduleResponse(
+        booking_id=result.booking_id,
+        status=result.status,
+        staff_id=result.staff_id,
+        service_start=result.service_start,
+        service_end=result.service_end,
     )
 
 

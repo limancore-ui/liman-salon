@@ -119,3 +119,35 @@ def test_cancel_naive_as_of_rejected() -> None:
             token=RAW_TOKEN,
             as_of=datetime(2026, 6, 1, 12, 0),
         )
+
+
+def test_admin_cancel_pending_success_without_token() -> None:
+    svc, session = _service_with_booking(_booking(status="pending"))
+    result = svc.admin_cancel_booking(
+        salon_id=SALON_ID,
+        booking_id=BOOKING_ID,
+        as_of=AS_OF,
+        reason="admin action",
+    )
+    assert result.status == "cancelled"
+    session.flush.assert_called_once()
+
+
+def test_admin_cancel_confirmed_success_without_token() -> None:
+    svc, _session = _service_with_booking(_booking(status="confirmed"))
+    result = svc.admin_cancel_booking(
+        salon_id=SALON_ID,
+        booking_id=BOOKING_ID,
+        as_of=AS_OF,
+    )
+    assert result.status == "cancelled"
+
+
+def test_admin_cancel_in_progress_rejected() -> None:
+    svc, _session = _service_with_booking(_booking(status="in_progress"))
+    with pytest.raises(BookingValidationError, match="cannot be cancelled"):
+        svc.admin_cancel_booking(
+            salon_id=SALON_ID,
+            booking_id=BOOKING_ID,
+            as_of=AS_OF,
+        )

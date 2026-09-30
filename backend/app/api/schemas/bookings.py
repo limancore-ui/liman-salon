@@ -29,6 +29,36 @@ class BookingCreateResponse(BaseModel):
     status: str
 
 
+class BookingCancelRequest(BaseModel):
+    reason: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Optional cancellation reason",
+    )
+
+
+class BookingCancelResponse(BaseModel):
+    booking_id: UUID
+    status: str
+    cancelled_at: datetime
+
+
+class BookingRescheduleRequest(BaseModel):
+    staff_id: UUID
+    service_start: datetime = Field(
+        ...,
+        description="NET service start; must be timezone-aware",
+    )
+
+
+class BookingRescheduleResponse(BaseModel):
+    booking_id: UUID
+    status: str
+    staff_id: UUID
+    service_start: datetime
+    service_end: datetime
+
+
 class BookingListItemResponse(BaseModel):
     id: UUID
     status: str
