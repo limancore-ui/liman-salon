@@ -22,6 +22,7 @@ from app.services.public_catalog.service import PublicCatalogService
 from app.services.salon_public.service import SalonPublicService
 from app.services.media.deps import build_media_service
 from app.services.media.service import MediaService
+from app.services.dashboard.service import DashboardService
 from app.services.staff.service import StaffService
 
 SessionDep = Annotated[Session, Depends(get_db)]
@@ -96,6 +97,13 @@ def get_staff_service(session: SessionDep) -> StaffService:
 
 
 StaffServiceDep = Annotated[StaffService, Depends(get_staff_service)]
+
+
+def get_dashboard_service(session: SessionDep) -> DashboardService:
+    return DashboardService(session)
+
+
+DashboardServiceDep = Annotated[DashboardService, Depends(get_dashboard_service)]
 
 
 def get_customer_service(session: SessionDep) -> CustomerService:

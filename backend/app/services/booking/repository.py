@@ -3,11 +3,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
 from app.db.models.booking import Booking
-from app.services.booking.types import BookingListRow
+from app.services.booking.types import BookingListRow, BookingUpcomingRow
 from app.db.models.customer import Customer
 from app.db.models.salon import Salon
 from app.db.models.service import Service
@@ -188,6 +188,110 @@ class BookingRepository:
                 service_name=row.name,
                 source=row.source,
                 created_at=row.created_at,
+            )
+            for row in rows
+        ]
+
+    def count_bookings_starts_in_range(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        range_start: datetime,
+        range_end: datetime,
+    ) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(Booking)
+            .where(
+                Booking.salon_id == salon_id,
+                Booking.starts_at >= range_start,
+                Booking.starts_at < range_end,
+            )
+        )
+        return int(self._session.scalar(stmt) or 0)
+
+    def status_counts_starts_in_range(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        range_start: datetime,
+        range_end: datetime,
+    ) -> dict[str, int]:
+        stmt = (
+            select(Booking.status, func.count())
+            .where(
+                Booking.salon_id == salon_id,
+                Booking.starts_at >= range_start,
+                Booking.starts_at < range_end,
+            )
+            .group_by(Booking.status)
+        )
+        rows = self._session.execute(stmt).all()
+        return {status: int(count) for status, count in rows}
+
+    def list_upcoming_bookings_starts_in_range(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        range_start: datetime,
+        range_end: datetime,
+        as_of: datetime,
+        limit: int,
+    ) -> list[BookingUpcomingRow]:
+        stmt = (
+            select(
+                Booking.id,
+                Booking.status,
+                Booking.starts_at,
+                Booking.ends_at,
+                Booking.price_cents,
+                Customer.full_name,
+                Customer.phone,
+                Staff.display_name,
+                Service.name,
+            )
+            .join(
+                Customer,
+                and_(
+                    Booking.salon_id == Customer.salon_id,
+                    Booking.customer_id == Customer.id,
+                ),
+            )
+            .join(
+                Staff,
+                and_(
+                    Booking.salon_id == Staff.salon_id,
+                    Booking.staff_id == Staff.id,
+                ),
+            )
+            .join(
+                Service,
+                and_(
+                    Booking.salon_id == Service.salon_id,
+                    Booking.service_id == Service.id,
+                ),
+            )
+            .where(
+                Booking.salon_id == salon_id,
+                Booking.starts_at >= range_start,
+                Booking.starts_at < range_end,
+                Booking.starts_at >= as_of,
+            )
+            .order_by(Booking.starts_at.asc(), Booking.id.asc())
+            .limit(limit)
+        )
+        rows = self._session.execute(stmt).all()
+        return [
+            BookingUpcomingRow(
+                id=row.id,
+                status=row.status,
+                starts_at=row.starts_at,
+                ends_at=row.ends_at,
+                price_cents=row.price_cents,
+                customer_name=row.full_name,
+                customer_phone=row.phone,
+                staff_name=row.display_name,
+                service_name=row.name,
             )
             for row in rows
         ]

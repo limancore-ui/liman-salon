@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.staff import Staff
@@ -39,3 +39,11 @@ class StaffRepository:
 
     def flush(self) -> None:
         self._session.flush()
+
+    def count_active_staff(self, *, salon_id: uuid.UUID) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(Staff)
+            .where(Staff.salon_id == salon_id, Staff.is_active.is_(True))
+        )
+        return int(self._session.scalar(stmt) or 0)
