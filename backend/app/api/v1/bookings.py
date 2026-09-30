@@ -26,6 +26,7 @@ ReadSalonContext = Annotated[
     SalonContext,
     Depends(require_roles("owner", "admin", "staff", "receptionist")),
 ]
+WriteSalonContext = Annotated[SalonContext, Depends(require_roles("owner", "admin"))]
 
 
 def _assert_path_salon(context: SalonContext, salon_id: uuid.UUID) -> None:
@@ -86,21 +87,24 @@ def list_bookings(
 def create_booking(
     salon_id: uuid.UUID,
     body: BookingCreateRequest,
+    context: WriteSalonContext,
     as_of: AsOfDep,
     booking_service: BookingServiceDep,
 ) -> BookingCreateResponse:
+    _assert_path_salon(context, salon_id)
     result = booking_service.create_booking(
-        salon_id=salon_id,
+        salon_id=context.salon_id,
         customer_id=body.customer_id,
         staff_id=body.staff_id,
         service_id=body.service_id,
         requested_service_start=body.requested_service_start,
-        source=body.source,
+        source="admin",
         status=body.status,
         as_of=as_of,
         expires_at=body.expires_at,
         customer_notes=body.customer_notes,
         internal_notes=body.internal_notes,
+        created_by_user_id=context.user_id,
     )
     return BookingCreateResponse(
         booking_id=result.booking_id,
