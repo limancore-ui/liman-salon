@@ -17,6 +17,10 @@ export type SalonContextResponse = {
   email: string
   salon_name: string
   salon_slug: string
+  /** Present when auth salon context API includes IANA timezone. */
+  timezone?: string
+  /** Present when auth salon context API includes ISO 4217 currency. */
+  currency_code?: string | null
 }
 
 export type AdminSession = {
