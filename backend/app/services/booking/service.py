@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -21,6 +21,7 @@ from app.services.booking.types import (
     BookingListRow,
     CancelBookingResult,
     CreateBookingResult,
+    RescheduleBookingResult,
     ServiceSnapshot,
     compute_occupied_interval,
 )
@@ -296,4 +297,94 @@ class BookingService:
             booking_id=booking.id,
             status=booking.status,
             cancelled_at=booking.cancelled_at,
+        )
+
+    def reschedule_booking(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        token: str,
+        new_staff_id: uuid.UUID,
+        new_service_start: datetime,
+        as_of: datetime,
+    ) -> RescheduleBookingResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+        if new_service_start.tzinfo is None:
+            raise BookingValidationError(
+                "new_service_start must be timezone-aware (UTC recommended)"
+            )
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        pepper = get_settings().booking_manage_token_pepper
+        if not verify_manage_token(token, booking.manage_token_hash, pepper=pepper):
+            raise BookingNotFoundError("booking not found")
+
+        if booking.status not in ("pending", "confirmed"):
+            raise BookingValidationError(
+                "booking cannot be rescheduled in its current status"
+            )
+
+        staff = self._repo.get_staff(salon_id, new_staff_id)
+        if staff is None:
+            raise BookingNotFoundError("staff not found for salon")
+        if not staff.is_active or not staff.is_bookable:
+            raise BookingValidationError("staff is not active or not bookable")
+
+        service = self._repo.get_service(salon_id, booking.service_id)
+        if service is None:
+            raise BookingNotFoundError("service not found for salon")
+        if not service.is_active:
+            raise BookingValidationError("service is not active")
+
+        if not self._repo.staff_performs_service(
+            salon_id, new_staff_id, booking.service_id
+        ):
+            raise BookingValidationError("staff does not perform this service")
+
+        occupied = compute_occupied_interval(
+            requested_service_start=new_service_start,
+            duration_minutes=service.duration_minutes,
+            buffer_before_minutes=service.buffer_before_minutes,
+            buffer_after_minutes=service.buffer_after_minutes,
+        )
+
+        self._repo.expire_stale_pending_holds(
+            salon_id=salon_id,
+            staff_id=new_staff_id,
+            window_start=occupied.occupied_start,
+            window_end=occupied.occupied_end,
+            as_of=as_of,
+        )
+
+        if not self._availability.is_occupied_interval_available(
+            salon_id=salon_id,
+            staff_id=new_staff_id,
+            occupied_start=occupied.occupied_start,
+            occupied_end=occupied.occupied_end,
+            as_of=as_of,
+            exclude_booking_id=booking.id,
+        ):
+            raise SlotNotAvailableError("no free gap for requested occupied interval")
+
+        booking.staff_id = new_staff_id
+        booking.starts_at = occupied.occupied_start
+        booking.ends_at = occupied.occupied_end
+
+        try:
+            self._session.flush()
+        except IntegrityError as exc:
+            raise BookingOverlapError("booking overlaps an existing appointment") from exc
+
+        service_end = new_service_start + timedelta(minutes=service.duration_minutes)
+        return RescheduleBookingResult(
+            booking_id=booking.id,
+            status=booking.status,
+            staff_id=booking.staff_id,
+            service_start=new_service_start,
+            service_end=service_end,
         )

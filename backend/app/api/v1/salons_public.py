@@ -20,6 +20,10 @@ from app.api.schemas.public_booking_cancel import (
     PublicBookingCancelRequest,
     PublicBookingCancelResponse,
 )
+from app.api.schemas.public_booking_reschedule import (
+    PublicBookingRescheduleRequest,
+    PublicBookingRescheduleResponse,
+)
 from app.api.schemas.availability import (
     ServiceAvailabilityResponse,
     ServiceAvailabilitySlotOut,
@@ -273,4 +277,35 @@ def cancel_public_booking_by_slug(
         booking_id=result.booking_id,
         status=result.status,
         cancelled_at=result.cancelled_at,
+    )
+
+
+@router.post(
+    "/public/salons/{slug}/bookings/{booking_id}/reschedule",
+    response_model=PublicBookingRescheduleResponse,
+    status_code=200,
+)
+def reschedule_public_booking_by_slug(
+    slug: str,
+    booking_id: uuid.UUID,
+    body: PublicBookingRescheduleRequest,
+    as_of: AsOfDep,
+    salon_public_service: SalonPublicServiceDep,
+    booking_service: BookingServiceDep,
+) -> PublicBookingRescheduleResponse:
+    entry = salon_public_service.resolve_public_salon_by_slug(slug)
+    result = booking_service.reschedule_booking(
+        salon_id=entry.salon_id,
+        booking_id=booking_id,
+        token=body.token,
+        new_staff_id=body.staff_id,
+        new_service_start=body.service_start,
+        as_of=as_of,
+    )
+    return PublicBookingRescheduleResponse(
+        booking_id=result.booking_id,
+        status=result.status,
+        staff_id=result.staff_id,
+        service_start=result.service_start,
+        service_end=result.service_end,
     )

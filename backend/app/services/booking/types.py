@@ -88,6 +88,15 @@ class CancelBookingResult:
 
 
 @dataclass(frozen=True, slots=True)
+class RescheduleBookingResult:
+    booking_id: UUID
+    status: str
+    staff_id: UUID
+    service_start: datetime
+    service_end: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class BookingListRow:
     """Admin list view row with joined display names (tenant-scoped)."""
 

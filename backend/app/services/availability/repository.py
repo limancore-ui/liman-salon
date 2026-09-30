@@ -165,6 +165,7 @@ class AvailabilityRepository:
         range_start_utc: datetime,
         range_end_utc: datetime,
         as_of: datetime,
+        exclude_booking_id: uuid.UUID | None = None,
     ) -> list[BookingOccupancy]:
         """Load bookings that may overlap the range; blocking filter uses explicit as_of."""
         blocking_predicate = or_(
@@ -175,13 +176,16 @@ class AvailabilityRepository:
                 Booking.expires_at > as_of,
             ),
         )
-        stmt = select(Booking).where(
+        filters = [
             Booking.salon_id == salon_id,
             Booking.staff_id == staff_id,
             Booking.starts_at < range_end_utc,
             Booking.ends_at > range_start_utc,
             blocking_predicate,
-        )
+        ]
+        if exclude_booking_id is not None:
+            filters.append(Booking.id != exclude_booking_id)
+        stmt = select(Booking).where(*filters)
         rows = self._session.scalars(stmt).all()
         return [
             BookingOccupancy(
