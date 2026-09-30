@@ -14,9 +14,12 @@ from app.services.booking.errors import (
     BookingValidationError,
     SlotNotAvailableError,
 )
+from app.core.config import get_settings
+from app.services.booking.manage_token import verify_manage_token
 from app.services.booking.repository import BookingRepository
 from app.services.booking.types import (
     BookingListRow,
+    CancelBookingResult,
     CreateBookingResult,
     ServiceSnapshot,
     compute_occupied_interval,
@@ -95,6 +98,7 @@ class BookingService:
         customer_notes: str | None = None,
         internal_notes: str | None = None,
         created_by_user_id: uuid.UUID | None = None,
+        manage_token_hash: str | None = None,
     ) -> CreateBookingResult:
         if as_of.tzinfo is None:
             raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
@@ -118,6 +122,7 @@ class BookingService:
             customer_notes=customer_notes,
             internal_notes=internal_notes,
             created_by_user_id=created_by_user_id,
+            manage_token_hash=manage_token_hash,
         )
 
     def _create_booking_in_transaction(
@@ -135,6 +140,7 @@ class BookingService:
         customer_notes: str | None,
         internal_notes: str | None,
         created_by_user_id: uuid.UUID | None,
+        manage_token_hash: str | None,
     ) -> CreateBookingResult:
         currency = self._repo.get_salon_currency(salon_id)
         if currency is None:
@@ -216,6 +222,7 @@ class BookingService:
             expires_at=hold_expires_at,
             confirmed_at=confirmed_at,
             created_by_user_id=created_by_user_id,
+            manage_token_hash=manage_token_hash,
         )
 
         try:
@@ -250,3 +257,43 @@ class BookingService:
                 raise BookingValidationError("expires_at must be after as_of for public holds")
         if status == "confirmed" and expires_at is not None:
             raise BookingValidationError("confirmed booking must not set expires_at")
+
+    def cancel_booking(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        token: str,
+        as_of: datetime,
+        reason: str | None = None,
+    ) -> CancelBookingResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+        if reason is not None and not reason.strip():
+            reason = None
+        if reason is not None and len(reason) > 255:
+            raise BookingValidationError("cancellation reason must be at most 255 characters")
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        pepper = get_settings().booking_manage_token_pepper
+        if not verify_manage_token(token, booking.manage_token_hash, pepper=pepper):
+            raise BookingNotFoundError("booking not found")
+
+        if booking.status not in ("pending", "confirmed"):
+            raise BookingValidationError(
+                "booking cannot be cancelled in its current status"
+            )
+
+        booking.status = "cancelled"
+        booking.cancelled_at = as_of
+        booking.cancellation_reason = reason
+        self._session.flush()
+
+        return CancelBookingResult(
+            booking_id=booking.id,
+            status=booking.status,
+            cancelled_at=booking.cancelled_at,
+        )

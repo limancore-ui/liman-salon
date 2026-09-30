@@ -33,6 +33,7 @@ BOOKING_ID = uuid.UUID("55555555-5555-4555-8555-555555555555")
 SERVICE_START = datetime(2026, 9, 25, 10, 0, tzinfo=timezone.utc)
 SERVICE_END = datetime(2026, 9, 25, 11, 0, tzinfo=timezone.utc)
 SLUG = "liman-demo"
+MANAGE_TOKEN = "mock-manage-token-for-tests"
 ALLOWED_RESPONSE_KEYS = {
     "salon_id",
     "customer_id",
@@ -40,6 +41,7 @@ ALLOWED_RESPONSE_KEYS = {
     "service_start",
     "service_end",
     "hold_expires_at",
+    "manage_token",
 }
 
 
@@ -63,6 +65,7 @@ def _success_result(*, customer_id: uuid.UUID = CUSTOMER_ID) -> PublicBookingOrc
         service_start=SERVICE_START,
         service_end=SERVICE_END,
         hold_expires_at=FIXED_AS_OF + timedelta(seconds=900),
+        manage_token=MANAGE_TOKEN,
     )
 
 
@@ -175,6 +178,7 @@ def test_customer_resolution_uses_resolved_salon_id_integration_shape() -> None:
         service_start=SERVICE_START,
         service_end=SERVICE_END,
         hold_expires_at=FIXED_AS_OF + timedelta(seconds=900),
+        manage_token=MANAGE_TOKEN,
     )
     orch = PublicBookingOrchestrator(mock_salon, mock_customer, mock_public)
     app.dependency_overrides[get_public_booking_orchestrator] = lambda: orch
@@ -279,6 +283,7 @@ def test_existing_public_booking_endpoint_regression() -> None:
         service_start=SERVICE_START,
         service_end=SERVICE_END,
         hold_expires_at=FIXED_AS_OF + timedelta(seconds=900),
+        manage_token=MANAGE_TOKEN,
     )
     app.dependency_overrides[get_public_booking_service] = lambda: mock_public
     app.dependency_overrides[get_as_of] = lambda: FIXED_AS_OF

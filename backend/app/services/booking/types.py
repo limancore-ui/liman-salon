@@ -81,6 +81,13 @@ class CreateBookingResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CancelBookingResult:
+    booking_id: UUID
+    status: str
+    cancelled_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class BookingListRow:
     """Admin list view row with joined display names (tenant-scoped)."""
 

@@ -14,6 +14,7 @@ class PublicBookingResult:
     service_start: datetime
     service_end: datetime
     hold_expires_at: datetime
+    manage_token: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,3 +25,4 @@ class PublicBookingOrchestrateResult:
     service_start: datetime
     service_end: datetime
     hold_expires_at: datetime
+    manage_token: str

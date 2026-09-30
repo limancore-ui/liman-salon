@@ -23,6 +23,7 @@ AS_OF = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 SERVICE_START = datetime(2026, 9, 25, 10, 0, tzinfo=UTC)
 SERVICE_END = datetime(2026, 9, 25, 11, 0, tzinfo=UTC)
 HOLD = AS_OF + timedelta(seconds=900)
+MANAGE_TOKEN = "mock-manage-token-for-tests"
 
 
 def _orchestrator() -> tuple[PublicBookingOrchestrator, MagicMock, MagicMock, MagicMock]:
@@ -58,6 +59,7 @@ def test_orchestrator_resolves_salon_then_customer_then_booking() -> None:
         service_start=SERVICE_START,
         service_end=SERVICE_END,
         hold_expires_at=HOLD,
+        manage_token=MANAGE_TOKEN,
     )
 
     result = orch.create_public_booking_by_slug(
@@ -92,6 +94,7 @@ def test_orchestrator_resolves_salon_then_customer_then_booking() -> None:
     assert result.service_start == SERVICE_START
     assert result.service_end == SERVICE_END
     assert result.hold_expires_at == HOLD
+    assert result.manage_token == MANAGE_TOKEN
 
 
 def test_orchestrator_unknown_slug_propagates_not_found() -> None:

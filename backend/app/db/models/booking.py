@@ -92,6 +92,7 @@ class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    manage_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     salon: Mapped[Salon] = relationship(back_populates="bookings")
     customer: Mapped[Customer] = relationship(

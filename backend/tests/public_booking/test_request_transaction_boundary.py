@@ -113,7 +113,11 @@ def _orchestrator_for(session: Session) -> PublicBookingOrchestrator:
     return PublicBookingOrchestrator(
         SalonPublicService(session),
         CustomerService(session),
-        PublicBookingService(session, public_booking_hold_seconds=900),
+        PublicBookingService(
+            session,
+            public_booking_hold_seconds=900,
+            booking_manage_token_pepper="test-request-txn-pepper",
+        ),
     )
 
 

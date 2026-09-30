@@ -94,6 +94,18 @@ class BookingRepository:
         result = self._session.execute(stmt)
         return result.rowcount or 0
 
+    def get_booking(
+        self,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+    ) -> Booking | None:
+        return self._session.scalar(
+            select(Booking).where(
+                Booking.salon_id == salon_id,
+                Booking.id == booking_id,
+            )
+        )
+
     def add_booking(self, booking: Booking) -> Booking:
         self._session.add(booking)
         self._session.flush()

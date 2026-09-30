@@ -27,3 +27,8 @@ class PublicBookingCreateResponse(BaseModel):
     service_start: datetime
     service_end: datetime
     hold_expires_at: datetime
+    manage_token: str = Field(
+        ...,
+        min_length=1,
+        description="One-time secret for future cancel/reschedule; store client-side only",
+    )

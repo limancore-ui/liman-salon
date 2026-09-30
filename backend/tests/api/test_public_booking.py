@@ -25,6 +25,7 @@ STAFF_ID = UUID("22222222-2222-4222-8222-222222222222")
 SERVICE_ID = UUID("44444444-4444-4444-8444-444444444444")
 SERVICE_START = datetime(2026, 9, 25, 10, 0, tzinfo=timezone.utc)
 SERVICE_END = datetime(2026, 9, 25, 11, 0, tzinfo=timezone.utc)
+MANAGE_TOKEN = "mock-manage-token-for-tests"
 
 
 def _public_payload(**overrides: object) -> dict:
@@ -51,6 +52,7 @@ def test_public_booking_delegates_to_service() -> None:
         service_start=SERVICE_START,
         service_end=SERVICE_END,
         hold_expires_at=hold,
+        manage_token=MANAGE_TOKEN,
     )
     app.dependency_overrides[get_public_booking_service] = lambda: mock_service
     app.dependency_overrides[get_as_of] = lambda: FIXED_AS_OF
@@ -72,6 +74,7 @@ def test_public_booking_delegates_to_service() -> None:
     assert "starts_at" not in body
     assert "ends_at" not in body
     assert body["hold_expires_at"] is not None
+    assert body["manage_token"] == MANAGE_TOKEN
 
     mock_service.create_public_booking.assert_called_once()
     kwargs = mock_service.create_public_booking.call_args.kwargs
@@ -92,6 +95,7 @@ def test_public_booking_tenant_salon_from_path() -> None:
         service_start=SERVICE_START,
         service_end=SERVICE_END,
         hold_expires_at=FIXED_AS_OF + timedelta(seconds=900),
+        manage_token=MANAGE_TOKEN,
     )
     app.dependency_overrides[get_public_booking_service] = lambda: mock_service
     app.dependency_overrides[get_as_of] = lambda: FIXED_AS_OF

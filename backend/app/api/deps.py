@@ -65,6 +65,7 @@ def get_public_booking_service(session: SessionDep) -> PublicBookingService:
     return PublicBookingService(
         session,
         public_booking_hold_seconds=settings.public_booking_hold_seconds,
+        booking_manage_token_pepper=settings.booking_manage_token_pepper,
     )
 
 

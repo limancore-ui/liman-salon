@@ -64,4 +64,5 @@ class PublicBookingOrchestrator:
             service_start=booking_result.service_start,
             service_end=booking_result.service_end,
             hold_expires_at=booking_result.hold_expires_at,
+            manage_token=booking_result.manage_token,
         )

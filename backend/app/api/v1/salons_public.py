@@ -9,11 +9,16 @@ from fastapi.responses import StreamingResponse
 
 from app.api.deps import (
     AsOfDep,
+    BookingServiceDep,
     CustomerServiceDep,
     MediaServiceDep,
     PublicBookingOrchestratorDep,
     PublicCatalogServiceDep,
     SalonPublicServiceDep,
+)
+from app.api.schemas.public_booking_cancel import (
+    PublicBookingCancelRequest,
+    PublicBookingCancelResponse,
 )
 from app.api.schemas.availability import (
     ServiceAvailabilityResponse,
@@ -239,4 +244,33 @@ def create_public_booking_by_slug(
         service_start=result.service_start,
         service_end=result.service_end,
         hold_expires_at=result.hold_expires_at,
+        manage_token=result.manage_token,
+    )
+
+
+@router.post(
+    "/public/salons/{slug}/bookings/{booking_id}/cancel",
+    response_model=PublicBookingCancelResponse,
+    status_code=200,
+)
+def cancel_public_booking_by_slug(
+    slug: str,
+    booking_id: uuid.UUID,
+    body: PublicBookingCancelRequest,
+    as_of: AsOfDep,
+    salon_public_service: SalonPublicServiceDep,
+    booking_service: BookingServiceDep,
+) -> PublicBookingCancelResponse:
+    entry = salon_public_service.resolve_public_salon_by_slug(slug)
+    result = booking_service.cancel_booking(
+        salon_id=entry.salon_id,
+        booking_id=booking_id,
+        token=body.token,
+        reason=body.reason,
+        as_of=as_of,
+    )
+    return PublicBookingCancelResponse(
+        booking_id=result.booking_id,
+        status=result.status,
+        cancelled_at=result.cancelled_at,
     )

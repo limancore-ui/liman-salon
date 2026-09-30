@@ -9,6 +9,7 @@ import pytest
 from app.services.availability.errors import ServiceNotFoundError
 from app.services.availability.types import ServiceForAvailability
 from app.services.booking.errors import SlotNotAvailableError
+from app.services.booking.manage_token import hash_manage_token, verify_manage_token
 from app.services.booking.types import CreateBookingResult
 from app.services.public_booking.service import PublicBookingService
 
@@ -20,10 +21,15 @@ SERVICE_ID = uuid.uuid4()
 AS_OF = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 SERVICE_START = datetime(2026, 9, 25, 10, 0, tzinfo=UTC)
 HOLD_SECONDS = 600
+TEST_PEPPER = "unit-test-booking-manage-token-pepper"
 
 
 def _svc() -> PublicBookingService:
-    return PublicBookingService(MagicMock(), public_booking_hold_seconds=HOLD_SECONDS)
+    return PublicBookingService(
+        MagicMock(),
+        public_booking_hold_seconds=HOLD_SECONDS,
+        booking_manage_token_pepper=TEST_PEPPER,
+    )
 
 
 def test_create_public_booking_precheck_then_delegates() -> None:
@@ -68,8 +74,20 @@ def test_create_public_booking_precheck_then_delegates() -> None:
     assert kwargs["requested_service_start"] == SERVICE_START
     assert kwargs["expires_at"] == AS_OF + timedelta(seconds=HOLD_SECONDS)
     assert kwargs["as_of"] == AS_OF
+    assert kwargs["manage_token_hash"] is not None
+    assert kwargs["manage_token_hash"] != result.manage_token
 
     assert result.booking_id == booking_id
+    assert result.manage_token
+    assert verify_manage_token(
+        result.manage_token,
+        kwargs["manage_token_hash"],
+        pepper=TEST_PEPPER,
+    )
+    assert kwargs["manage_token_hash"] == hash_manage_token(
+        result.manage_token,
+        pepper=TEST_PEPPER,
+    )
     assert result.service_start == SERVICE_START
     assert result.service_end == SERVICE_START + timedelta(minutes=60)
     assert result.hold_expires_at == AS_OF + timedelta(seconds=HOLD_SECONDS)

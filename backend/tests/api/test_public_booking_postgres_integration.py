@@ -19,8 +19,10 @@ from app.db.models.service import Service
 from app.db.models.staff import Staff
 from app.db.models.staff_service import StaffService
 from app.db.models.working_hour import WorkingHour
+from app.core.config import get_settings
 from app.main import create_app
 from app.db.session import engine
+from app.services.booking.manage_token import verify_manage_token
 
 UTC = timezone.utc
 FIXED_AS_OF = datetime(2026, 8, 1, 8, 0, tzinfo=UTC)
@@ -230,6 +232,15 @@ def test_public_booking_happy_path_http_postgres(
     assert booking_row is not None
     assert booking_row.status == "pending"
     assert booking_row.source == "public"
+    manage_token = book_body["manage_token"]
+    assert manage_token
+    assert booking_row.manage_token_hash is not None
+    assert booking_row.manage_token_hash != manage_token
+    assert verify_manage_token(
+        manage_token,
+        booking_row.manage_token_hash,
+        pepper=get_settings().booking_manage_token_pepper,
+    )
     parsed_start = datetime.fromisoformat(service_start.replace("Z", "+00:00"))
     assert booking_row.starts_at == parsed_start
 
