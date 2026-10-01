@@ -43,3 +43,21 @@ export type AdminBookingRescheduleResponse = {
   service_start: string
   service_end: string
 }
+
+export type AdminBookingCreateStatus = 'pending' | 'confirmed'
+
+export type AdminBookingCreateRequest = {
+  customer_id: string
+  staff_id: string
+  service_id: string
+  requested_service_start: string
+  source: string
+  status: AdminBookingCreateStatus
+}
+
+export type AdminBookingCreateResponse = {
+  booking_id: string
+  starts_at: string
+  ends_at: string
+  status: string
+}

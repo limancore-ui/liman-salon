@@ -3,17 +3,23 @@ import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
 import {
   cancelAdminBooking,
+  createAdminBooking,
   fetchAdminBookings,
   rescheduleAdminBooking,
 } from '../api/bookings'
+import { fetchAdminCustomers } from '../api/customers'
+import { fetchAdminServices, fetchAdminStaffForService } from '../api/services'
 import { fetchAdminStaff } from '../api/staff'
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
-import type { BookingListItem } from '../types/bookings'
+import type { AdminBookingCreateStatus, BookingListItem } from '../types/bookings'
+import type { CustomerListItem } from '../types/customers'
+import type { ServiceListItem } from '../types/services'
 import type { StaffListItem } from '../types/staff'
 import {
   isAdminBookingSlotConflictError,
   mapAdminBookingActionError,
+  mapAdminBookingCreateError,
 } from '../utils/mapAdminBookingActionError'
 import {
   formatBookingDateTime,
@@ -30,6 +36,14 @@ const STATUS_OPTIONS = [
   { value: 'no_show', label: 'No show' },
   { value: 'expired', label: 'Expired' },
 ] as const
+
+const CREATE_STATUS_OPTIONS = [
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'pending', label: 'Pending' },
+] as const satisfies ReadonlyArray<{
+  value: AdminBookingCreateStatus
+  label: string
+}>
 
 type BookingActionMode = 'cancel' | 'reschedule'
 
@@ -149,6 +163,22 @@ export function AdminBookingsPage() {
   const [actionSubmitting, setActionSubmitting] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createCustomerSearch, setCreateCustomerSearch] = useState('')
+  const [createCustomers, setCreateCustomers] = useState<CustomerListItem[]>([])
+  const [createCustomersLoading, setCreateCustomersLoading] = useState(false)
+  const [createCustomerId, setCreateCustomerId] = useState('')
+  const [createServices, setCreateServices] = useState<ServiceListItem[]>([])
+  const [createServicesLoading, setCreateServicesLoading] = useState(false)
+  const [createServiceId, setCreateServiceId] = useState('')
+  const [createServiceStaffIds, setCreateServiceStaffIds] = useState<string[]>([])
+  const [createServiceStaffLoading, setCreateServiceStaffLoading] = useState(false)
+  const [createStaffId, setCreateStaffId] = useState('')
+  const [createStartLocal, setCreateStartLocal] = useState('')
+  const [createStatus, setCreateStatus] = useState<AdminBookingCreateStatus>('confirmed')
+  const [createSubmitting, setCreateSubmitting] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+
   const manage = canManageBookings(session?.salon.role)
   const salonTimeZone = session?.salon.timezone
   const salonTimeZoneForInput = salonTimeZone ?? 'UTC'
@@ -162,6 +192,33 @@ export function AdminBookingsPage() {
     setRescheduleStartLocal('')
     setActionError(null)
   }, [])
+
+  const clearCreate = useCallback(() => {
+    setCreateOpen(false)
+    setCreateCustomerSearch('')
+    setCreateCustomers([])
+    setCreateCustomerId('')
+    setCreateServiceId('')
+    setCreateServiceStaffIds([])
+    setCreateStaffId('')
+    setCreateStartLocal('')
+    setCreateStatus('confirmed')
+    setCreateError(null)
+  }, [])
+
+  const startCreate = useCallback(() => {
+    clearAction()
+    setCreateOpen(true)
+    setCreateError(null)
+    setCreateCustomerSearch('')
+    setCreateCustomers([])
+    setCreateCustomerId('')
+    setCreateServiceId('')
+    setCreateServiceStaffIds([])
+    setCreateStaffId('')
+    setCreateStartLocal('')
+    setCreateStatus('confirmed')
+  }, [clearAction])
 
   const load = useCallback(async () => {
     if (!session) {
@@ -235,22 +292,208 @@ export function AdminBookingsPage() {
     }
   }, [session, manage, clearAuthAndRedirect])
 
+  useEffect(() => {
+    if (!session || !manage || !createOpen) {
+      setCreateServices([])
+      return
+    }
+
+    let cancelled = false
+    setCreateServicesLoading(true)
+    fetchAdminServices(session.token, session.salon.salon_id, { active_only: true })
+      .then((rows) => {
+        if (!cancelled) {
+          setCreateServices(rows)
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) {
+          return
+        }
+        if (isUnauthorizedError(err)) {
+          clearAuthAndRedirect()
+          return
+        }
+        setCreateServices([])
+        setCreateError('Could not load services.')
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setCreateServicesLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [session, manage, createOpen, clearAuthAndRedirect])
+
+  useEffect(() => {
+    if (!session || !manage || !createOpen || !createServiceId) {
+      setCreateServiceStaffIds([])
+      setCreateStaffId('')
+      return
+    }
+
+    let cancelled = false
+    setCreateServiceStaffLoading(true)
+    fetchAdminStaffForService(session.token, session.salon.salon_id, createServiceId)
+      .then((rows) => {
+        if (!cancelled) {
+          setCreateServiceStaffIds(rows.map((row) => row.id))
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) {
+          return
+        }
+        if (isUnauthorizedError(err)) {
+          clearAuthAndRedirect()
+          return
+        }
+        setCreateServiceStaffIds([])
+        setCreateStaffId('')
+        setCreateError('Could not load staff for this service.')
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setCreateServiceStaffLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [session, manage, createOpen, createServiceId, clearAuthAndRedirect])
+
+  const createStaffList = staffList.filter((row) => createServiceStaffIds.includes(row.id))
+
+  useEffect(() => {
+    if (!createOpen || !createServiceId) {
+      return
+    }
+    setCreateStaffId((current) =>
+      createStaffList.some((row) => row.id === current)
+        ? current
+        : (createStaffList[0]?.id ?? ''),
+    )
+  }, [createOpen, createServiceId, createStaffList])
+
+  const searchCreateCustomers = useCallback(async () => {
+    if (!session || !createOpen) {
+      return
+    }
+    setCreateCustomersLoading(true)
+    setCreateError(null)
+    try {
+      const trimmed = createCustomerSearch.trim()
+      const rows = await fetchAdminCustomers(session.token, session.salon.salon_id, {
+        q: trimmed === '' ? undefined : trimmed,
+        limit: 50,
+      })
+      setCreateCustomers(rows)
+      setCreateCustomerId((current) =>
+        rows.some((row) => row.id === current) ? current : (rows[0]?.id ?? ''),
+      )
+    } catch (err: unknown) {
+      if (isUnauthorizedError(err)) {
+        clearAuthAndRedirect()
+        return
+      }
+      setCreateCustomers([])
+      setCreateCustomerId('')
+      setCreateError('Could not search customers.')
+    } finally {
+      setCreateCustomersLoading(false)
+    }
+  }, [session, createOpen, createCustomerSearch, clearAuthAndRedirect])
+
   const startCancel = useCallback((row: BookingListItem) => {
+    clearCreate()
     setActionError(null)
     setActionBooking(row)
     setActionMode('cancel')
     setCancelReason('')
-  }, [])
+  }, [clearCreate])
 
   const startReschedule = useCallback(
     (row: BookingListItem) => {
+      clearCreate()
       setActionError(null)
       setActionBooking(row)
       setActionMode('reschedule')
       setRescheduleStaffId(resolveStaffIdForBooking(staffList, row.staff_name))
       setRescheduleStartLocal(isoToDatetimeLocal(row.starts_at, salonTimeZoneForInput))
     },
-    [staffList, salonTimeZoneForInput],
+    [clearCreate, staffList, salonTimeZoneForInput],
+  )
+
+  const handleConfirmCreate = useCallback(
+    async (event: FormEvent) => {
+      event.preventDefault()
+      if (!session || !createOpen || createSubmitting) {
+        return
+      }
+      if (!createCustomerId) {
+        setCreateError('Select a customer.')
+        return
+      }
+      if (!createServiceId) {
+        setCreateError('Select a service.')
+        return
+      }
+      if (!createStaffId) {
+        setCreateError('Select a staff member.')
+        return
+      }
+      if (!createStartLocal) {
+        setCreateError('Choose a service start time.')
+        return
+      }
+
+      setCreateSubmitting(true)
+      setCreateError(null)
+      try {
+        await createAdminBooking(session.token, session.salon.salon_id, {
+          customer_id: createCustomerId,
+          staff_id: createStaffId,
+          service_id: createServiceId,
+          requested_service_start: datetimeLocalToIso(
+            createStartLocal,
+            salonTimeZoneForInput,
+          ),
+          source: 'admin',
+          status: createStatus,
+        })
+        clearCreate()
+        await load()
+      } catch (err: unknown) {
+        if (isUnauthorizedError(err)) {
+          clearAuthAndRedirect()
+          return
+        }
+        setCreateError(mapAdminBookingCreateError(err))
+        if (isAdminBookingSlotConflictError(err)) {
+          setCreateStartLocal('')
+        }
+      } finally {
+        setCreateSubmitting(false)
+      }
+    },
+    [
+      session,
+      createOpen,
+      createSubmitting,
+      createCustomerId,
+      createServiceId,
+      createStaffId,
+      createStartLocal,
+      createStatus,
+      salonTimeZoneForInput,
+      clearCreate,
+      load,
+      clearAuthAndRedirect,
+    ],
   )
 
   const handleConfirmCancel = useCallback(
@@ -353,9 +596,21 @@ export function AdminBookingsPage() {
           <h1 className="admin-bookings__title">Bookings</h1>
           <p className="admin-bookings__lead">
             {manage
-              ? 'View bookings and cancel or reschedule pending and confirmed appointments.'
+              ? 'View bookings, create appointments, and cancel or reschedule pending and confirmed ones.'
               : 'Read-only list for your salon.'}
           </p>
+          {manage && !createOpen && actionMode === null ? (
+            <p className="admin-bookings__header-actions">
+              <button
+                type="button"
+                className="btn btn--primary btn--compact"
+                onClick={startCreate}
+                disabled={actionSubmitting || createSubmitting}
+              >
+                Create booking
+              </button>
+            </p>
+          ) : null}
         </header>
 
         <form
@@ -398,6 +653,178 @@ export function AdminBookingsPage() {
             Apply
           </button>
         </form>
+
+        {manage && createOpen ? (
+          <form
+            className="admin-bookings__form"
+            onSubmit={(event) => void handleConfirmCreate(event)}
+          >
+            <h2 className="admin-bookings__form-title">Create booking</h2>
+            <p className="admin-bookings__form-lead">
+              Search for a customer, then choose service, staff, and start time in salon
+              timezone ({salonTimeZoneForInput}).
+            </p>
+            <div className="admin-bookings__form-grid">
+              <label className="admin-bookings__filter admin-bookings__filter--wide">
+                <span>Customer search</span>
+                <input
+                  type="search"
+                  value={createCustomerSearch}
+                  onChange={(event) => setCreateCustomerSearch(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      void searchCreateCustomers()
+                    }
+                  }}
+                  placeholder="Name, phone, or email"
+                  autoComplete="off"
+                  disabled={createSubmitting}
+                />
+              </label>
+              <label className="admin-bookings__filter">
+                <span>Find</span>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--compact"
+                  onClick={() => void searchCreateCustomers()}
+                  disabled={createSubmitting || createCustomersLoading}
+                >
+                  Search customers
+                </button>
+              </label>
+              <label className="admin-bookings__filter admin-bookings__filter--wide">
+                <span>Customer</span>
+                <select
+                  value={createCustomerId}
+                  onChange={(event) => setCreateCustomerId(event.target.value)}
+                  disabled={
+                    createSubmitting || createCustomersLoading || createCustomers.length === 0
+                  }
+                  required
+                >
+                  {createCustomers.length === 0 ? (
+                    <option value="">Search to load customers</option>
+                  ) : null}
+                  {createCustomers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.full_name}
+                      {customer.phone ? ` · ${customer.phone}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="admin-bookings__filter">
+                <span>Service</span>
+                <select
+                  value={createServiceId}
+                  onChange={(event) => setCreateServiceId(event.target.value)}
+                  disabled={createSubmitting || createServicesLoading || createServices.length === 0}
+                  required
+                >
+                  {createServices.length === 0 ? (
+                    <option value="">
+                      {createServicesLoading ? 'Loading services…' : 'No active services'}
+                    </option>
+                  ) : (
+                    <>
+                      <option value="">Select service</option>
+                      {createServices.map((service) => (
+                        <option key={service.id} value={service.id}>
+                          {service.name} · {service.duration_minutes} min
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+              </label>
+              <label className="admin-bookings__filter">
+                <span>Staff</span>
+                <select
+                  value={createStaffId}
+                  onChange={(event) => setCreateStaffId(event.target.value)}
+                  disabled={
+                    createSubmitting ||
+                    createServiceStaffLoading ||
+                    staffLoading ||
+                    !createServiceId ||
+                    createStaffList.length === 0
+                  }
+                  required
+                >
+                  {!createServiceId ? (
+                    <option value="">Select a service first</option>
+                  ) : createStaffList.length === 0 ? (
+                    <option value="">
+                      {createServiceStaffLoading || staffLoading
+                        ? 'Loading staff…'
+                        : 'No bookable staff for service'}
+                    </option>
+                  ) : null}
+                  {createStaffList.map((staff) => (
+                    <option key={staff.id} value={staff.id}>
+                      {staff.display_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="admin-bookings__filter">
+                <span>Service start</span>
+                <input
+                  type="datetime-local"
+                  required
+                  value={createStartLocal}
+                  onChange={(event) => setCreateStartLocal(event.target.value)}
+                  disabled={createSubmitting}
+                />
+              </label>
+              <label className="admin-bookings__filter">
+                <span>Status</span>
+                <select
+                  value={createStatus}
+                  onChange={(event) =>
+                    setCreateStatus(event.target.value as AdminBookingCreateStatus)
+                  }
+                  disabled={createSubmitting}
+                >
+                  {CREATE_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="admin-bookings__form-actions">
+              <button
+                type="submit"
+                className="btn btn--primary btn--compact"
+                disabled={
+                  createSubmitting ||
+                  createServicesLoading ||
+                  createServices.length === 0 ||
+                  createCustomers.length === 0
+                }
+              >
+                Create booking
+              </button>
+              <button
+                type="button"
+                className="btn btn--secondary btn--compact"
+                onClick={clearCreate}
+                disabled={createSubmitting}
+              >
+                Back
+              </button>
+            </div>
+          </form>
+        ) : null}
+
+        {createError ? (
+          <p className="admin-bookings__state admin-bookings__state--error" role="alert">
+            {createError}
+          </p>
+        ) : null}
 
         {manage && actionMode === 'cancel' && actionBooking ? (
           <form
@@ -570,6 +997,8 @@ export function AdminBookingsPage() {
                                 onClick={() => startReschedule(row)}
                                 disabled={
                                   actionSubmitting ||
+                                  createSubmitting ||
+                                  createOpen ||
                                   (isActiveRow && actionMode === 'reschedule')
                                 }
                               >
@@ -581,6 +1010,8 @@ export function AdminBookingsPage() {
                                 onClick={() => startCancel(row)}
                                 disabled={
                                   actionSubmitting ||
+                                  createSubmitting ||
+                                  createOpen ||
                                   (isActiveRow && actionMode === 'cancel')
                                 }
                               >

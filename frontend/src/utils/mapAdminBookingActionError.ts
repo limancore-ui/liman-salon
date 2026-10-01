@@ -23,6 +23,14 @@ export function mapAdminBookingActionError(err: unknown): string {
   return 'Could not reach the server. Check your connection and try again.'
 }
 
+/** Create booking: reuse action mapping; surface backend validation detail on 422. */
+export function mapAdminBookingCreateError(err: unknown): string {
+  if (err instanceof ApiError && err.status === 422 && err.message.trim() !== '') {
+    return err.message
+  }
+  return mapAdminBookingActionError(err)
+}
+
 export function isAdminBookingSlotConflictError(err: unknown): boolean {
   if (!(err instanceof ApiError) || err.status !== 409) {
     return false

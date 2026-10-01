@@ -1,5 +1,6 @@
 import { ApiError } from './errors'
 import type { ListServicesParams, ServiceListItem } from '../types/services'
+import type { StaffListItem } from '../types/staff'
 
 type ApiErrorBody = {
   detail?: string
@@ -48,4 +49,21 @@ export async function fetchAdminServices(
     throw await readApiError(response)
   }
   return (await response.json()) as ServiceListItem[]
+}
+
+export async function fetchAdminStaffForService(
+  token: string,
+  salonId: string,
+  serviceId: string,
+): Promise<StaffListItem[]> {
+  const response = await fetch(
+    `/api/v1/salons/${encodeURIComponent(salonId)}/services/${encodeURIComponent(serviceId)}/staff`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  )
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as StaffListItem[]
 }

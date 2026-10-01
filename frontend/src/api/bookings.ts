@@ -2,6 +2,8 @@ import { ApiError } from './errors'
 import type {
   AdminBookingCancelRequest,
   AdminBookingCancelResponse,
+  AdminBookingCreateRequest,
+  AdminBookingCreateResponse,
   AdminBookingRescheduleRequest,
   AdminBookingRescheduleResponse,
   BookingListItem,
@@ -49,6 +51,32 @@ function buildQuery(params: ListBookingsParams): string {
   }
   const qs = search.toString()
   return qs ? `?${qs}` : ''
+}
+
+export async function createAdminBooking(
+  token: string,
+  salonId: string,
+  body: AdminBookingCreateRequest,
+): Promise<AdminBookingCreateResponse> {
+  const response = await fetch(bookingsBase(salonId), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      customer_id: body.customer_id,
+      staff_id: body.staff_id,
+      service_id: body.service_id,
+      requested_service_start: body.requested_service_start,
+      source: body.source,
+      status: body.status,
+    }),
+  })
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as AdminBookingCreateResponse
 }
 
 export async function fetchAdminBookings(
