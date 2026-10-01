@@ -9,7 +9,10 @@ import type {
   DashboardStatusCounts,
   DashboardWarning,
 } from '../types/dashboard'
-import { formatPrice } from '../utils/format'
+import {
+  formatBookingTime,
+  formatDashboardPrice,
+} from '../utils/adminSalonFormat'
 
 const STATUS_SUMMARY: {
   key: keyof DashboardStatusCounts
@@ -42,28 +45,6 @@ function formatSalonDate(isoDate: string, timeZone: string | undefined): string 
   return date.toLocaleDateString(undefined, {
     dateStyle: 'full',
     ...(timeZone ? { timeZone } : {}),
-  })
-}
-
-function formatBookingTime(iso: string, timeZone: string | undefined): string {
-  const date = new Date(iso)
-  if (timeZone) {
-    return date.toLocaleTimeString(undefined, { timeStyle: 'short', timeZone })
-  }
-  return date.toLocaleTimeString(undefined, { timeStyle: 'short', timeZone: 'UTC' }) + ' UTC'
-}
-
-function formatDashboardPrice(
-  cents: number,
-  currencyCode: string | null | undefined,
-): string {
-  if (currencyCode) {
-    return formatPrice(cents, currencyCode)
-  }
-  const amount = cents / 100
-  return amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
   })
 }
 

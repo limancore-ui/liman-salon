@@ -15,6 +15,10 @@ import {
   isAdminBookingSlotConflictError,
   mapAdminBookingActionError,
 } from '../utils/mapAdminBookingActionError'
+import {
+  formatBookingDateTime,
+  formatDashboardPrice,
+} from '../utils/adminSalonFormat'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
@@ -35,23 +39,6 @@ function canManageBookings(role: string | undefined): boolean {
 
 function isActionableBookingStatus(status: string): boolean {
   return status === 'pending' || status === 'confirmed'
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso)
-  return date.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
-}
-
-function formatPrice(cents: number): string {
-  return (cents / 100).toLocaleString(undefined, {
-    style: 'currency',
-    currency: 'KZT',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })
 }
 
 function dateInputToUtcRange(from: string, to: string): {
@@ -163,7 +150,9 @@ export function AdminBookingsPage() {
   const [actionError, setActionError] = useState<string | null>(null)
 
   const manage = canManageBookings(session?.salon.role)
-  const salonTimeZone = session?.salon.timezone ?? 'UTC'
+  const salonTimeZone = session?.salon.timezone
+  const salonTimeZoneForInput = salonTimeZone ?? 'UTC'
+  const salonCurrencyCode = session?.salon.currency_code ?? undefined
 
   const clearAction = useCallback(() => {
     setActionBooking(null)
@@ -259,9 +248,9 @@ export function AdminBookingsPage() {
       setActionBooking(row)
       setActionMode('reschedule')
       setRescheduleStaffId(resolveStaffIdForBooking(staffList, row.staff_name))
-      setRescheduleStartLocal(isoToDatetimeLocal(row.starts_at, salonTimeZone))
+      setRescheduleStartLocal(isoToDatetimeLocal(row.starts_at, salonTimeZoneForInput))
     },
-    [staffList, salonTimeZone],
+    [staffList, salonTimeZoneForInput],
   )
 
   const handleConfirmCancel = useCallback(
@@ -326,7 +315,7 @@ export function AdminBookingsPage() {
           actionBooking.id,
           {
             staff_id: rescheduleStaffId,
-            service_start: datetimeLocalToIso(rescheduleStartLocal, salonTimeZone),
+            service_start: datetimeLocalToIso(rescheduleStartLocal, salonTimeZoneForInput),
           },
         )
         clearAction()
@@ -350,7 +339,7 @@ export function AdminBookingsPage() {
       actionSubmitting,
       rescheduleStaffId,
       rescheduleStartLocal,
-      salonTimeZone,
+      salonTimeZoneForInput,
       clearAction,
       load,
       clearAuthAndRedirect,
@@ -417,7 +406,8 @@ export function AdminBookingsPage() {
           >
             <h2 className="admin-bookings__form-title">Cancel booking</h2>
             <p className="admin-bookings__form-lead">
-              {actionBooking.customer_name} · {formatDateTime(actionBooking.starts_at)} ·{' '}
+              {actionBooking.customer_name} ·{' '}
+              {formatBookingDateTime(actionBooking.starts_at, salonTimeZone)} ·{' '}
               {actionBooking.service_name}
             </p>
             <div className="admin-bookings__form-grid">
@@ -557,7 +547,7 @@ export function AdminBookingsPage() {
                   const isActiveRow = actionBooking?.id === row.id
                   return (
                     <tr key={row.id}>
-                      <td>{formatDateTime(row.starts_at)}</td>
+                      <td>{formatBookingDateTime(row.starts_at, salonTimeZone)}</td>
                       <td>
                         <span className="admin-bookings__customer-name">{row.customer_name}</span>
                         {row.customer_phone ? (
@@ -569,7 +559,7 @@ export function AdminBookingsPage() {
                       <td>
                         <span className="admin-bookings__status">{row.status.replace('_', ' ')}</span>
                       </td>
-                      <td>{formatPrice(row.price_cents)}</td>
+                      <td>{formatDashboardPrice(row.price_cents, salonCurrencyCode)}</td>
                       {manage ? (
                         <td className="admin-bookings__actions">
                           {actionable ? (
