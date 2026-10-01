@@ -13,6 +13,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     desc,
     func,
@@ -95,6 +96,12 @@ class Notification(Base, UUIDPrimaryKeyMixin):
     )
 
     __table_args__ = (
+        UniqueConstraint(
+            "salon_id",
+            "booking_id",
+            "template_key",
+            name="uq_notifications_salon_id_booking_id_template_key",
+        ),
         ForeignKeyConstraint(
             ["salon_id", "booking_id"],
             ["bookings.salon_id", "bookings.id"],

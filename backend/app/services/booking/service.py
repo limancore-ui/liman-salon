@@ -18,6 +18,7 @@ from app.core.config import get_settings
 from app.services.booking.manage_token import verify_manage_token
 from app.services.salon_settings import resolve_public_booking_hold_seconds
 from app.services.booking.repository import BookingRepository
+from app.services.notifications.service import NotificationService
 from app.services.booking.types import (
     BookingListRow,
     CancelBookingResult,
@@ -47,10 +48,16 @@ _BOOKING_STATUSES = frozenset(
 class BookingService:
     """Create bookings with tenant isolation, buffers, and availability checks."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        *,
+        notifications: NotificationService | None = None,
+    ) -> None:
         self._session = session
         self._repo = BookingRepository(session)
         self._availability = AvailabilityService(session)
+        self._notifications = notifications
 
     def list_bookings(
         self,
@@ -435,7 +442,14 @@ class BookingService:
         if booking is None:
             raise BookingNotFoundError("booking not found")
 
-        return self._confirm_booking_loaded(booking, as_of=as_of)
+        result = self._confirm_booking_loaded(booking, as_of=as_of)
+        if self._notifications is not None:
+            self._notifications.enqueue_booking_confirmed(
+                salon_id=salon_id,
+                booking=booking,
+                as_of=as_of,
+            )
+        return result
 
     def _reschedule_booking_loaded(
         self,

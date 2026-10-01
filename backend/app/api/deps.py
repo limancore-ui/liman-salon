@@ -25,6 +25,7 @@ from app.services.media.deps import build_media_service
 from app.services.media.service import MediaService
 from app.services.dashboard.service import DashboardService
 from app.services.staff.service import StaffService
+from app.services.notifications.service import NotificationService
 
 SessionDep = Annotated[Session, Depends(get_db)]
 
@@ -55,7 +56,10 @@ def get_availability_service(session: SessionDep) -> AvailabilityService:
 
 
 def get_booking_service(session: SessionDep) -> BookingService:
-    return BookingService(session)
+    return BookingService(
+        session,
+        notifications=NotificationService(session),
+    )
 
 
 AvailabilityServiceDep = Annotated[AvailabilityService, Depends(get_availability_service)]
