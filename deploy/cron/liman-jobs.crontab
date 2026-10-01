@@ -1,0 +1,11 @@
+# Liman Salon — background job schedule (UTC recommended).
+# Docker / supercronic: image WORKDIR is /app/backend (see backend/Dockerfile.jobs).
+# Bare-metal Linux: copy lines below and set cd + python path per docs/ops/scheduled-jobs.md.
+#
+# Intervals: notifications every 1 minute; pending hold expiry every 2 minutes.
+
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+* * * * * python -m app.jobs.process_pending_notifications
+*/2 * * * * python -m app.jobs.expire_pending_holds
