@@ -266,7 +266,7 @@ def test_admin_create_forces_source_admin() -> None:
     assert mock_service.create_booking.call_args.kwargs["source"] == "admin"
 
 
-def test_admin_pending_success_passes_expires_at() -> None:
+def test_admin_pending_create_does_not_pass_client_expires_at() -> None:
     app = create_app()
     mock_service = MagicMock()
     mock_service.create_booking.return_value = CreateBookingResult(
@@ -293,4 +293,4 @@ def test_admin_pending_success_passes_expires_at() -> None:
     assert response.status_code == 201
     kwargs = mock_service.create_booking.call_args.kwargs
     assert kwargs["source"] == "admin"
-    assert kwargs["expires_at"] is not None
+    assert "expires_at" not in kwargs

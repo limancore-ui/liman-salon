@@ -105,7 +105,6 @@ def create_booking(
         source="admin",
         status=body.status,
         as_of=as_of,
-        expires_at=body.expires_at,
         customer_notes=body.customer_notes,
         internal_notes=body.internal_notes,
         created_by_user_id=context.user_id,

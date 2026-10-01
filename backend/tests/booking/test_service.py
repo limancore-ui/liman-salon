@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
+
+from app.core.config import get_settings
 from sqlalchemy.exc import IntegrityError
 
 from app.db.models.booking import Booking
@@ -299,3 +301,42 @@ def test_public_pending_success_sets_expires_at() -> None:
     assert booking_arg.status == "pending"
     assert booking_arg.expires_at == expires
     assert booking_arg.confirmed_at is None
+
+
+def test_admin_pending_server_generates_expires_at() -> None:
+    svc, repo, _ = _booking_service_with_mocks()
+    client_expires = datetime(2099, 1, 1, 0, 0, tzinfo=UTC)
+    svc.create_booking(
+        salon_id=SALON_ID,
+        customer_id=CUSTOMER_ID,
+        staff_id=STAFF_ID,
+        service_id=SERVICE_ID,
+        requested_service_start=REQUESTED,
+        source="admin",
+        status="pending",
+        as_of=AS_OF,
+        expires_at=client_expires,
+    )
+    hold_seconds = get_settings().public_booking_hold_seconds
+    expected = AS_OF + timedelta(seconds=hold_seconds)
+    booking_arg = repo.add_booking.call_args[0][0]
+    assert booking_arg.status == "pending"
+    assert booking_arg.expires_at == expected
+    assert booking_arg.expires_at != client_expires
+
+
+def test_admin_pending_without_client_expires_still_gets_hold() -> None:
+    svc, repo, _ = _booking_service_with_mocks()
+    svc.create_booking(
+        salon_id=SALON_ID,
+        customer_id=CUSTOMER_ID,
+        staff_id=STAFF_ID,
+        service_id=SERVICE_ID,
+        requested_service_start=REQUESTED,
+        source="admin",
+        status="pending",
+        as_of=AS_OF,
+    )
+    hold_seconds = get_settings().public_booking_hold_seconds
+    booking_arg = repo.add_booking.call_args[0][0]
+    assert booking_arg.expires_at == AS_OF + timedelta(seconds=hold_seconds)

@@ -108,6 +108,12 @@ class BookingService:
                 "requested_service_start must be timezone-aware (UTC recommended)"
             )
 
+        expires_at = self._resolve_pending_expires_at(
+            source=source,
+            status=status,
+            as_of=as_of,
+            expires_at=expires_at,
+        )
         self._validate_status_and_hold(source, status, as_of, expires_at)
 
         return self._create_booking_in_transaction(
@@ -239,6 +245,21 @@ class BookingService:
         )
 
     @staticmethod
+    def _resolve_pending_expires_at(
+        *,
+        source: str,
+        status: str,
+        as_of: datetime,
+        expires_at: datetime | None,
+    ) -> datetime | None:
+        if status != "pending":
+            return expires_at
+        if source == "admin":
+            hold_seconds = get_settings().public_booking_hold_seconds
+            return as_of + timedelta(seconds=hold_seconds)
+        return expires_at
+
+    @staticmethod
     def _validate_status_and_hold(
         source: str,
         status: str,
@@ -249,15 +270,38 @@ class BookingService:
             raise BookingValidationError(
                 "create_booking supports only pending or confirmed status"
             )
-        if source == "public" and status == "pending":
+        if status == "pending":
             if expires_at is None:
-                raise BookingValidationError("public pending booking requires expires_at")
+                raise BookingValidationError("pending booking requires expires_at")
             if expires_at.tzinfo is None:
                 raise BookingValidationError("expires_at must be timezone-aware")
             if expires_at <= as_of:
-                raise BookingValidationError("expires_at must be after as_of for public holds")
+                raise BookingValidationError(
+                    "expires_at must be after as_of for pending holds"
+                )
         if status == "confirmed" and expires_at is not None:
             raise BookingValidationError("confirmed booking must not set expires_at")
+
+    def _expire_loaded_stale_pending_hold(
+        self,
+        booking: Booking,
+        *,
+        as_of: datetime,
+    ) -> None:
+        if booking.status != "pending":
+            return
+        if booking.expires_at is None:
+            return
+        if booking.expires_at > as_of:
+            return
+        self._repo.expire_stale_pending_holds(
+            salon_id=booking.salon_id,
+            staff_id=booking.staff_id,
+            window_start=booking.starts_at,
+            window_end=booking.ends_at,
+            as_of=as_of,
+        )
+        self._session.refresh(booking)
 
     @staticmethod
     def _normalize_cancellation_reason(reason: str | None) -> str | None:
@@ -274,6 +318,7 @@ class BookingService:
         as_of: datetime,
         reason: str | None,
     ) -> CancelBookingResult:
+        self._expire_loaded_stale_pending_hold(booking, as_of=as_of)
         if booking.status not in ("pending", "confirmed"):
             raise BookingValidationError(
                 "booking cannot be cancelled in its current status"
@@ -340,6 +385,7 @@ class BookingService:
         new_service_start: datetime,
         as_of: datetime,
     ) -> RescheduleBookingResult:
+        self._expire_loaded_stale_pending_hold(booking, as_of=as_of)
         if booking.status not in ("pending", "confirmed"):
             raise BookingValidationError(
                 "booking cannot be rescheduled in its current status"

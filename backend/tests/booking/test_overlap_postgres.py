@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 import uuid
-from datetime import datetime, time, timezone
+from datetime import datetime, timedelta, time, timezone
 from unittest.mock import patch
 
 import pytest
@@ -386,3 +386,58 @@ def test_public_booking_stale_precheck_returns_409_booking_overlap(
     finally:
         client.close()
         app.dependency_overrides.clear()
+
+
+def test_write_path_expires_stale_pending_overlapping_slot(db_session: Session) -> None:
+    from app.core.config import get_settings
+
+    salon, staff, service = _seed_bookable_salon(db_session)
+    as_of = datetime(2026, 8, 1, 12, 0, tzinfo=UTC)
+    service_start = datetime(2026, 8, 2, 10, 0, tzinfo=UTC)
+    service_end = service_start + timedelta(minutes=service.duration_minutes)
+
+    holder_id = _resolve_customer(
+        db_session,
+        salon_id=salon.id,
+        full_name="Stale Hold",
+        phone=f"+7750{uuid.uuid4().int % 10_000_000:07d}",
+    )
+    stale = Booking(
+        salon_id=salon.id,
+        customer_id=holder_id,
+        staff_id=staff.id,
+        service_id=service.id,
+        starts_at=service_start,
+        ends_at=service_end,
+        status="pending",
+        source="public",
+        price_cents=service.price_cents,
+        currency_code=salon.currency_code,
+        duration_minutes=service.duration_minutes,
+        expires_at=as_of - timedelta(seconds=get_settings().public_booking_hold_seconds),
+    )
+    db_session.add(stale)
+    db_session.flush()
+    stale_id = stale.id
+
+    new_customer = _resolve_customer(
+        db_session,
+        salon_id=salon.id,
+        full_name="New Booking",
+        phone=f"+7751{uuid.uuid4().int % 10_000_000:07d}",
+    )
+    BookingService(db_session).create_booking(
+        salon_id=salon.id,
+        customer_id=new_customer,
+        staff_id=staff.id,
+        service_id=service.id,
+        requested_service_start=service_start,
+        source="admin",
+        status="confirmed",
+        as_of=as_of,
+    )
+
+    db_session.expire(stale)
+    refreshed = db_session.get(Booking, stale_id)
+    assert refreshed is not None
+    assert refreshed.status == "expired"

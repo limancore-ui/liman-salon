@@ -33,7 +33,14 @@ RAW_TOKEN = "valid-manage-token-for-reschedule-unit"
 PEPPER = get_settings().booking_manage_token_pepper
 
 
-def _booking(*, status: str = "pending", staff_id: uuid.UUID = STAFF_A) -> Booking:
+def _booking(
+    *,
+    status: str = "pending",
+    staff_id: uuid.UUID = STAFF_A,
+    expires_at: datetime | None = None,
+) -> Booking:
+    if status == "pending" and expires_at is None:
+        expires_at = datetime(2026, 6, 2, 12, 0, tzinfo=UTC)
     booking = Booking(
         salon_id=SALON_ID,
         customer_id=uuid.uuid4(),
@@ -47,6 +54,7 @@ def _booking(*, status: str = "pending", staff_id: uuid.UUID = STAFF_A) -> Booki
         currency_code="KZT",
         duration_minutes=60,
         manage_token_hash=hash_manage_token(RAW_TOKEN, pepper=PEPPER),
+        expires_at=expires_at,
     )
     booking.id = BOOKING_ID
     return booking
@@ -89,6 +97,23 @@ def _service_with_booking(
     svc._repo = repo
     svc._availability = availability
     repo.get_booking.return_value = booking
+
+    def _expire_stale(**kwargs: object) -> int:
+        if booking is None:
+            return 0
+        exp = booking.expires_at
+        as_of = kwargs.get("as_of")
+        if (
+            booking.status == "pending"
+            and exp is not None
+            and as_of is not None
+            and exp <= as_of
+        ):
+            booking.status = "expired"
+            return 1
+        return 0
+
+    repo.expire_stale_pending_holds.side_effect = _expire_stale
     repo.get_staff.return_value = _active_staff()
     repo.get_service.return_value = _active_service()
     repo.staff_performs_service.return_value = True
@@ -98,6 +123,9 @@ def _service_with_booking(
 
 def test_reschedule_pending_success() -> None:
     booking = _booking(status="pending")
+    original_expires_at = booking.expires_at
+    assert original_expires_at is not None
+    assert original_expires_at > AS_OF
     svc, session, repo, availability = _service_with_booking(booking)
     result = svc.reschedule_booking(
         salon_id=SALON_ID,
@@ -115,6 +143,7 @@ def test_reschedule_pending_success() -> None:
     assert booking.staff_id == STAFF_B
     assert booking.starts_at == NEW_START
     assert booking.ends_at == datetime(2026, 6, 3, 15, 0, tzinfo=UTC)
+    assert booking.expires_at == original_expires_at
     repo.expire_stale_pending_holds.assert_called_once()
     availability.is_occupied_interval_available.assert_called_once()
     kwargs = availability.is_occupied_interval_available.call_args.kwargs
@@ -286,3 +315,35 @@ def test_admin_reschedule_flush_integrity_error_becomes_overlap() -> None:
             new_service_start=NEW_START,
             as_of=AS_OF,
         )
+
+
+def test_reschedule_stale_pending_expires_then_rejected() -> None:
+    stale_expires = datetime(2026, 6, 1, 11, 0, tzinfo=UTC)
+    booking = _booking(status="pending", expires_at=stale_expires)
+    svc, _session, repo, _availability = _service_with_booking(booking)
+    with pytest.raises(BookingValidationError, match="cannot be rescheduled"):
+        svc.reschedule_booking(
+            salon_id=SALON_ID,
+            booking_id=BOOKING_ID,
+            token=RAW_TOKEN,
+            new_staff_id=STAFF_B,
+            new_service_start=NEW_START,
+            as_of=AS_OF,
+        )
+    assert booking.status == "expired"
+    repo.expire_stale_pending_holds.assert_called_once()
+
+
+def test_admin_reschedule_stale_pending_expires_then_rejected() -> None:
+    stale_expires = datetime(2026, 6, 1, 11, 0, tzinfo=UTC)
+    booking = _booking(status="pending", expires_at=stale_expires)
+    svc, _session, _repo, _availability = _service_with_booking(booking)
+    with pytest.raises(BookingValidationError, match="cannot be rescheduled"):
+        svc.admin_reschedule_booking(
+            salon_id=SALON_ID,
+            booking_id=BOOKING_ID,
+            new_staff_id=STAFF_B,
+            new_service_start=NEW_START,
+            as_of=AS_OF,
+        )
+    assert booking.status == "expired"
