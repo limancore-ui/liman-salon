@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 # WhatsApp-first confirm path (C13); delivery via stub until real provider is wired.
 CHANNEL_WHATSAPP = "whatsapp"
 PROVIDER_STUB = "stub"
 TEMPLATE_BOOKING_CONFIRMED = "booking_confirmed"
+TEMPLATE_BOOKING_REMINDER_2H = "booking_reminder_2h"
+
+BOOKING_REMINDER_LEAD = timedelta(hours=2)
 
 MAX_DELIVERY_ATTEMPTS = 8
 BACKOFF_BASE_SECONDS = 60

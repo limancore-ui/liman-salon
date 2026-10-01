@@ -256,6 +256,17 @@ class BookingService:
         except IntegrityError as exc:
             raise BookingOverlapError("booking overlaps an existing appointment") from exc
 
+        if self._notifications is not None and status == "confirmed":
+            self._notifications.enqueue_booking_confirmed(
+                salon_id=salon_id,
+                booking=booking,
+                as_of=as_of,
+            )
+            self._notifications.enqueue_booking_reminder_2h(
+                salon_id=salon_id,
+                booking=booking,
+            )
+
         return CreateBookingResult(
             booking_id=booking.id,
             starts_at=booking.starts_at,
@@ -356,6 +367,12 @@ class BookingService:
         booking.cancellation_reason = reason
         self._session.flush()
 
+        if self._notifications is not None:
+            self._notifications.skip_booking_reminder_2h_on_cancel(
+                salon_id=booking.salon_id,
+                booking_id=booking.id,
+            )
+
         return CancelBookingResult(
             booking_id=booking.id,
             status=booking.status,
@@ -449,6 +466,10 @@ class BookingService:
                 booking=booking,
                 as_of=as_of,
             )
+            self._notifications.enqueue_booking_reminder_2h(
+                salon_id=salon_id,
+                booking=booking,
+            )
         return result
 
     def _reschedule_booking_loaded(
@@ -518,6 +539,11 @@ class BookingService:
             raise BookingOverlapError("booking overlaps an existing appointment") from exc
 
         service_end = new_service_start + timedelta(minutes=service.duration_minutes)
+        if self._notifications is not None:
+            self._notifications.sync_booking_reminder_2h_after_reschedule(
+                salon_id=salon_id,
+                booking=booking,
+            )
         return RescheduleBookingResult(
             booking_id=booking.id,
             status=booking.status,

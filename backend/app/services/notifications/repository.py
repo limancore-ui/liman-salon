@@ -9,7 +9,10 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.db.models.notification import Notification
-from app.services.notifications.constants import TEMPLATE_BOOKING_CONFIRMED
+from app.services.notifications.constants import (
+    TEMPLATE_BOOKING_CONFIRMED,
+    TEMPLATE_BOOKING_REMINDER_2H,
+)
 
 
 class NotificationRepository:
@@ -29,6 +32,19 @@ class NotificationRepository:
                 Notification.salon_id == salon_id,
                 Notification.booking_id == booking_id,
                 Notification.template_key == TEMPLATE_BOOKING_CONFIRMED,
+            )
+        )
+
+    def get_reminder_notification(
+        self,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+    ) -> Notification | None:
+        return self._session.scalar(
+            select(Notification).where(
+                Notification.salon_id == salon_id,
+                Notification.booking_id == booking_id,
+                Notification.template_key == TEMPLATE_BOOKING_REMINDER_2H,
             )
         )
 

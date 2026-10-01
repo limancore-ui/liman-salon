@@ -12,10 +12,12 @@ from app.db.models.booking import Booking
 from app.db.models.notification import Notification
 from app.services.booking.repository import BookingRepository
 from app.services.notifications.constants import (
+    BOOKING_REMINDER_LEAD,
     CHANNEL_WHATSAPP,
     MAX_DELIVERY_ATTEMPTS,
     PROVIDER_STUB,
     TEMPLATE_BOOKING_CONFIRMED,
+    TEMPLATE_BOOKING_REMINDER_2H,
     retry_backoff_seconds,
 )
 from app.services.notifications.provider import NotificationProvider, ProviderSendResult
@@ -82,6 +84,122 @@ class NotificationService:
         self._session.flush()
         return notification
 
+    def enqueue_booking_reminder_2h(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking: Booking,
+    ) -> Notification | None:
+        """
+        Schedule WhatsApp booking_reminder_2h at NET service start minus 2 hours.
+
+        Confirmed bookings only (callers must enforce). No row without phone + opt-in.
+        """
+        if booking.salon_id != salon_id or booking.status != "confirmed":
+            return None
+
+        customer = self._booking_repo.get_customer(salon_id, booking.customer_id)
+        if customer is None:
+            return None
+
+        phone = (customer.phone or "").strip()
+        if not phone or not customer.whatsapp_opt_in:
+            return None
+
+        scheduled_for = self._booking_reminder_scheduled_for(booking)
+        if scheduled_for is None:
+            return None
+
+        existing = self._repo.get_reminder_notification(salon_id, booking.id)
+        if existing is not None:
+            return existing
+
+        payload = self._booking_reminder_payload(booking, customer=customer)
+        notification = Notification(
+            salon_id=salon_id,
+            booking_id=booking.id,
+            customer_id=customer.id,
+            channel=CHANNEL_WHATSAPP,
+            template_key=TEMPLATE_BOOKING_REMINDER_2H,
+            recipient_address=phone,
+            payload=payload,
+            status="pending",
+            provider=PROVIDER_STUB,
+            scheduled_for=scheduled_for,
+        )
+        self._repo.add(notification)
+        self._session.flush()
+        return notification
+
+    def sync_booking_reminder_2h_after_reschedule(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking: Booking,
+    ) -> None:
+        """Recalculate reminder schedule on the same outbox row (no second insert)."""
+        if booking.salon_id != salon_id or booking.status != "confirmed":
+            return
+
+        existing = self._repo.get_reminder_notification(salon_id, booking.id)
+        if existing is None:
+            self.enqueue_booking_reminder_2h(salon_id=salon_id, booking=booking)
+            return
+
+        customer = self._booking_repo.get_customer(salon_id, booking.customer_id)
+        if customer is None:
+            return
+
+        scheduled_for = self._booking_reminder_scheduled_for(booking)
+        if scheduled_for is None:
+            return
+
+        existing.payload = self._booking_reminder_payload(booking, customer=customer)
+        existing.scheduled_for = scheduled_for
+        existing.status = "pending"
+        existing.sent_at = None
+        existing.provider_message_id = None
+        existing.last_error = None
+        existing.attempt_count = 0
+        phone = (customer.phone or "").strip()
+        if phone:
+            existing.recipient_address = phone
+        self._session.flush()
+
+    def skip_booking_reminder_2h_on_cancel(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+    ) -> None:
+        existing = self._repo.get_reminder_notification(salon_id, booking_id)
+        if existing is None or existing.status != "pending":
+            return
+        existing.status = "skipped"
+        existing.scheduled_for = None
+        self._session.flush()
+
+    def _booking_reminder_scheduled_for(self, booking: Booking) -> datetime | None:
+        net_start = self._net_service_start_for_booking(booking)
+        if net_start is None:
+            return None
+        return net_start - BOOKING_REMINDER_LEAD
+
+    def _net_service_start_for_booking(self, booking: Booking) -> datetime | None:
+        service = self._booking_repo.get_service(booking.salon_id, booking.service_id)
+        if service is None:
+            return None
+        return booking.starts_at + timedelta(minutes=service.buffer_before_minutes)
+
+    def _booking_reminder_payload(self, booking: Booking, *, customer: Any) -> dict[str, Any]:
+        net_start = self._net_service_start_for_booking(booking)
+        service_starts_at = net_start if net_start is not None else booking.starts_at
+        return {
+            "booking_id": str(booking.id),
+            "starts_at": service_starts_at.isoformat(),
+            "customer_full_name": customer.full_name,
+        }
+
     def process_due_pending(self, *, as_of: datetime, batch_size: int = 50) -> int:
         """
         Process due pending rows once (no in-process retry loop).
@@ -114,6 +232,14 @@ class NotificationService:
             )
             self._session.flush()
             return
+
+        if notification.template_key == TEMPLATE_BOOKING_REMINDER_2H:
+            if self._should_skip_reminder_at_send(notification):
+                notification.status = "skipped"
+                notification.scheduled_for = None
+                notification.last_error = None
+                self._session.flush()
+                return
 
         result = self._provider.send(notification=notification)
         notification.attempt_count = notification.attempt_count + 1
@@ -155,3 +281,25 @@ class NotificationService:
 
         notification.status = "failed"
         notification.scheduled_for = None
+
+    def _should_skip_reminder_at_send(self, notification: Notification) -> bool:
+        if notification.booking_id is None:
+            return True
+        booking = self._booking_repo.get_booking(
+            notification.salon_id,
+            notification.booking_id,
+        )
+        if booking is None or booking.status != "confirmed":
+            return True
+        if notification.customer_id is None:
+            return True
+        customer = self._booking_repo.get_customer(
+            notification.salon_id,
+            notification.customer_id,
+        )
+        if customer is None:
+            return True
+        phone = (customer.phone or "").strip()
+        if not phone or not customer.whatsapp_opt_in:
+            return True
+        return False

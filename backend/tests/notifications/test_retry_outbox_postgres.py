@@ -12,22 +12,25 @@ from sqlalchemy.orm import Session
 from app.db.models.booking import Booking
 from app.db.models.notification import Notification
 from app.db.session import engine
-from app.services.notifications.constants import MAX_DELIVERY_ATTEMPTS, retry_backoff_seconds
+from app.services.notifications.constants import (
+    MAX_DELIVERY_ATTEMPTS,
+    TEMPLATE_BOOKING_CONFIRMED,
+    retry_backoff_seconds,
+)
 from app.services.notifications.provider import ProviderSendResult
 from app.services.notifications.repository import NotificationRepository
 from app.services.notifications.service import NotificationService
-from tests.notifications.test_confirm_outbox_postgres import (
+from tests.notifications.pg_helpers import (
     AS_OF,
-    _booking_service,
-    _insert_pending_booking,
-    _notification_count,
-    _postgres_available,
-    _seed_salon_with_booking_entities,
-    db_session,
+    booking_service,
+    insert_pending_booking,
+    notification_count,
+    postgres_available,
+    seed_salon_with_booking_entities,
 )
 
 pytestmark = pytest.mark.skipif(
-    not _postgres_available(),
+    not postgres_available(),
     reason="PostgreSQL test database not reachable",
 )
 
@@ -66,11 +69,11 @@ class _FlakyThenSuccessProvider:
 
 
 def _confirm_one_notification(session: Session) -> tuple[uuid.UUID, uuid.UUID]:
-    salon, staff, service, customer = _seed_salon_with_booking_entities(session)
-    booking_id = _insert_pending_booking(
+    salon, staff, service, customer = seed_salon_with_booking_entities(session)
+    booking_id = insert_pending_booking(
         session, salon=salon, staff=staff, service=service, customer=customer
     )
-    _booking_service(session).admin_confirm_booking(
+    booking_service(session).admin_confirm_booking(
         salon_id=salon.id,
         booking_id=booking_id,
         as_of=AS_OF,
@@ -79,7 +82,12 @@ def _confirm_one_notification(session: Session) -> tuple[uuid.UUID, uuid.UUID]:
 
 
 def _get_notification(session: Session, booking_id: uuid.UUID) -> Notification:
-    row = session.scalar(select(Notification).where(Notification.booking_id == booking_id))
+    row = session.scalar(
+        select(Notification).where(
+            Notification.booking_id == booking_id,
+            Notification.template_key == TEMPLATE_BOOKING_CONFIRMED,
+        )
+    )
     assert row is not None
     return row
 
@@ -223,33 +231,33 @@ def test_skip_locked_allows_other_rows_while_one_locked() -> None:
     booking_a: uuid.UUID
     booking_b: uuid.UUID
     try:
-        salon_a, staff_a, service_a, customer_a = _seed_salon_with_booking_entities(
+        salon_a, staff_a, service_a, customer_a = seed_salon_with_booking_entities(
             setup_session
         )
-        booking_a = _insert_pending_booking(
+        booking_a = insert_pending_booking(
             setup_session,
             salon=salon_a,
             staff=staff_a,
             service=service_a,
             customer=customer_a,
         )
-        _booking_service(setup_session).admin_confirm_booking(
+        booking_service(setup_session).admin_confirm_booking(
             salon_id=salon_a.id,
             booking_id=booking_a,
             as_of=AS_OF,
         )
 
-        salon_b, staff_b, service_b, customer_b = _seed_salon_with_booking_entities(
+        salon_b, staff_b, service_b, customer_b = seed_salon_with_booking_entities(
             setup_session
         )
-        booking_b = _insert_pending_booking(
+        booking_b = insert_pending_booking(
             setup_session,
             salon=salon_b,
             staff=staff_b,
             service=service_b,
             customer=customer_b,
         )
-        _booking_service(setup_session).admin_confirm_booking(
+        booking_service(setup_session).admin_confirm_booking(
             salon_id=salon_b.id,
             booking_id=booking_b,
             as_of=AS_OF,
@@ -281,10 +289,16 @@ def test_skip_locked_allows_other_rows_while_one_locked() -> None:
         trans_b.commit()
 
         row_b = session_b.scalar(
-            select(Notification).where(Notification.booking_id == booking_b)
+            select(Notification).where(
+                Notification.booking_id == booking_b,
+                Notification.template_key == TEMPLATE_BOOKING_CONFIRMED,
+            )
         )
         row_a = session_b.scalar(
-            select(Notification).where(Notification.booking_id == booking_a)
+            select(Notification).where(
+                Notification.booking_id == booking_a,
+                Notification.template_key == TEMPLATE_BOOKING_CONFIRMED,
+            )
         )
         sent = [r for r in (row_a, row_b) if r is not None and r.status == "sent"]
         pending = [r for r in (row_a, row_b) if r is not None and r.status == "pending"]
@@ -315,23 +329,23 @@ def test_skip_locked_allows_other_rows_while_one_locked() -> None:
 
 
 def test_retry_processing_is_tenant_scoped(db_session: Session) -> None:
-    salon_a, staff_a, service_a, customer_a = _seed_salon_with_booking_entities(db_session)
-    booking_a = _insert_pending_booking(
+    salon_a, staff_a, service_a, customer_a = seed_salon_with_booking_entities(db_session)
+    booking_a = insert_pending_booking(
         db_session,
         salon=salon_a,
         staff=staff_a,
         service=service_a,
         customer=customer_a,
     )
-    salon_b, staff_b, service_b, customer_b = _seed_salon_with_booking_entities(db_session)
-    booking_b = _insert_pending_booking(
+    salon_b, staff_b, service_b, customer_b = seed_salon_with_booking_entities(db_session)
+    booking_b = insert_pending_booking(
         db_session,
         salon=salon_b,
         staff=staff_b,
         service=service_b,
         customer=customer_b,
     )
-    svc = _booking_service(db_session)
+    svc = booking_service(db_session)
     svc.admin_confirm_booking(salon_id=salon_a.id, booking_id=booking_a, as_of=AS_OF)
     svc.admin_confirm_booking(salon_id=salon_b.id, booking_id=booking_b, as_of=AS_OF)
 
@@ -357,7 +371,7 @@ def test_retryable_delivery_rolls_back_with_transaction() -> None:
         _, booking_id = _confirm_one_notification(session)
         worker = NotificationService(session, provider=_RetryableFailProvider())
         worker.process_due_pending(as_of=AS_OF + timedelta(minutes=1))
-        assert _notification_count(session) == 1
+        assert notification_count(session) == 2
         row = _get_notification(session, booking_id)
         assert row.status == "pending"
         assert row.attempt_count == 1
