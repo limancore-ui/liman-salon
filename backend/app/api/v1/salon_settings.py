@@ -1,0 +1,80 @@
+from __future__ import annotations
+
+import uuid
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
+
+from app.api.deps import SalonSettingsServiceDep
+from app.api.schemas.salon_settings import (
+    SalonBookingSettingsPatch,
+    SalonBookingSettingsResponse,
+    SalonSettingsPatchRequest,
+    SalonSettingsResponse,
+)
+from app.auth.deps import require_roles
+from app.auth.principals import SalonContext
+from app.services.salon_settings.service import (
+    SalonBookingPatchData,
+    SalonSettingsPatchData,
+    SalonSettingsView,
+)
+
+router = APIRouter(prefix="/salons/{salon_id}/settings", tags=["salon-settings"])
+
+WriteSalonContext = Annotated[SalonContext, Depends(require_roles("owner", "admin"))]
+
+
+def _to_response(view: SalonSettingsView) -> SalonSettingsResponse:
+    booking = None
+    if view.public_hold_seconds is not None:
+        booking = SalonBookingSettingsResponse(public_hold_seconds=view.public_hold_seconds)
+    return SalonSettingsResponse(v=1, booking=booking)
+
+
+def _patch_from_request(body: SalonSettingsPatchRequest) -> SalonSettingsPatchData:
+    fields_set = body.model_fields_set
+    if "booking" not in fields_set:
+        return SalonSettingsPatchData(booking_set=False)
+
+    if body.booking is None:
+        return SalonSettingsPatchData(booking_set=True, booking=None)
+
+    booking_body: SalonBookingSettingsPatch = body.booking
+    return SalonSettingsPatchData(
+        booking_set=True,
+        booking=SalonBookingPatchData(
+            public_hold_seconds=booking_body.public_hold_seconds,
+        ),
+    )
+
+
+@router.get("", response_model=SalonSettingsResponse, response_model_exclude_none=True)
+def get_salon_settings(
+    salon_id: uuid.UUID,
+    context: WriteSalonContext,
+    salon_settings_service: SalonSettingsServiceDep,
+) -> SalonSettingsResponse:
+    _assert_path_salon(context, salon_id)
+    view = salon_settings_service.get_settings(salon_id=context.salon_id)
+    return _to_response(view)
+
+
+@router.patch("", response_model=SalonSettingsResponse, response_model_exclude_none=True)
+def patch_salon_settings(
+    salon_id: uuid.UUID,
+    body: SalonSettingsPatchRequest,
+    context: WriteSalonContext,
+    salon_settings_service: SalonSettingsServiceDep,
+) -> SalonSettingsResponse:
+    _assert_path_salon(context, salon_id)
+    view = salon_settings_service.patch_settings(
+        salon_id=context.salon_id,
+        patch=_patch_from_request(body),
+    )
+    return _to_response(view)
+
+
+def _assert_path_salon(context: SalonContext, salon_id: uuid.UUID) -> None:
+    if context.salon_id != salon_id:
+        raise RuntimeError("salon_id path mismatch with SalonContext")

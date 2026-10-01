@@ -10,16 +10,24 @@ const NAV_ITEMS = [
   { label: 'Services', to: '/admin/services' },
   { label: 'Schedule', to: '/admin/schedule' },
   { label: 'Media', to: '/admin/media' },
+  { label: 'Settings', to: '/admin/settings' },
 ] as const
 
 type AdminLayoutProps = {
   children: ReactNode
 }
 
+function canAccessSalonSettings(role: string | undefined): boolean {
+  return role === 'owner' || role === 'admin'
+}
+
 export function AdminLayout({ children }: AdminLayoutProps) {
   const { session, logout } = useAuth()
   const salon = session?.salon
   const user = session?.user
+  const navItems = NAV_ITEMS.filter(
+    (item) => item.to !== '/admin/settings' || canAccessSalonSettings(salon?.role),
+  )
 
   return (
     <div className="admin-shell">
@@ -30,7 +38,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
         <nav className="admin-nav">
           <ul className="admin-nav__list">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <li key={item.label} className="admin-nav__item">
                 <NavLink
                   to={item.to}

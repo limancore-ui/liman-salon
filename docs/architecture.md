@@ -99,7 +99,11 @@ Modules may share a common **kernel** (IDs, `salon_id` conventions, errors) but 
   ```
 
 - **Pending hold TTL resolution** (public checkout and admin-created `pending` bookings): `settings.booking.public_hold_seconds` when present and valid → else deployment env `PUBLIC_BOOKING_HOLD_SECONDS` / `Settings.public_booking_hold_seconds` → else application default **900** seconds. Malformed non-empty JSONB fails closed (`SalonSettingsError`) rather than silently ignoring bad overrides.
-- **Explicitly not in JSONB v0.1:** service **buffers** and duration (stay on `services` rows), **logo/branding** (Media attachments), **timezone** and **currency** (stay on `salons` columns). No settings admin API or UI in this slice.
+- **Admin API (owner/admin, tenant-scoped):** `GET` and `PATCH` `/api/v1/salons/{salon_id}/settings` — read/update v1 JSONB via `SalonSettingsService` (merge PATCH, validate, persist). Path `salon_id` must match the authenticated salon context.
+  - **GET / PATCH response body** mirrors stored v1 settings only (no derived TTL fields): `{ "v": 1 }` when the salon has no booking override (empty stored JSONB), or `{ "v": 1, "booking": { "public_hold_seconds": N } }` when a valid override is stored (`N` is 60–3600). Omitted keys are not returned (`response_model_exclude_none`).
+  - **PATCH body:** partial update; only `booking` is in scope. Set `{ "booking": { "public_hold_seconds": N } }` to write or replace the override. **Clearing** the override is **only** `{ "booking": null }`, which removes `booking` from stored JSONB and persists `{}` — there is no `public_hold_seconds: null` clear mechanism. An empty PATCH `{}` is a no-op merge.
+  - **Not in API responses:** `effective_public_hold_seconds`, `using_salon_override`, or any other computed “effective hold” / env-default disclosure; admins infer deployment fallback from product docs or ops config, while **runtime** hold TTL still follows **Pending hold TTL resolution** below.
+- **Explicitly not in JSONB v0.1:** service **buffers** and duration (stay on `services` rows), **logo/branding** (Media attachments), **timezone** and **currency** (stay on `salons` columns).
 
 ## Booking and schedule as source of truth for availability
 
