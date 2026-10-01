@@ -84,6 +84,12 @@ class BookingService:
             offset=offset,
         )
 
+    def expire_all_stale_pending_holds(self, *, as_of: datetime) -> int:
+        """Global sweeper for stale pending holds across all salons."""
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+        return self._repo.expire_all_stale_pending_holds(as_of=as_of)
+
     def create_booking(
         self,
         *,

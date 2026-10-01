@@ -94,6 +94,23 @@ class BookingRepository:
         result = self._session.execute(stmt)
         return result.rowcount or 0
 
+    def expire_all_stale_pending_holds(self, *, as_of: datetime) -> int:
+        """
+        Global sweeper: move all pending holds with expires_at <= as_of to expired.
+        Uses application time (as_of), not DB now(). Not tenant-scoped.
+        """
+        stmt = (
+            update(Booking)
+            .where(
+                Booking.status == "pending",
+                Booking.expires_at.isnot(None),
+                Booking.expires_at <= as_of,
+            )
+            .values(status="expired", updated_at=as_of)
+        )
+        result = self._session.execute(stmt)
+        return result.rowcount or 0
+
     def get_booking(
         self,
         salon_id: uuid.UUID,
