@@ -26,6 +26,11 @@ class BookingRepository:
             select(Salon.currency_code).where(Salon.id == salon_id)
         )
 
+    def get_salon_settings(self, salon_id: uuid.UUID) -> dict | None:
+        return self._session.scalar(
+            select(Salon.settings).where(Salon.id == salon_id)
+        )
+
     def get_customer(self, salon_id: uuid.UUID, customer_id: uuid.UUID) -> Customer | None:
         return self._session.scalar(
             select(Customer).where(

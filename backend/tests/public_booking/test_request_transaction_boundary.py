@@ -115,7 +115,6 @@ def _orchestrator_for(session: Session) -> PublicBookingOrchestrator:
         CustomerService(session),
         PublicBookingService(
             session,
-            public_booking_hold_seconds=900,
             booking_manage_token_pepper="test-request-txn-pepper",
         ),
     )

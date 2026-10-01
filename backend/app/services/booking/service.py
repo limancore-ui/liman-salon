@@ -16,6 +16,7 @@ from app.services.booking.errors import (
 )
 from app.core.config import get_settings
 from app.services.booking.manage_token import verify_manage_token
+from app.services.salon_settings import resolve_public_booking_hold_seconds
 from app.services.booking.repository import BookingRepository
 from app.services.booking.types import (
     BookingListRow,
@@ -115,6 +116,7 @@ class BookingService:
             )
 
         expires_at = self._resolve_pending_expires_at(
+            salon_id=salon_id,
             source=source,
             status=status,
             as_of=as_of,
@@ -250,9 +252,17 @@ class BookingService:
             status=booking.status,
         )
 
-    @staticmethod
+    def resolve_pending_hold_seconds(self, salon_id: uuid.UUID) -> int:
+        raw_settings = self._repo.get_salon_settings(salon_id)
+        return resolve_public_booking_hold_seconds(
+            raw_settings,
+            app_hold_seconds=get_settings().public_booking_hold_seconds,
+        )
+
     def _resolve_pending_expires_at(
+        self,
         *,
+        salon_id: uuid.UUID,
         source: str,
         status: str,
         as_of: datetime,
@@ -261,7 +271,7 @@ class BookingService:
         if status != "pending":
             return expires_at
         if source == "admin":
-            hold_seconds = get_settings().public_booking_hold_seconds
+            hold_seconds = self.resolve_pending_hold_seconds(salon_id)
             return as_of + timedelta(seconds=hold_seconds)
         return expires_at
 

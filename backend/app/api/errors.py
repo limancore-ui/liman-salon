@@ -55,6 +55,7 @@ from app.services.media.errors import (
     MediaStorageError,
     MediaValidationError,
 )
+from app.services.salon_settings.errors import SalonSettingsError
 
 
 class ErrorBody(BaseModel):
@@ -280,6 +281,15 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content=ErrorBody(detail=str(exc), code="booking_error").model_dump(),
+        )
+
+    @app.exception_handler(SalonSettingsError)
+    async def salon_settings_error(
+        _request: Request, exc: SalonSettingsError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
         )
 
     @app.exception_handler(MediaNotFoundError)

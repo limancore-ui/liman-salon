@@ -69,6 +69,7 @@ def _booking_service_with_mocks() -> tuple[BookingService, MagicMock, MagicMock]
     svc._repo = repo
     svc._availability = availability
     repo.get_salon_currency.return_value = "KZT"
+    repo.get_salon_settings.return_value = {}
     repo.get_customer.return_value = _customer()
     repo.get_staff.return_value = _active_staff()
     repo.get_service.return_value = _active_service()

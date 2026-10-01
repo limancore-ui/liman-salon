@@ -78,11 +78,28 @@ Modules may share a common **kernel** (IDs, `salon_id` conventions, errors) but 
 ### Public orchestrated booking entry (slug → customer → hold)
 
 - **Orchestrated API (no auth):** `POST /api/v1/public/salons/{slug}/bookings` — single public checkout entry that starts from the salon slug (no `salon_id` in the request body).
-- **Flow:** `slug` → `SalonPublicService.resolve_public_salon_by_slug` → `CustomerService.resolve_public_customer` (salon-scoped, phone-keyed; existing customers are reused without profile overwrite) → `PublicBookingService.create_public_booking` (service-aware availability pre-check when applicable) → **`BookingService.create_booking`** as the sole booking write authority (`source=public`, `status=pending`, hold TTL from settings).
+- **Flow:** `slug` → `SalonPublicService.resolve_public_salon_by_slug` → `CustomerService.resolve_public_customer` (salon-scoped, phone-keyed; existing customers are reused without profile overwrite) → `PublicBookingService.create_public_booking` (service-aware availability pre-check when applicable) → **`BookingService.create_booking`** as the sole booking write authority (`source=public`, `status=pending`, hold TTL resolved per salon — see **Salon settings JSONB** below).
 - **Response:** safe public fields only — `salon_id`, `customer_id`, `booking_id`, NET `service_start` / `service_end`, and `hold_expires_at` (not internal occupied/buffer bounds).
 - **Legacy public APIs remain:** `GET /api/v1/public/salons/{slug}`, `POST /api/v1/salons/{salon_id}/public/customers/resolve`, and `POST /api/v1/salons/{salon_id}/bookings/public` are unchanged; clients may still resolve slug once and call the split endpoints.
 - **Not in this slice:** QR/deep links, WhatsApp, notifications, campaigns, loyalty, or AI tools.
 - **Atomicity:** `PublicBookingOrchestrator` does **not** wrap `BookingService.create_booking` in an outer transaction. Customer resolution may commit before a later booking failure (e.g. slot taken); that is a known limitation unless a future approved cross-service transaction design is added.
+
+### Salon settings JSONB (v0.1 contract)
+
+- **Storage:** `salons.settings` JSONB (default `{}`) is the per-salon **business-settings** bucket. It is **not** exposed on public APIs; booking and admin flows read it only through application services (`BookingRepository.get_salon_settings` → typed parse in `app.services.salon_settings`).
+- **v1 shape (only key in scope today):**
+
+  ```json
+  {
+    "v": 1,
+    "booking": {
+      "public_hold_seconds": 900
+    }
+  }
+  ```
+
+- **Pending hold TTL resolution** (public checkout and admin-created `pending` bookings): `settings.booking.public_hold_seconds` when present and valid → else deployment env `PUBLIC_BOOKING_HOLD_SECONDS` / `Settings.public_booking_hold_seconds` → else application default **900** seconds. Malformed non-empty JSONB fails closed (`SalonSettingsError`) rather than silently ignoring bad overrides.
+- **Explicitly not in JSONB v0.1:** service **buffers** and duration (stay on `services` rows), **logo/branding** (Media attachments), **timezone** and **currency** (stay on `salons` columns). No settings admin API or UI in this slice.
 
 ## Booking and schedule as source of truth for availability
 

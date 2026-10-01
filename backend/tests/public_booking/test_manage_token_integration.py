@@ -123,7 +123,6 @@ def test_public_create_persists_manage_token_hash_not_raw(
             CustomerService(db_session),
             PublicBookingService(
                 db_session,
-                public_booking_hold_seconds=900,
                 booking_manage_token_pepper=TEST_PEPPER,
             ),
         )

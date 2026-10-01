@@ -21,11 +21,9 @@ class PublicBookingService:
         self,
         session: Session,
         *,
-        public_booking_hold_seconds: int,
         booking_manage_token_pepper: str,
     ) -> None:
         self._session = session
-        self._hold_seconds = public_booking_hold_seconds
         self._manage_token_pepper = booking_manage_token_pepper
         self._booking = BookingService(session)
         self._availability = AvailabilityService(session)
@@ -47,7 +45,8 @@ class PublicBookingService:
         if as_of.tzinfo is None:
             raise ValueError("as_of must be timezone-aware")
 
-        hold_expires_at = as_of + timedelta(seconds=self._hold_seconds)
+        hold_seconds = self._booking.resolve_pending_hold_seconds(salon_id)
+        hold_expires_at = as_of + timedelta(seconds=hold_seconds)
 
         service = self._availability_repo.get_service_for_availability(salon_id, service_id)
         if service is None:

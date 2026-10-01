@@ -182,7 +182,7 @@ Tenant root.
 | `country_code` | `CHAR(2)` | NULL | | ISO 3166-1 alpha-2 |
 | `phone` | `VARCHAR(32)` | NULL | | |
 | `email` | `VARCHAR(320)` | NULL | | Contact, not auth |
-| `settings` | `JSONB` | NOT NULL | `'{}'` | Branding, booking rules, buffers |
+| `settings` | `JSONB` | NOT NULL | `'{}'` | Per-salon business settings (v0.1: optional `booking.public_hold_seconds`; validated in app). Branding logo = Media; buffers = `services`; timezone/currency = columns above |
 | `is_active` | `BOOLEAN` | NOT NULL | `true` | Soft disable tenant |
 | `created_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | |
 | `updated_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | |
@@ -779,7 +779,7 @@ no_show → (terminal)
 - **PostgreSQL exclusion (static):** rows with `status IN ('pending', 'confirmed', 'in_progress')` participate in the GiST exclusion constraint. `expired`, `cancelled`, `completed`, and `no_show` do **not**.
 - **Smart Gap / read path:** treat `confirmed` and `in_progress` as blocking. Treat `pending` as blocking only while the hold is **not** stale: compare `expires_at` to the application’s current time (`expires_at IS NOT NULL AND expires_at > :as_of`). Stale `pending` rows must not be offered as occupied once identified; prefer transitioning them to `expired` promptly.
 - **Write path (mandatory):** before starting a new booking transaction (create/reschedule), the booking service must **expire stale `pending` holds** that would overlap the target slot (or rely on a sweeper that has already done so). Use `expires_at` as the source for staleness. This keeps the static DB exclusion aligned with product rules without `now()` inside constraint predicates.
-- Public hold TTL: set `expires_at` at create (e.g. 10–15 minutes from `created_at`, configurable in `salons.settings`); extend on payment step if product requires.
+- Public hold TTL: set `expires_at` at create from application time `as_of + hold_seconds`. **Resolution order:** optional `salons.settings` v1 `booking.public_hold_seconds` (60–3600 when set) → env `PUBLIC_BOOKING_HOLD_SECONDS` / `Settings.public_booking_hold_seconds` → default **900** s. Same resolved TTL applies to admin-created `pending` bookings. Empty `{}` settings keep env/default behavior. Extend on payment step if product requires (not implemented in MVP backend).
 
 ### Bonus transaction types
 
