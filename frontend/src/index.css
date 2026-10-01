@@ -1148,6 +1148,53 @@ body {
   text-transform: capitalize;
 }
 
+.admin-bookings__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.admin-bookings__actions-muted {
+  color: var(--color-muted);
+}
+
+.admin-bookings__form {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-bookings__form-title {
+  margin: 0 0 var(--space-xs);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.admin-bookings__form-lead {
+  margin: 0 0 var(--space-md);
+  font-size: 0.875rem;
+  color: var(--color-muted);
+}
+
+.admin-bookings__form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.admin-bookings__filter--wide {
+  grid-column: 1 / -1;
+}
+
+.admin-bookings__form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
 .admin-staff__header {
   margin-bottom: var(--space-lg);
 }

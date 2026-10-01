@@ -20,3 +20,26 @@ export type ListBookingsParams = {
   limit?: number
   offset?: number
 }
+
+export type AdminBookingCancelRequest = {
+  reason?: string
+}
+
+export type AdminBookingCancelResponse = {
+  booking_id: string
+  status: string
+  cancelled_at: string
+}
+
+export type AdminBookingRescheduleRequest = {
+  staff_id: string
+  service_start: string
+}
+
+export type AdminBookingRescheduleResponse = {
+  booking_id: string
+  status: string
+  staff_id: string
+  service_start: string
+  service_end: string
+}

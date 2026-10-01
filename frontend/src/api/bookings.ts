@@ -1,5 +1,12 @@
 import { ApiError } from './errors'
-import type { BookingListItem, ListBookingsParams } from '../types/bookings'
+import type {
+  AdminBookingCancelRequest,
+  AdminBookingCancelResponse,
+  AdminBookingRescheduleRequest,
+  AdminBookingRescheduleResponse,
+  BookingListItem,
+  ListBookingsParams,
+} from '../types/bookings'
 
 type ApiErrorBody = {
   detail?: string
@@ -60,4 +67,62 @@ export async function fetchAdminBookings(
     throw await readApiError(response)
   }
   return (await response.json()) as BookingListItem[]
+}
+
+function bookingsBase(salonId: string): string {
+  return `/api/v1/salons/${encodeURIComponent(salonId)}/bookings`
+}
+
+export async function cancelAdminBooking(
+  token: string,
+  salonId: string,
+  bookingId: string,
+  body: AdminBookingCancelRequest = {},
+): Promise<AdminBookingCancelResponse> {
+  const payload: Record<string, string> = {}
+  const reason = body.reason?.trim()
+  if (reason) {
+    payload.reason = reason
+  }
+  const response = await fetch(
+    `${bookingsBase(salonId)}/${encodeURIComponent(bookingId)}/cancel`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  )
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as AdminBookingCancelResponse
+}
+
+export async function rescheduleAdminBooking(
+  token: string,
+  salonId: string,
+  bookingId: string,
+  body: AdminBookingRescheduleRequest,
+): Promise<AdminBookingRescheduleResponse> {
+  const response = await fetch(
+    `${bookingsBase(salonId)}/${encodeURIComponent(bookingId)}/reschedule`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        staff_id: body.staff_id,
+        service_start: body.service_start,
+      }),
+    },
+  )
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as AdminBookingRescheduleResponse
 }
