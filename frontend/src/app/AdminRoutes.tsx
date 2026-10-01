@@ -10,12 +10,16 @@ import { AdminMediaPage } from '../pages/AdminMediaPage'
 import { AdminDashboardPage } from '../pages/AdminDashboardPage'
 import { AdminSalonSettingsPage } from '../pages/AdminSalonSettingsPage'
 import { AdminLoginPage } from '../pages/AdminLoginPage'
+import { AdminNoAccessPage } from '../pages/AdminNoAccessPage'
+import { AdminWorkspacePickerPage } from '../pages/AdminWorkspacePickerPage'
 
 export function AdminRoutes() {
   return (
     <AuthProvider>
       <Routes>
         <Route path="login" element={<AdminLoginPage />} />
+        <Route path="workspace" element={<AdminWorkspacePickerPage />} />
+        <Route path="no-access" element={<AdminNoAccessPage />} />
         <Route element={<ProtectedAdminRoute />}>
           <Route index element={<AdminDashboardPage />} />
           <Route path="bookings" element={<AdminBookingsPage />} />

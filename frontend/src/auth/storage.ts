@@ -41,7 +41,7 @@ export function clearAdminAuthStorage(): void {
   clearStoredSalonIdHint()
 }
 
-/** Optional build-time salon id for first admin sign-in until a memberships list API exists. */
+/** Optional build-time salon id dev fallback when no stored hint exists yet. */
 export function getConfiguredSalonIdHint(): string | null {
   const fromEnv = import.meta.env.VITE_ADMIN_SALON_ID
   if (typeof fromEnv === 'string' && fromEnv.trim()) {

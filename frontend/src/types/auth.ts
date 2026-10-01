@@ -10,6 +10,19 @@ export type MeResponse = {
   full_name: string
 }
 
+export type MySalonMembership = {
+  salon_id: string
+  salon_name: string
+  salon_slug: string
+  role: string
+}
+
+export type MySalonsResponse = {
+  items: MySalonMembership[]
+}
+
+export type SalonMembershipList = MySalonMembership[]
+
 export type SalonContextResponse = {
   user_id: string
   salon_id: string
@@ -27,4 +40,11 @@ export type AdminSession = {
   token: string
   user: MeResponse
   salon: SalonContextResponse
+  salons: SalonMembershipList
+}
+
+export type PendingWorkspaceAuth = {
+  token: string
+  user: MeResponse
+  salons: SalonMembershipList
 }

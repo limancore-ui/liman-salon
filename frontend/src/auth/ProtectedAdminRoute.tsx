@@ -13,6 +13,14 @@ export function ProtectedAdminRoute() {
     )
   }
 
+  if (status === 'workspace_picker') {
+    return <Navigate to="/admin/workspace" replace />
+  }
+
+  if (status === 'no_salon_access') {
+    return <Navigate to="/admin/no-access" replace />
+  }
+
   if (status !== 'authenticated') {
     return <Navigate to="/admin/login" replace />
   }

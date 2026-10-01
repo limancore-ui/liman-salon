@@ -22,6 +22,17 @@ class MeResponse(BaseModel):
     full_name: str
 
 
+class MySalonMembershipItem(BaseModel):
+    salon_id: UUID
+    salon_name: str
+    salon_slug: str
+    role: str
+
+
+class MySalonsResponse(BaseModel):
+    items: list[MySalonMembershipItem]
+
+
 class SalonContextResponse(BaseModel):
     user_id: UUID
     salon_id: UUID

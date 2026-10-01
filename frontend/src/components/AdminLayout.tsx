@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { useState, type ChangeEvent, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { membershipLabel } from '../auth/workspace'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/admin' },
@@ -22,9 +23,25 @@ function canAccessSalonSettings(role: string | undefined): boolean {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { session, logout } = useAuth()
+  const { session, logout, switchWorkspace } = useAuth()
+  const [switchingSalon, setSwitchingSalon] = useState(false)
   const salon = session?.salon
   const user = session?.user
+  const salons = session?.salons ?? []
+  const showWorkspaceSwitcher = salons.length > 1
+
+  async function handleWorkspaceChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextSalonId = event.target.value
+    if (!nextSalonId || nextSalonId === salon?.salon_id) {
+      return
+    }
+    setSwitchingSalon(true)
+    try {
+      await switchWorkspace(nextSalonId)
+    } finally {
+      setSwitchingSalon(false)
+    }
+  }
   const navItems = NAV_ITEMS.filter(
     (item) => item.to !== '/admin/settings' || canAccessSalonSettings(salon?.role),
   )
@@ -33,8 +50,31 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <div className="admin-shell">
       <aside className="admin-shell__sidebar" aria-label="Admin navigation">
         <div className="admin-shell__brand">
-          <p className="admin-shell__salon-name">{salon?.salon_name ?? 'Salon'}</p>
-          <p className="admin-shell__salon-slug">{salon?.salon_slug}</p>
+          {showWorkspaceSwitcher ? (
+            <label className="admin-shell__workspace-switch">
+              <span className="visually-hidden">Active salon workspace</span>
+              <select
+                className="form-field__input admin-shell__workspace-select"
+                value={salon?.salon_id ?? ''}
+                disabled={switchingSalon}
+                onChange={handleWorkspaceChange}
+                aria-label="Switch salon workspace"
+              >
+                {salons.map((membership) => (
+                  <option key={membership.salon_id} value={membership.salon_id}>
+                    {membershipLabel(membership)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <>
+              <p className="admin-shell__salon-name">
+                {salon?.salon_name ?? 'Salon'}
+              </p>
+              <p className="admin-shell__salon-slug">{salon?.salon_slug}</p>
+            </>
+          )}
         </div>
         <nav className="admin-nav">
           <ul className="admin-nav__list">

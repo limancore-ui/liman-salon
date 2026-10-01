@@ -7,6 +7,8 @@ from app.api.schemas.auth import (
     LoginRequest,
     LoginResponse,
     MeResponse,
+    MySalonMembershipItem,
+    MySalonsResponse,
     SalonContextResponse,
 )
 from app.auth.deps import AuthRepositoryDep, CurrentUserDep, SalonContextDep
@@ -33,6 +35,25 @@ def me(current_user: CurrentUserDep) -> MeResponse:
         user_id=current_user.id,
         email=current_user.email,
         full_name=current_user.full_name,
+    )
+
+
+@router.get("/me/salons", response_model=MySalonsResponse)
+def my_salons(
+    current_user: CurrentUserDep,
+    repo: AuthRepositoryDep,
+) -> MySalonsResponse:
+    rows = repo.list_active_memberships_for_user(current_user.id)
+    return MySalonsResponse(
+        items=[
+            MySalonMembershipItem(
+                salon_id=membership.salon_id,
+                salon_name=salon.name,
+                salon_slug=salon.slug,
+                role=membership.role,
+            )
+            for membership, salon in rows
+        ]
     )
 
 

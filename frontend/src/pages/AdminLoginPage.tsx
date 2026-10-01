@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/errors'
 import { useAuth } from '../auth/AuthContext'
-import { SalonContextResolutionError } from '../auth/session'
+import { NoSalonAccessError, SalonContextResolutionError } from '../auth/session'
 import { isUnauthorizedError } from '../api/auth'
 
 export function AdminLoginPage() {
@@ -16,6 +16,10 @@ export function AdminLoginPage() {
   useEffect(() => {
     if (status === 'authenticated') {
       navigate('/admin', { replace: true })
+    } else if (status === 'workspace_picker') {
+      navigate('/admin/workspace', { replace: true })
+    } else if (status === 'no_salon_access') {
+      navigate('/admin/no-access', { replace: true })
     }
   }, [status, navigate])
 
@@ -37,8 +41,11 @@ export function AdminLoginPage() {
     setSubmitting(true)
     try {
       await login(email.trim(), password)
-      navigate('/admin', { replace: true })
     } catch (error) {
+      if (error instanceof NoSalonAccessError) {
+        navigate('/admin/no-access', { replace: true })
+        return
+      }
       if (error instanceof ApiError && error.status === 401) {
         setErrorMessage('Invalid email or password.')
       } else if (error instanceof SalonContextResolutionError) {

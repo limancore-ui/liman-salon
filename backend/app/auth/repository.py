@@ -41,3 +41,18 @@ class AuthRepository:
                 SalonUser.is_active.is_(True),
             )
         )
+
+    def list_active_memberships_for_user(
+        self, user_id: uuid.UUID
+    ) -> list[tuple[SalonUser, Salon]]:
+        rows = self._session.execute(
+            select(SalonUser, Salon)
+            .join(Salon, SalonUser.salon_id == Salon.id)
+            .where(
+                SalonUser.user_id == user_id,
+                SalonUser.is_active.is_(True),
+                Salon.is_active.is_(True),
+            )
+            .order_by(Salon.name.asc())
+        ).all()
+        return [(membership, salon) for membership, salon in rows]

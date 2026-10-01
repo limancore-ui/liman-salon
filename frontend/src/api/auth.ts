@@ -2,6 +2,7 @@ import { ApiError } from './errors'
 import type {
   LoginResponse,
   MeResponse,
+  MySalonsResponse,
   SalonContextResponse,
 } from '../types/auth'
 
@@ -56,6 +57,13 @@ export async function fetchCurrentUser(token: string): Promise<MeResponse> {
     headers: { Authorization: `Bearer ${token}` },
   })
   return parseJsonResponse<MeResponse>(response)
+}
+
+export async function fetchMySalons(token: string): Promise<MySalonsResponse> {
+  const response = await fetch('/api/v1/auth/me/salons', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  return parseJsonResponse<MySalonsResponse>(response)
 }
 
 export async function fetchSalonContext(

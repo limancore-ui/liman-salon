@@ -189,6 +189,142 @@ def test_malformed_token_401(auth_client: TestClient) -> None:
     assert response.status_code == 401
 
 
+def _membership_row(
+    *,
+    salon_id: uuid.UUID = SALON_ID,
+    role: str = "owner",
+    name: str = "Liman Demo",
+    slug: str = "liman-demo",
+) -> tuple[SimpleNamespace, SimpleNamespace]:
+    membership = SimpleNamespace(
+        salon_id=salon_id,
+        user_id=USER_ID,
+        role=role,
+        is_active=True,
+    )
+    salon = SimpleNamespace(
+        id=salon_id,
+        name=name,
+        slug=slug,
+        is_active=True,
+    )
+    return membership, salon
+
+
+def test_my_salons_unauthorized_401(auth_client: TestClient) -> None:
+    response = auth_client.get("/api/v1/auth/me/salons")
+    assert response.status_code == 401
+    assert response.json()["code"] == "unauthorized"
+
+
+def test_my_salons_empty_memberships() -> None:
+    app = create_app()
+    token = _token_for()
+    mock_repo = MagicMock()
+    mock_repo.get_active_user_by_id.return_value = _user()
+    mock_repo.list_active_memberships_for_user.return_value = []
+    app.dependency_overrides[get_auth_repository] = lambda: mock_repo
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/auth/me/salons",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+
+
+def test_my_salons_single_membership() -> None:
+    app = create_app()
+    token = _token_for()
+    mock_repo = MagicMock()
+    mock_repo.get_active_user_by_id.return_value = _user()
+    mock_repo.list_active_memberships_for_user.return_value = [
+        _membership_row(role="admin"),
+    ]
+    app.dependency_overrides[get_auth_repository] = lambda: mock_repo
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/auth/me/salons",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert len(items) == 1
+    assert items[0]["salon_id"] == str(SALON_ID)
+    assert items[0]["role"] == "admin"
+    assert items[0]["salon_name"] == "Liman Demo"
+    assert items[0]["salon_slug"] == "liman-demo"
+
+
+def test_my_salons_multiple_memberships() -> None:
+    app = create_app()
+    token = _token_for()
+    mock_repo = MagicMock()
+    mock_repo.get_active_user_by_id.return_value = _user()
+    mock_repo.list_active_memberships_for_user.return_value = [
+        _membership_row(
+            salon_id=SALON_ID,
+            role="owner",
+            name="Alpha",
+            slug="alpha",
+        ),
+        _membership_row(
+            salon_id=OTHER_SALON_ID,
+            role="staff",
+            name="Beta",
+            slug="beta",
+        ),
+    ]
+    app.dependency_overrides[get_auth_repository] = lambda: mock_repo
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/auth/me/salons",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert len(items) == 2
+    roles = {item["salon_id"]: item["role"] for item in items}
+    assert roles[str(SALON_ID)] == "owner"
+    assert roles[str(OTHER_SALON_ID)] == "staff"
+
+
+def test_my_salons_role_from_db_not_token() -> None:
+    app = create_app()
+    token = _token_for()
+    mock_repo = MagicMock()
+    mock_repo.get_active_user_by_id.return_value = _user()
+    mock_repo.list_active_memberships_for_user.return_value = [
+        _membership_row(role="receptionist"),
+    ]
+    app.dependency_overrides[get_auth_repository] = lambda: mock_repo
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/auth/me/salons",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    assert response.json()["items"][0]["role"] == "receptionist"
+
+
+def test_my_salons_excludes_inactive_via_repository() -> None:
+    """Inactive salons/memberships are filtered in AuthRepository, not the route."""
+    app = create_app()
+    token = _token_for()
+    mock_repo = MagicMock()
+    mock_repo.get_active_user_by_id.return_value = _user()
+    mock_repo.list_active_memberships_for_user.return_value = [
+        _membership_row(role="owner"),
+    ]
+    app.dependency_overrides[get_auth_repository] = lambda: mock_repo
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/auth/me/salons",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    mock_repo.list_active_memberships_for_user.assert_called_once_with(USER_ID)
+    assert len(response.json()["items"]) == 1
+
+
 def test_me_resolves_current_user() -> None:
     app = create_app()
     token = _token_for()
