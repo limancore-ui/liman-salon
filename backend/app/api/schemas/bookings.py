@@ -49,6 +49,22 @@ class BookingConfirmResponse(BaseModel):
     confirmed_at: datetime
 
 
+class BookingStartVisitResponse(BaseModel):
+    booking_id: UUID
+    status: str
+
+
+class BookingCompleteVisitResponse(BaseModel):
+    booking_id: UUID
+    status: str
+    completed_at: datetime
+
+
+class BookingNoShowResponse(BaseModel):
+    booking_id: UUID
+    status: str
+
+
 class BookingRescheduleRequest(BaseModel):
     staff_id: UUID
     service_start: datetime = Field(

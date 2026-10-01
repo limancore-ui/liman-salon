@@ -21,10 +21,13 @@ from app.services.booking.repository import BookingRepository
 from app.services.booking.types import (
     BookingListRow,
     CancelBookingResult,
+    CompleteVisitResult,
     ConfirmBookingResult,
     CreateBookingResult,
+    NoShowVisitResult,
     RescheduleBookingResult,
     ServiceSnapshot,
+    StartVisitResult,
     compute_occupied_interval,
 )
 
@@ -569,3 +572,223 @@ class BookingService:
             new_service_start=new_service_start,
             as_of=as_of,
         )
+
+    def _start_visit_loaded(
+        self,
+        booking: Booking,
+        *,
+        as_of: datetime,
+    ) -> StartVisitResult:
+        self._expire_loaded_stale_pending_hold(booking, as_of=as_of)
+        if booking.status != "confirmed":
+            raise BookingValidationError(
+                "booking cannot be started in its current status"
+            )
+
+        booking.status = "in_progress"
+        self._session.flush()
+
+        return StartVisitResult(
+            booking_id=booking.id,
+            status=booking.status,
+        )
+
+    def admin_start_visit(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        as_of: datetime,
+    ) -> StartVisitResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        return self._start_visit_loaded(booking, as_of=as_of)
+
+    def _complete_visit_loaded(
+        self,
+        booking: Booking,
+        *,
+        as_of: datetime,
+    ) -> CompleteVisitResult:
+        self._expire_loaded_stale_pending_hold(booking, as_of=as_of)
+        if booking.status != "in_progress":
+            raise BookingValidationError(
+                "booking cannot be completed in its current status"
+            )
+
+        booking.status = "completed"
+        booking.completed_at = as_of
+        self._session.flush()
+
+        return CompleteVisitResult(
+            booking_id=booking.id,
+            status=booking.status,
+            completed_at=booking.completed_at,
+        )
+
+    def admin_complete_visit(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        as_of: datetime,
+    ) -> CompleteVisitResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        return self._complete_visit_loaded(booking, as_of=as_of)
+
+    def _mark_no_show_loaded(
+        self,
+        booking: Booking,
+        *,
+        as_of: datetime,
+    ) -> NoShowVisitResult:
+        self._expire_loaded_stale_pending_hold(booking, as_of=as_of)
+        if booking.status != "confirmed":
+            raise BookingValidationError(
+                "booking cannot be marked no-show in its current status"
+            )
+
+        booking.status = "no_show"
+        self._session.flush()
+
+        return NoShowVisitResult(
+            booking_id=booking.id,
+            status=booking.status,
+        )
+
+    def admin_mark_no_show(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        as_of: datetime,
+    ) -> NoShowVisitResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        return self._mark_no_show_loaded(booking, as_of=as_of)
+
+    def _start_visit_loaded(
+        self,
+        booking: Booking,
+        *,
+        as_of: datetime,
+    ) -> StartVisitResult:
+        self._expire_loaded_stale_pending_hold(booking, as_of=as_of)
+        if booking.status != "confirmed":
+            raise BookingValidationError(
+                "booking cannot be started in its current status"
+            )
+
+        booking.status = "in_progress"
+        self._session.flush()
+
+        return StartVisitResult(
+            booking_id=booking.id,
+            status=booking.status,
+        )
+
+    def admin_start_visit(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        as_of: datetime,
+    ) -> StartVisitResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        return self._start_visit_loaded(booking, as_of=as_of)
+
+    def _complete_visit_loaded(
+        self,
+        booking: Booking,
+        *,
+        as_of: datetime,
+    ) -> CompleteVisitResult:
+        self._expire_loaded_stale_pending_hold(booking, as_of=as_of)
+        if booking.status != "in_progress":
+            raise BookingValidationError(
+                "booking cannot be completed in its current status"
+            )
+
+        booking.status = "completed"
+        booking.completed_at = as_of
+        self._session.flush()
+
+        return CompleteVisitResult(
+            booking_id=booking.id,
+            status=booking.status,
+            completed_at=booking.completed_at,
+        )
+
+    def admin_complete_visit(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        as_of: datetime,
+    ) -> CompleteVisitResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        return self._complete_visit_loaded(booking, as_of=as_of)
+
+    def _mark_no_show_loaded(
+        self,
+        booking: Booking,
+        *,
+        as_of: datetime,
+    ) -> NoShowVisitResult:
+        self._expire_loaded_stale_pending_hold(booking, as_of=as_of)
+        if booking.status != "confirmed":
+            raise BookingValidationError(
+                "booking cannot be marked no-show in its current status"
+            )
+
+        booking.status = "no_show"
+        self._session.flush()
+
+        return NoShowVisitResult(
+            booking_id=booking.id,
+            status=booking.status,
+        )
+
+    def admin_mark_no_show(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        as_of: datetime,
+    ) -> NoShowVisitResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        return self._mark_no_show_loaded(booking, as_of=as_of)

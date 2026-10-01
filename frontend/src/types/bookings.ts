@@ -27,6 +27,22 @@ export type AdminBookingConfirmResponse = {
   confirmed_at: string
 }
 
+export type AdminBookingStartVisitResponse = {
+  booking_id: string
+  status: string
+}
+
+export type AdminBookingCompleteVisitResponse = {
+  booking_id: string
+  status: string
+  completed_at: string
+}
+
+export type AdminBookingNoShowResponse = {
+  booking_id: string
+  status: string
+}
+
 export type AdminBookingCancelRequest = {
   reason?: string
 }

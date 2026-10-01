@@ -3,10 +3,13 @@ import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
 import {
   cancelAdminBooking,
+  completeAdminVisit,
   confirmAdminBooking,
   createAdminBooking,
   fetchAdminBookings,
+  markAdminNoShow,
   rescheduleAdminBooking,
+  startAdminVisit,
 } from '../api/bookings'
 import { fetchAdminCustomers } from '../api/customers'
 import { fetchAdminServices, fetchAdminStaffForService } from '../api/services'
@@ -54,6 +57,10 @@ function canManageBookings(role: string | undefined): boolean {
 
 function isActionableBookingStatus(status: string): boolean {
   return status === 'pending' || status === 'confirmed'
+}
+
+function hasVisitLifecycleActions(status: string): boolean {
+  return status === 'confirmed' || status === 'in_progress'
 }
 
 function dateInputToUtcRange(from: string, to: string): {
@@ -521,6 +528,30 @@ export function AdminBookingsPage() {
     [session, actionSubmitting, clearAction, load, clearAuthAndRedirect],
   )
 
+  const runVisitAction = useCallback(
+    async (action: (token: string, salonId: string, bookingId: string) => Promise<unknown>, bookingId: string) => {
+      if (!session || actionSubmitting) {
+        return
+      }
+      setActionSubmitting(true)
+      setActionError(null)
+      try {
+        await action(session.token, session.salon.salon_id, bookingId)
+        clearAction()
+        await load()
+      } catch (err: unknown) {
+        if (isUnauthorizedError(err)) {
+          clearAuthAndRedirect()
+          return
+        }
+        setActionError(mapAdminBookingActionError(err))
+      } finally {
+        setActionSubmitting(false)
+      }
+    },
+    [session, actionSubmitting, clearAction, load, clearAuthAndRedirect],
+  )
+
   const handleConfirmCancel = useCallback(
     async (event: FormEvent) => {
       event.preventDefault()
@@ -621,7 +652,7 @@ export function AdminBookingsPage() {
           <h1 className="admin-bookings__title">Bookings</h1>
           <p className="admin-bookings__lead">
             {manage
-              ? 'View bookings, create appointments, and cancel or reschedule pending and confirmed ones.'
+              ? 'View bookings, create appointments, manage visit status, and cancel or reschedule pending and confirmed ones.'
               : 'Read-only list for your salon.'}
           </p>
           {manage && !createOpen && actionMode === null ? (
@@ -996,7 +1027,13 @@ export function AdminBookingsPage() {
               <tbody>
                 {items.map((row) => {
                   const actionable = isActionableBookingStatus(row.status)
+                  const visitActions = hasVisitLifecycleActions(row.status)
                   const isActiveRow = actionBooking?.id === row.id
+                  const actionsBusy =
+                    actionSubmitting ||
+                    createSubmitting ||
+                    createOpen ||
+                    actionMode !== null
                   return (
                     <tr key={row.id}>
                       <td>{formatBookingDateTime(row.starts_at, salonTimeZone)}</td>
@@ -1021,12 +1058,7 @@ export function AdminBookingsPage() {
                                   type="button"
                                   className="btn btn--primary btn--compact"
                                   onClick={() => void handleConfirmPending(row)}
-                                  disabled={
-                                    actionSubmitting ||
-                                    createSubmitting ||
-                                    createOpen ||
-                                    actionMode !== null
-                                  }
+                                  disabled={actionsBusy}
                                 >
                                   Confirm
                                 </button>
@@ -1058,9 +1090,50 @@ export function AdminBookingsPage() {
                                 Cancel
                               </button>
                             </>
-                          ) : (
+                          ) : null}
+                          {visitActions ? (
+                            <>
+                              {row.status === 'confirmed' ? (
+                                <button
+                                  type="button"
+                                  className="btn btn--primary btn--compact"
+                                  onClick={() =>
+                                    void runVisitAction(startAdminVisit, row.id)
+                                  }
+                                  disabled={actionsBusy}
+                                >
+                                  Start visit
+                                </button>
+                              ) : null}
+                              {row.status === 'in_progress' ? (
+                                <button
+                                  type="button"
+                                  className="btn btn--primary btn--compact"
+                                  onClick={() =>
+                                    void runVisitAction(completeAdminVisit, row.id)
+                                  }
+                                  disabled={actionsBusy}
+                                >
+                                  Complete
+                                </button>
+                              ) : null}
+                              {row.status === 'confirmed' ? (
+                                <button
+                                  type="button"
+                                  className="btn btn--secondary btn--compact"
+                                  onClick={() =>
+                                    void runVisitAction(markAdminNoShow, row.id)
+                                  }
+                                  disabled={actionsBusy}
+                                >
+                                  No show
+                                </button>
+                              ) : null}
+                            </>
+                          ) : null}
+                          {!actionable && !visitActions ? (
                             <span className="admin-bookings__actions-muted">—</span>
-                          )}
+                          ) : null}
                         </td>
                       ) : null}
                     </tr>

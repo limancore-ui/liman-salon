@@ -104,6 +104,25 @@ class RescheduleBookingResult:
 
 
 @dataclass(frozen=True, slots=True)
+class StartVisitResult:
+    booking_id: UUID
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
+class CompleteVisitResult:
+    booking_id: UUID
+    status: str
+    completed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class NoShowVisitResult:
+    booking_id: UUID
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
 class BookingUpcomingRow:
     """Joined booking fields for operational upcoming lists (tenant-scoped)."""
 

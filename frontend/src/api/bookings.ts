@@ -2,11 +2,14 @@ import { ApiError } from './errors'
 import type {
   AdminBookingCancelRequest,
   AdminBookingCancelResponse,
+  AdminBookingCompleteVisitResponse,
   AdminBookingConfirmResponse,
   AdminBookingCreateRequest,
   AdminBookingCreateResponse,
+  AdminBookingNoShowResponse,
   AdminBookingRescheduleRequest,
   AdminBookingRescheduleResponse,
+  AdminBookingStartVisitResponse,
   BookingListItem,
   ListBookingsParams,
 } from '../types/bookings'
@@ -148,6 +151,51 @@ export async function cancelAdminBooking(
     throw await readApiError(response)
   }
   return (await response.json()) as AdminBookingCancelResponse
+}
+
+async function postAdminBookingAction<T>(
+  token: string,
+  salonId: string,
+  bookingId: string,
+  action: string,
+): Promise<T> {
+  const response = await fetch(
+    `${bookingsBase(salonId)}/${encodeURIComponent(bookingId)}/${action}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  )
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as T
+}
+
+export async function startAdminVisit(
+  token: string,
+  salonId: string,
+  bookingId: string,
+): Promise<AdminBookingStartVisitResponse> {
+  return postAdminBookingAction(token, salonId, bookingId, 'start')
+}
+
+export async function completeAdminVisit(
+  token: string,
+  salonId: string,
+  bookingId: string,
+): Promise<AdminBookingCompleteVisitResponse> {
+  return postAdminBookingAction(token, salonId, bookingId, 'complete')
+}
+
+export async function markAdminNoShow(
+  token: string,
+  salonId: string,
+  bookingId: string,
+): Promise<AdminBookingNoShowResponse> {
+  return postAdminBookingAction(token, salonId, bookingId, 'no-show')
 }
 
 export async function rescheduleAdminBooking(

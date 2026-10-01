@@ -10,12 +10,15 @@ from app.api.deps import AsOfDep, BookingServiceDep, PublicBookingServiceDep
 from app.api.schemas.bookings import (
     BookingCancelRequest,
     BookingCancelResponse,
+    BookingCompleteVisitResponse,
     BookingConfirmResponse,
     BookingCreateRequest,
     BookingCreateResponse,
     BookingListItemResponse,
+    BookingNoShowResponse,
     BookingRescheduleRequest,
     BookingRescheduleResponse,
+    BookingStartVisitResponse,
 )
 from app.api.schemas.public_booking import (
     PublicBookingCreateRequest,
@@ -167,6 +170,79 @@ def admin_confirm_booking(
         booking_id=result.booking_id,
         status=result.status,
         confirmed_at=result.confirmed_at,
+    )
+
+
+@router.post(
+    "/salons/{salon_id}/bookings/{booking_id}/start",
+    response_model=BookingStartVisitResponse,
+    status_code=200,
+)
+def admin_start_visit(
+    salon_id: uuid.UUID,
+    booking_id: uuid.UUID,
+    context: WriteSalonContext,
+    as_of: AsOfDep,
+    booking_service: BookingServiceDep,
+) -> BookingStartVisitResponse:
+    _assert_path_salon(context, salon_id)
+    result = booking_service.admin_start_visit(
+        salon_id=context.salon_id,
+        booking_id=booking_id,
+        as_of=as_of,
+    )
+    return BookingStartVisitResponse(
+        booking_id=result.booking_id,
+        status=result.status,
+    )
+
+
+@router.post(
+    "/salons/{salon_id}/bookings/{booking_id}/complete",
+    response_model=BookingCompleteVisitResponse,
+    status_code=200,
+)
+def admin_complete_visit(
+    salon_id: uuid.UUID,
+    booking_id: uuid.UUID,
+    context: WriteSalonContext,
+    as_of: AsOfDep,
+    booking_service: BookingServiceDep,
+) -> BookingCompleteVisitResponse:
+    _assert_path_salon(context, salon_id)
+    result = booking_service.admin_complete_visit(
+        salon_id=context.salon_id,
+        booking_id=booking_id,
+        as_of=as_of,
+    )
+    return BookingCompleteVisitResponse(
+        booking_id=result.booking_id,
+        status=result.status,
+        completed_at=result.completed_at,
+    )
+
+
+@router.post(
+    "/salons/{salon_id}/bookings/{booking_id}/no-show",
+    response_model=BookingNoShowResponse,
+    status_code=200,
+)
+def admin_mark_no_show(
+    salon_id: uuid.UUID,
+    booking_id: uuid.UUID,
+    context: WriteSalonContext,
+    as_of: AsOfDep,
+    booking_service: BookingServiceDep,
+) -> BookingNoShowResponse:
+    _assert_path_salon(context, salon_id)
+    result = booking_service.admin_mark_no_show(
+        salon_id=context.salon_id,
+        booking_id=booking_id,
+        as_of=as_of,
+    )
+    return BookingNoShowResponse(
+        booking_id=result.booking_id,
+        status=result.status,
     )
 
 
