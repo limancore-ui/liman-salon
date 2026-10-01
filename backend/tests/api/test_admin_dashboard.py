@@ -36,6 +36,7 @@ def _snapshot(*, upcoming: list[DashboardUpcomingBooking] | None = None) -> Admi
             confirmed=2,
         ),
         upcoming_bookings=upcoming or [],
+        attention_bookings=[],
         active_staff_count=2,
         warnings=[],
     )
@@ -117,6 +118,70 @@ def test_dashboard_read_roles(role: str) -> None:
         client.close()
 
 
+def test_dashboard_empty_attention() -> None:
+    client, mock_dashboard, headers = _auth_app()
+    mock_dashboard.get_admin_snapshot.return_value = _snapshot()
+    response = client.get(
+        f"/api/v1/salons/{SALON_A}/dashboard",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["attention_bookings"] == []
+    client.close()
+
+
+def test_dashboard_attention_order_preserved() -> None:
+    client, mock_dashboard, headers = _auth_app()
+    early = _upcoming_row(
+        starts_at=datetime(2026, 9, 25, 8, 0, tzinfo=timezone.utc),
+    )
+    early = DashboardUpcomingBooking(
+        id=uuid.UUID("22222222-2222-4222-8222-222222222222"),
+        starts_at=early.starts_at,
+        ends_at=early.ends_at,
+        customer_name=early.customer_name,
+        customer_phone=early.customer_phone,
+        service_name=early.service_name,
+        staff_name=early.staff_name,
+        status="pending",
+        price_cents=early.price_cents,
+    )
+    late = _upcoming_row(
+        starts_at=datetime(2026, 9, 25, 16, 0, tzinfo=timezone.utc),
+    )
+    late = DashboardUpcomingBooking(
+        id=uuid.UUID("33333333-3333-4333-8333-333333333333"),
+        starts_at=late.starts_at,
+        ends_at=late.ends_at,
+        customer_name=late.customer_name,
+        customer_phone=late.customer_phone,
+        service_name=late.service_name,
+        staff_name=late.staff_name,
+        status="in_progress",
+        price_cents=late.price_cents,
+    )
+    snap = _snapshot()
+    snap = AdminDashboardSnapshot(
+        salon_date=snap.salon_date,
+        today_booking_count=snap.today_booking_count,
+        status_counts=snap.status_counts,
+        upcoming_bookings=snap.upcoming_bookings,
+        attention_bookings=[early, late],
+        active_staff_count=snap.active_staff_count,
+        warnings=snap.warnings,
+    )
+    mock_dashboard.get_admin_snapshot.return_value = snap
+    response = client.get(
+        f"/api/v1/salons/{SALON_A}/dashboard",
+        headers=headers,
+    )
+    body = response.json()["attention_bookings"]
+    assert len(body) == 2
+    assert body[0]["starts_at"] < body[1]["starts_at"]
+    assert body[0]["status"] == "pending"
+    client.close()
+
+
 def test_dashboard_empty_upcoming() -> None:
     client, mock_dashboard, headers = _auth_app()
     mock_dashboard.get_admin_snapshot.return_value = _snapshot(upcoming=[])
@@ -166,6 +231,7 @@ def test_dashboard_warnings_optional() -> None:
         today_booking_count=0,
         status_counts=DashboardStatusCounts(),
         upcoming_bookings=[],
+        attention_bookings=[],
         active_staff_count=0,
         warnings=[DashboardWarning(code="no_active_staff")],
     )

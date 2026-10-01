@@ -65,5 +65,6 @@ class AdminDashboardSnapshot:
     today_booking_count: int
     status_counts: DashboardStatusCounts
     upcoming_bookings: list[DashboardUpcomingBooking]
+    attention_bookings: list[DashboardUpcomingBooking]
     active_staff_count: int
     warnings: list[DashboardWarning]

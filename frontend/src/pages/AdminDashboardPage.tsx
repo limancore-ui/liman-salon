@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
 import { fetchAdminDashboard } from '../api/dashboard'
@@ -13,6 +14,16 @@ import {
   formatBookingTime,
   formatDashboardPrice,
 } from '../utils/adminSalonFormat'
+import { buildAdminBookingsFilterPath } from '../utils/adminBookingsFilterParams'
+
+const OPS_ATTENTION_STATUSES: {
+  key: 'pending' | 'confirmed' | 'in_progress'
+  label: string
+}[] = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'confirmed', label: 'Confirmed' },
+  { key: 'in_progress', label: 'In progress' },
+]
 
 const STATUS_SUMMARY: {
   key: keyof DashboardStatusCounts
@@ -67,10 +78,20 @@ function formatWarningMessage(warning: DashboardWarning): string {
   return label
 }
 
+function opsAttentionCount(snapshot: AdminDashboardSnapshot): number {
+  const sc = snapshot.status_counts
+  return sc.pending + sc.confirmed + sc.in_progress
+}
+
+function hasOpsSpotlight(snapshot: AdminDashboardSnapshot): boolean {
+  return opsAttentionCount(snapshot) > 0 || snapshot.attention_bookings.length > 0
+}
+
 function isDashboardEmpty(snapshot: AdminDashboardSnapshot): boolean {
   return (
     snapshot.today_booking_count === 0 &&
     snapshot.upcoming_bookings.length === 0 &&
+    snapshot.attention_bookings.length === 0 &&
     snapshot.status_counts.pending === 0 &&
     snapshot.status_counts.confirmed === 0 &&
     snapshot.status_counts.in_progress === 0 &&
@@ -197,6 +218,86 @@ export function AdminDashboardPage() {
                 <span className="admin-dashboard__stat-value">{snapshot.active_staff_count}</span>
               </div>
             </div>
+
+            {hasOpsSpotlight(snapshot) ? (
+              <section
+                className="admin-dashboard__panel"
+                aria-labelledby="dashboard-ops-spotlight-heading"
+              >
+                <h2 id="dashboard-ops-spotlight-heading" className="admin-dashboard__panel-title">
+                  Ops spotlight
+                </h2>
+                <p className="admin-dashboard__ops-lead">
+                  Operational bookings for today that may need follow-up in the bookings list.
+                </p>
+                <ul className="admin-dashboard__ops-links">
+                  {OPS_ATTENTION_STATUSES.map(({ key, label }) => {
+                    const count = snapshot.status_counts[key]
+                    if (count === 0) {
+                      return null
+                    }
+                    return (
+                      <li key={key}>
+                        <Link
+                          className="admin-dashboard__ops-link"
+                          to={buildAdminBookingsFilterPath(snapshot.salon_date, key)}
+                        >
+                          {label}: {count}
+                        </Link>
+                      </li>
+                    )
+                  })}
+                  {opsAttentionCount(snapshot) > 0 ? (
+                    <li>
+                      <Link
+                        className="admin-dashboard__ops-link"
+                        to={buildAdminBookingsFilterPath(snapshot.salon_date)}
+                      >
+                        View all operational today ({opsAttentionCount(snapshot)})
+                      </Link>
+                    </li>
+                  ) : null}
+                </ul>
+
+                {snapshot.attention_bookings.length === 0 ? (
+                  <p className="admin-dashboard__empty">No operational bookings listed.</p>
+                ) : (
+                  <div className="admin-bookings__table-wrap">
+                    <table className="admin-bookings__table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Time</th>
+                          <th scope="col">Customer</th>
+                          <th scope="col">Service</th>
+                          <th scope="col">Staff</th>
+                          <th scope="col">Status</th>
+                          <th scope="col">Price</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {snapshot.attention_bookings.map((row) => (
+                          <tr key={row.id}>
+                            <td>{formatBookingTime(row.starts_at, salonTimeZone)}</td>
+                            <td>
+                              <span className="admin-bookings__customer-name">{row.customer_name}</span>
+                              {row.customer_phone ? (
+                                <span className="admin-bookings__customer-phone">{row.customer_phone}</span>
+                              ) : null}
+                            </td>
+                            <td>{row.service_name}</td>
+                            <td>{row.staff_name}</td>
+                            <td>
+                              <span className="admin-bookings__status">{formatStatusLabel(row.status)}</span>
+                            </td>
+                            <td>{formatDashboardPrice(row.price_cents, salonCurrencyCode)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            ) : null}
 
             <section className="admin-dashboard__panel" aria-labelledby="dashboard-status-heading">
               <h2 id="dashboard-status-heading" className="admin-dashboard__panel-title">

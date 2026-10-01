@@ -20,6 +20,7 @@ from app.services.salon_public.repository import SalonPublicRepository
 from app.services.staff.repository import StaffRepository
 
 _UPCOMING_LIMIT = 50
+_ATTENTION_LIMIT = 25
 
 
 class DashboardService:
@@ -67,6 +68,13 @@ class DashboardService:
             limit=_UPCOMING_LIMIT,
         )
         upcoming = [_map_upcoming_row(row) for row in upcoming_rows]
+        attention_rows = self._booking_repo.list_attention_bookings_starts_in_range(
+            salon_id=salon_id,
+            range_start=range_start,
+            range_end=range_end,
+            limit=_ATTENTION_LIMIT,
+        )
+        attention = [_map_upcoming_row(row) for row in attention_rows]
         active_staff_count = self._staff_repo.count_active_staff(salon_id=salon_id)
         warnings = self._derive_warnings(
             salon_id=salon_id,
@@ -78,6 +86,7 @@ class DashboardService:
             today_booking_count=today_booking_count,
             status_counts=status_counts,
             upcoming_bookings=upcoming,
+            attention_bookings=attention,
             active_staff_count=active_staff_count,
             warnings=warnings,
         )

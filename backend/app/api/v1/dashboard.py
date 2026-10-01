@@ -52,6 +52,20 @@ def _to_response(snapshot: AdminDashboardSnapshot) -> AdminDashboardSnapshotResp
             )
             for row in snapshot.upcoming_bookings
         ],
+        attention_bookings=[
+            DashboardUpcomingBookingResponse(
+                id=row.id,
+                starts_at=row.starts_at,
+                ends_at=row.ends_at,
+                customer_name=row.customer_name,
+                customer_phone=row.customer_phone,
+                service_name=row.service_name,
+                staff_name=row.staff_name,
+                status=row.status,
+                price_cents=row.price_cents,
+            )
+            for row in snapshot.attention_bookings
+        ],
         active_staff_count=snapshot.active_staff_count,
         warnings=[
             DashboardWarningResponse(code=w.code, count=w.count)

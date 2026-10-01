@@ -38,5 +38,6 @@ class AdminDashboardSnapshotResponse(BaseModel):
     today_booking_count: int
     status_counts: DashboardStatusCountsResponse
     upcoming_bookings: list[DashboardUpcomingBookingResponse]
+    attention_bookings: list[DashboardUpcomingBookingResponse]
     active_staff_count: int
     warnings: list[DashboardWarningResponse]

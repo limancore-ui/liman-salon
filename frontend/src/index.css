@@ -1024,6 +1024,27 @@ body {
   font-weight: 700;
 }
 
+.admin-dashboard__ops-lead {
+  margin: 0 0 0.75rem;
+  color: var(--color-muted, #64748b);
+  font-size: 0.9375rem;
+}
+
+.admin-dashboard__ops-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-dashboard__ops-link {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 .admin-dashboard__empty {
   margin: 0;
   padding: var(--space-lg);

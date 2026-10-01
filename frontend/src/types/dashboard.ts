@@ -30,6 +30,7 @@ export type AdminDashboardSnapshot = {
   today_booking_count: number
   status_counts: DashboardStatusCounts
   upcoming_bookings: DashboardUpcomingBooking[]
+  attention_bookings: DashboardUpcomingBooking[]
   active_staff_count: number
   warnings: DashboardWarning[]
 }

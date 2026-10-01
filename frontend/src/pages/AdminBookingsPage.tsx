@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -29,6 +30,7 @@ import {
   formatBookingDateTime,
   formatDashboardPrice,
 } from '../utils/adminSalonFormat'
+import { parseAdminBookingsFilterParams } from '../utils/adminBookingsFilterParams'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
@@ -153,12 +155,14 @@ function resolveStaffIdForBooking(
 
 export function AdminBookingsPage() {
   const { session, clearAuthAndRedirect } = useAuth()
+  const [searchParams] = useSearchParams()
+  const initialFilters = parseAdminBookingsFilterParams(searchParams)
   const [items, setItems] = useState<BookingListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [status, setStatus] = useState('')
+  const [dateFrom, setDateFrom] = useState(initialFilters.dateFrom)
+  const [dateTo, setDateTo] = useState(initialFilters.dateTo)
+  const [status, setStatus] = useState(initialFilters.status)
 
   const [staffList, setStaffList] = useState<StaffListItem[]>([])
   const [staffLoading, setStaffLoading] = useState(false)

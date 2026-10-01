@@ -70,5 +70,8 @@ export async function fetchAdminDashboard(
   return {
     ...body,
     status_counts: normalizeStatusCounts(body.status_counts),
+    attention_bookings: Array.isArray(body.attention_bookings)
+      ? body.attention_bookings
+      : [],
   }
 }

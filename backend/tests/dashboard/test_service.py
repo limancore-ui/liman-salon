@@ -35,6 +35,7 @@ def test_snapshot_aggregates_counts_and_staff() -> None:
         "cancelled": 2,
     }
     booking_repo.list_upcoming_bookings_starts_in_range.return_value = []
+    booking_repo.list_attention_bookings_starts_in_range.return_value = []
     staff_repo.count_active_staff.return_value = 4
     staff_repo.list_staff.return_value = [MagicMock()]
 
@@ -65,6 +66,7 @@ def test_snapshot_no_active_staff_warning() -> None:
     booking_repo.count_bookings_starts_in_range.return_value = 0
     booking_repo.status_counts_starts_in_range.return_value = {}
     booking_repo.list_upcoming_bookings_starts_in_range.return_value = []
+    booking_repo.list_attention_bookings_starts_in_range.return_value = []
     staff_repo.count_active_staff.return_value = 0
 
     snap = svc.get_admin_snapshot(salon_id=SALON_ID, as_of=AS_OF)
@@ -91,6 +93,7 @@ def test_snapshot_maps_upcoming_from_booking_rows() -> None:
         price_cents=100,
     )
     booking_repo.list_upcoming_bookings_starts_in_range.return_value = [row]
+    booking_repo.list_attention_bookings_starts_in_range.return_value = []
     staff_repo.count_active_staff.return_value = 1
     staff_repo.list_staff.return_value = [MagicMock()]
 
@@ -102,3 +105,54 @@ def test_snapshot_maps_upcoming_from_booking_rows() -> None:
     kwargs = booking_repo.list_upcoming_bookings_starts_in_range.call_args.kwargs
     assert kwargs["salon_id"] == SALON_ID
     assert kwargs["as_of"] == AS_OF
+
+
+def test_snapshot_maps_attention_from_booking_rows() -> None:
+    svc, booking_repo, staff_repo, salon_repo = _service_with_mocks()
+    salon_repo.get_salon_timezone.return_value = "UTC"
+    booking_repo.count_bookings_starts_in_range.return_value = 2
+    booking_repo.status_counts_starts_in_range.return_value = {
+        "pending": 1,
+        "confirmed": 1,
+    }
+    booking_repo.list_upcoming_bookings_starts_in_range.return_value = []
+    pending_row = BookingUpcomingRow(
+        id=uuid.uuid4(),
+        starts_at=datetime(2026, 9, 25, 8, 0, tzinfo=timezone.utc),
+        ends_at=datetime(2026, 9, 25, 9, 0, tzinfo=timezone.utc),
+        customer_name="Early Pending",
+        customer_phone=None,
+        service_name="S",
+        staff_name="T",
+        status="pending",
+        price_cents=200,
+    )
+    confirmed_row = BookingUpcomingRow(
+        id=uuid.uuid4(),
+        starts_at=datetime(2026, 9, 25, 14, 0, tzinfo=timezone.utc),
+        ends_at=datetime(2026, 9, 25, 15, 0, tzinfo=timezone.utc),
+        customer_name="Later Confirmed",
+        customer_phone="+1",
+        service_name="S2",
+        staff_name="T2",
+        status="confirmed",
+        price_cents=300,
+    )
+    booking_repo.list_attention_bookings_starts_in_range.return_value = [
+        pending_row,
+        confirmed_row,
+    ]
+    staff_repo.count_active_staff.return_value = 1
+    staff_repo.list_staff.return_value = [MagicMock()]
+
+    snap = svc.get_admin_snapshot(salon_id=SALON_ID, as_of=AS_OF)
+
+    assert len(snap.attention_bookings) == 2
+    assert snap.attention_bookings[0].customer_name == "Early Pending"
+    assert snap.attention_bookings[0].status == "pending"
+    assert snap.attention_bookings[1].customer_name == "Later Confirmed"
+    booking_repo.list_attention_bookings_starts_in_range.assert_called_once()
+    kwargs = booking_repo.list_attention_bookings_starts_in_range.call_args.kwargs
+    assert kwargs["salon_id"] == SALON_ID
+    assert kwargs["limit"] == 25
+    assert "as_of" not in kwargs

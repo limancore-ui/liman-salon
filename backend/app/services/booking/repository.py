@@ -317,3 +317,71 @@ class BookingRepository:
             )
             for row in rows
         ]
+
+    _ATTENTION_OPERATIONAL_STATUSES = ("pending", "confirmed", "in_progress")
+
+    def list_attention_bookings_starts_in_range(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        range_start: datetime,
+        range_end: datetime,
+        limit: int,
+    ) -> list[BookingUpcomingRow]:
+        stmt = (
+            select(
+                Booking.id,
+                Booking.status,
+                Booking.starts_at,
+                Booking.ends_at,
+                Booking.price_cents,
+                Customer.full_name,
+                Customer.phone,
+                Staff.display_name,
+                Service.name,
+            )
+            .join(
+                Customer,
+                and_(
+                    Booking.salon_id == Customer.salon_id,
+                    Booking.customer_id == Customer.id,
+                ),
+            )
+            .join(
+                Staff,
+                and_(
+                    Booking.salon_id == Staff.salon_id,
+                    Booking.staff_id == Staff.id,
+                ),
+            )
+            .join(
+                Service,
+                and_(
+                    Booking.salon_id == Service.salon_id,
+                    Booking.service_id == Service.id,
+                ),
+            )
+            .where(
+                Booking.salon_id == salon_id,
+                Booking.starts_at >= range_start,
+                Booking.starts_at < range_end,
+                Booking.status.in_(self._ATTENTION_OPERATIONAL_STATUSES),
+            )
+            .order_by(Booking.starts_at.asc(), Booking.id.asc())
+            .limit(limit)
+        )
+        rows = self._session.execute(stmt).all()
+        return [
+            BookingUpcomingRow(
+                id=row.id,
+                status=row.status,
+                starts_at=row.starts_at,
+                ends_at=row.ends_at,
+                price_cents=row.price_cents,
+                customer_name=row.full_name,
+                customer_phone=row.phone,
+                staff_name=row.display_name,
+                service_name=row.name,
+            )
+            for row in rows
+        ]
