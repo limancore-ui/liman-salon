@@ -21,6 +21,12 @@ export type ListBookingsParams = {
   offset?: number
 }
 
+export type AdminBookingConfirmResponse = {
+  booking_id: string
+  status: string
+  confirmed_at: string
+}
+
 export type AdminBookingCancelRequest = {
   reason?: string
 }

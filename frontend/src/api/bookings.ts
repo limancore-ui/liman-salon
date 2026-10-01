@@ -2,6 +2,7 @@ import { ApiError } from './errors'
 import type {
   AdminBookingCancelRequest,
   AdminBookingCancelResponse,
+  AdminBookingConfirmResponse,
   AdminBookingCreateRequest,
   AdminBookingCreateResponse,
   AdminBookingRescheduleRequest,
@@ -99,6 +100,26 @@ export async function fetchAdminBookings(
 
 function bookingsBase(salonId: string): string {
   return `/api/v1/salons/${encodeURIComponent(salonId)}/bookings`
+}
+
+export async function confirmAdminBooking(
+  token: string,
+  salonId: string,
+  bookingId: string,
+): Promise<AdminBookingConfirmResponse> {
+  const response = await fetch(
+    `${bookingsBase(salonId)}/${encodeURIComponent(bookingId)}/confirm`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  )
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as AdminBookingConfirmResponse
 }
 
 export async function cancelAdminBooking(

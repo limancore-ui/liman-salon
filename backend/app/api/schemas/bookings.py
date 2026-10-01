@@ -43,6 +43,12 @@ class BookingCancelResponse(BaseModel):
     cancelled_at: datetime
 
 
+class BookingConfirmResponse(BaseModel):
+    booking_id: UUID
+    status: str
+    confirmed_at: datetime
+
+
 class BookingRescheduleRequest(BaseModel):
     staff_id: UUID
     service_start: datetime = Field(

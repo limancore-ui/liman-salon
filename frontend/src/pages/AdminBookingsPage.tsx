@@ -3,6 +3,7 @@ import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
 import {
   cancelAdminBooking,
+  confirmAdminBooking,
   createAdminBooking,
   fetchAdminBookings,
   rescheduleAdminBooking,
@@ -494,6 +495,30 @@ export function AdminBookingsPage() {
       load,
       clearAuthAndRedirect,
     ],
+  )
+
+  const handleConfirmPending = useCallback(
+    async (row: BookingListItem) => {
+      if (!session || actionSubmitting) {
+        return
+      }
+      setActionSubmitting(true)
+      setActionError(null)
+      try {
+        await confirmAdminBooking(session.token, session.salon.salon_id, row.id)
+        clearAction()
+        await load()
+      } catch (err: unknown) {
+        if (isUnauthorizedError(err)) {
+          clearAuthAndRedirect()
+          return
+        }
+        setActionError(mapAdminBookingActionError(err))
+      } finally {
+        setActionSubmitting(false)
+      }
+    },
+    [session, actionSubmitting, clearAction, load, clearAuthAndRedirect],
   )
 
   const handleConfirmCancel = useCallback(
@@ -991,6 +1016,21 @@ export function AdminBookingsPage() {
                         <td className="admin-bookings__actions">
                           {actionable ? (
                             <>
+                              {row.status === 'pending' ? (
+                                <button
+                                  type="button"
+                                  className="btn btn--primary btn--compact"
+                                  onClick={() => void handleConfirmPending(row)}
+                                  disabled={
+                                    actionSubmitting ||
+                                    createSubmitting ||
+                                    createOpen ||
+                                    actionMode !== null
+                                  }
+                                >
+                                  Confirm
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
                                 className="btn btn--secondary btn--compact"

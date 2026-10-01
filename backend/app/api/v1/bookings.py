@@ -10,6 +10,7 @@ from app.api.deps import AsOfDep, BookingServiceDep, PublicBookingServiceDep
 from app.api.schemas.bookings import (
     BookingCancelRequest,
     BookingCancelResponse,
+    BookingConfirmResponse,
     BookingCreateRequest,
     BookingCreateResponse,
     BookingListItemResponse,
@@ -141,6 +142,31 @@ def admin_cancel_booking(
         booking_id=result.booking_id,
         status=result.status,
         cancelled_at=result.cancelled_at,
+    )
+
+
+@router.post(
+    "/salons/{salon_id}/bookings/{booking_id}/confirm",
+    response_model=BookingConfirmResponse,
+    status_code=200,
+)
+def admin_confirm_booking(
+    salon_id: uuid.UUID,
+    booking_id: uuid.UUID,
+    context: WriteSalonContext,
+    as_of: AsOfDep,
+    booking_service: BookingServiceDep,
+) -> BookingConfirmResponse:
+    _assert_path_salon(context, salon_id)
+    result = booking_service.admin_confirm_booking(
+        salon_id=context.salon_id,
+        booking_id=booking_id,
+        as_of=as_of,
+    )
+    return BookingConfirmResponse(
+        booking_id=result.booking_id,
+        status=result.status,
+        confirmed_at=result.confirmed_at,
     )
 
 

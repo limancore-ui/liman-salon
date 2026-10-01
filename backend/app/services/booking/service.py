@@ -21,6 +21,7 @@ from app.services.booking.repository import BookingRepository
 from app.services.booking.types import (
     BookingListRow,
     CancelBookingResult,
+    ConfirmBookingResult,
     CreateBookingResult,
     RescheduleBookingResult,
     ServiceSnapshot,
@@ -391,6 +392,47 @@ class BookingService:
             raise BookingNotFoundError("booking not found")
 
         return self._cancel_booking_loaded(booking, as_of=as_of, reason=reason)
+
+    def _confirm_booking_loaded(
+        self,
+        booking: Booking,
+        *,
+        as_of: datetime,
+    ) -> ConfirmBookingResult:
+        self._expire_loaded_stale_pending_hold(booking, as_of=as_of)
+        if booking.status != "pending":
+            raise BookingValidationError(
+                "booking cannot be confirmed in its current status"
+            )
+        if booking.expires_at is None:
+            raise BookingValidationError("pending booking requires expires_at")
+
+        booking.status = "confirmed"
+        booking.confirmed_at = as_of
+        booking.expires_at = None
+        self._session.flush()
+
+        return ConfirmBookingResult(
+            booking_id=booking.id,
+            status=booking.status,
+            confirmed_at=booking.confirmed_at,
+        )
+
+    def admin_confirm_booking(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        as_of: datetime,
+    ) -> ConfirmBookingResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        return self._confirm_booking_loaded(booking, as_of=as_of)
 
     def _reschedule_booking_loaded(
         self,

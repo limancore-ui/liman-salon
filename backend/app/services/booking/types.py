@@ -81,6 +81,13 @@ class CreateBookingResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ConfirmBookingResult:
+    booking_id: UUID
+    status: str
+    confirmed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class CancelBookingResult:
     booking_id: UUID
     status: str
