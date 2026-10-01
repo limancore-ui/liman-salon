@@ -12,6 +12,7 @@ export type AvailabilityTimeListState =
 type AvailabilityTimeListProps = {
   state: AvailabilityTimeListState
   selectedSlot: PublicSelectedSlot | null
+  timeZone: string
   onSelectSlot: (slot: PublicSelectedSlot) => void
 }
 
@@ -22,6 +23,7 @@ function slotKey(slot: PublicSelectedSlot): string {
 export function AvailabilityTimeList({
   state,
   selectedSlot,
+  timeZone,
   onSelectSlot,
 }: AvailabilityTimeListProps) {
   if (state.status === 'idle' || state.status === 'loading') {
@@ -61,7 +63,7 @@ export function AvailabilityTimeList({
                 className={`time-slot${selected ? ' time-slot--selected' : ''}`}
                 onClick={() => onSelectSlot(slot)}
               >
-                {formatServiceStartTime(slot.service_start)}
+                {formatServiceStartTime(slot.service_start, timeZone)}
               </button>
             </li>
           )

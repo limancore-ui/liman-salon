@@ -7,6 +7,7 @@ type BookingSummaryProps = {
   staffDisplayName: string
   selectedDate: string
   serviceStartIso: string
+  timeZone: string
 }
 
 export function BookingSummary({
@@ -14,6 +15,7 @@ export function BookingSummary({
   staffDisplayName,
   selectedDate,
   serviceStartIso,
+  timeZone,
 }: BookingSummaryProps) {
   return (
     <section className="booking-summary" aria-label="Детали записи">
@@ -33,7 +35,7 @@ export function BookingSummary({
         </div>
         <div className="booking-summary__row">
           <dt>Время</dt>
-          <dd>{formatServiceStartTime(serviceStartIso)}</dd>
+          <dd>{formatServiceStartTime(serviceStartIso, timeZone)}</dd>
         </div>
         <div className="booking-summary__row">
           <dt>Стоимость</dt>

@@ -10,12 +10,14 @@ import {
 type BookingConfirmationProps = {
   booking: PublicBookingCreateResponse
   slug: string
+  timeZone: string
   onDone: () => void
 }
 
 export function BookingConfirmation({
   booking,
   slug,
+  timeZone,
   onDone,
 }: BookingConfirmationProps) {
   const navigate = useNavigate()
@@ -45,11 +47,11 @@ export function BookingConfirmation({
       <dl className="booking-summary__list booking-confirmation__details">
         <div className="booking-summary__row">
           <dt>Начало</dt>
-          <dd>{formatBookingDateTime(booking.service_start)}</dd>
+          <dd>{formatBookingDateTime(booking.service_start, timeZone)}</dd>
         </div>
         <div className="booking-summary__row">
           <dt>Окончание</dt>
-          <dd>{formatBookingDateTime(booking.service_end)}</dd>
+          <dd>{formatBookingDateTime(booking.service_end, timeZone)}</dd>
         </div>
         <div className="booking-summary__row">
           <dt>Номер записи</dt>
@@ -59,7 +61,7 @@ export function BookingConfirmation({
         </div>
         <div className="booking-summary__row">
           <dt>Удержание до</dt>
-          <dd>{formatBookingDateTime(booking.hold_expires_at)}</dd>
+          <dd>{formatBookingDateTime(booking.hold_expires_at, timeZone)}</dd>
         </div>
       </dl>
       <p className="booking-confirmation__hint">

@@ -467,7 +467,7 @@ export function PublicManageBookingPage() {
           <p className="public-manage-page__status public-manage-page__status--cancelled">
             Запись отменена
             {snapshot.cancelled_at
-              ? ` · ${formatBookingDateTime(snapshot.cancelled_at)}`
+              ? ` · ${formatBookingDateTime(snapshot.cancelled_at, salonTimeZone)}`
               : null}
           </p>
         ) : snapshot.status ? (
@@ -490,13 +490,13 @@ export function PublicManageBookingPage() {
           {snapshot.service_start ? (
             <div className="booking-summary__row">
               <dt>Начало</dt>
-              <dd>{formatBookingDateTime(snapshot.service_start)}</dd>
+              <dd>{formatBookingDateTime(snapshot.service_start, salonTimeZone)}</dd>
             </div>
           ) : null}
           {snapshot.service_end ? (
             <div className="booking-summary__row">
               <dt>Окончание</dt>
-              <dd>{formatBookingDateTime(snapshot.service_end)}</dd>
+              <dd>{formatBookingDateTime(snapshot.service_end, salonTimeZone)}</dd>
             </div>
           ) : null}
           <div className="booking-summary__row">
@@ -642,6 +642,7 @@ export function PublicManageBookingPage() {
             <AvailabilityTimeList
               state={availabilityState}
               selectedSlot={selectedSlot}
+              timeZone={salonTimeZone}
               onSelectSlot={handleSelectSlot}
             />
             <div className="booking-step__actions">

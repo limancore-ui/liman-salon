@@ -602,6 +602,7 @@ export function PublicSalonPage() {
             <BookingConfirmation
               booking={bookingResult}
               slug={slug ?? ''}
+              timeZone={salonTimeZone}
               onDone={handleBookingDone}
             />
           ) : flowStep === 'customer' &&
@@ -617,6 +618,7 @@ export function PublicSalonPage() {
                 )}
                 selectedDate={selectedDate}
                 serviceStartIso={selectedSlot.service_start}
+                timeZone={salonTimeZone}
               />
               <CustomerDetailsForm
                 form={customerForm}
@@ -662,6 +664,7 @@ export function PublicSalonPage() {
               <AvailabilityTimeList
                 state={availabilityState}
                 selectedSlot={selectedSlot}
+                timeZone={salonTimeZone}
                 onSelectSlot={handleSelectSlot}
               />
               <div className="booking-step__actions">

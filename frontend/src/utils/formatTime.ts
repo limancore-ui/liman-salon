@@ -1,10 +1,9 @@
-const timeFormatter = new Intl.DateTimeFormat('ru-RU', {
-  hour: '2-digit',
-  minute: '2-digit',
-})
-
-export function formatServiceStartTime(isoUtc: string): string {
-  return timeFormatter.format(new Date(isoUtc))
+export function formatServiceStartTime(isoUtc: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone,
+  }).format(new Date(isoUtc))
 }
 
 const dateChipFormatter = new Intl.DateTimeFormat('ru-RU', {
@@ -18,14 +17,13 @@ export function formatDateChipLabel(isoDate: string): string {
   return dateChipFormatter.format(new Date(y, m - 1, d))
 }
 
-const dateTimeFormatter = new Intl.DateTimeFormat('ru-RU', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  hour: '2-digit',
-  minute: '2-digit',
-})
-
-export function formatBookingDateTime(isoUtc: string): string {
-  return dateTimeFormatter.format(new Date(isoUtc))
+export function formatBookingDateTime(isoUtc: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone,
+  }).format(new Date(isoUtc))
 }
