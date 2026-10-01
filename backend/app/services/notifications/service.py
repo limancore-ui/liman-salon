@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -13,8 +13,10 @@ from app.db.models.notification import Notification
 from app.services.booking.repository import BookingRepository
 from app.services.notifications.constants import (
     CHANNEL_WHATSAPP,
+    MAX_DELIVERY_ATTEMPTS,
     PROVIDER_STUB,
     TEMPLATE_BOOKING_CONFIRMED,
+    retry_backoff_seconds,
 )
 from app.services.notifications.provider import NotificationProvider, ProviderSendResult
 from app.services.notifications.repository import NotificationRepository
@@ -81,7 +83,14 @@ class NotificationService:
         return notification
 
     def process_due_pending(self, *, as_of: datetime, batch_size: int = 50) -> int:
-        """Process due pending rows once (no retry loop). Returns rows handled."""
+        """
+        Process due pending rows once (no in-process retry loop).
+
+        Retries are scheduled via ``scheduled_for``; the C14 worker re-invokes this
+        method on its cron interval. Provider-level exactly-once is not guaranteed:
+        a timeout after the provider accepted a message may produce duplicate delivery
+        on a later retry attempt.
+        """
         if as_of.tzinfo is None:
             raise ValueError("as_of must be timezone-aware")
 
@@ -98,6 +107,14 @@ class NotificationService:
         return processed
 
     def _deliver_one(self, notification: Notification, *, as_of: datetime) -> None:
+        if notification.attempt_count >= MAX_DELIVERY_ATTEMPTS:
+            notification.status = "failed"
+            notification.last_error = (
+                notification.last_error or "max delivery attempts exceeded"
+            )
+            self._session.flush()
+            return
+
         result = self._provider.send(notification=notification)
         notification.attempt_count = notification.attempt_count + 1
         self._apply_send_result(notification, result, as_of=as_of)
@@ -115,6 +132,26 @@ class NotificationService:
             notification.sent_at = as_of
             notification.provider_message_id = result.provider_message_id
             notification.last_error = None
-        else:
-            notification.status = "failed"
-            notification.last_error = result.error_message or "delivery failed"
+            notification.scheduled_for = None
+            return
+
+        error_message = result.error_message or "delivery failed"
+        notification.last_error = error_message
+
+        failure_kind = result.failure_kind
+        if failure_kind not in ("retryable", "terminal"):
+            failure_kind = "terminal"
+
+        if (
+            failure_kind == "retryable"
+            and notification.attempt_count < MAX_DELIVERY_ATTEMPTS
+        ):
+            notification.status = "pending"
+            delay_seconds = retry_backoff_seconds(
+                completed_attempt_count=notification.attempt_count,
+            )
+            notification.scheduled_for = as_of + timedelta(seconds=delay_seconds)
+            return
+
+        notification.status = "failed"
+        notification.scheduled_for = None

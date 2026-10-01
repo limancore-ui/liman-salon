@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 
 from app.db.models.notification import Notification
+
+FailureKind = Literal["retryable", "terminal"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -13,6 +15,7 @@ class ProviderSendResult:
     success: bool
     provider_message_id: str | None = None
     error_message: str | None = None
+    failure_kind: FailureKind | None = None
 
 
 class NotificationProvider(Protocol):
