@@ -5,7 +5,9 @@ import type {
   BlockedPeriodUpdateBody,
   ListBlockedPeriodsParams,
   ListWorkingHoursParams,
+  WorkingHoursCreateBody,
   WorkingHoursItem,
+  WorkingHoursUpdateBody,
 } from '../types/schedule'
 
 type ApiErrorBody = {
@@ -73,6 +75,65 @@ export async function fetchWorkingHours(
     throw await readApiError(response)
   }
   return (await response.json()) as WorkingHoursItem[]
+}
+
+export async function createWorkingHours(
+  token: string,
+  salonId: string,
+  body: WorkingHoursCreateBody,
+): Promise<WorkingHoursItem> {
+  const response = await fetch(`${scheduleBase(salonId)}/working-hours`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as WorkingHoursItem
+}
+
+export async function updateWorkingHours(
+  token: string,
+  salonId: string,
+  workingHoursId: string,
+  body: WorkingHoursUpdateBody,
+): Promise<WorkingHoursItem> {
+  const response = await fetch(
+    `${scheduleBase(salonId)}/working-hours/${encodeURIComponent(workingHoursId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as WorkingHoursItem
+}
+
+export async function deleteWorkingHours(
+  token: string,
+  salonId: string,
+  workingHoursId: string,
+): Promise<void> {
+  const response = await fetch(
+    `${scheduleBase(salonId)}/working-hours/${encodeURIComponent(workingHoursId)}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  )
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
 }
 
 export async function fetchBlockedPeriods(

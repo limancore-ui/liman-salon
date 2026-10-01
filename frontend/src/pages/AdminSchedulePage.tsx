@@ -4,10 +4,13 @@ import { useAuth } from '../auth/AuthContext'
 import { fetchAdminStaff } from '../api/staff'
 import {
   createBlockedPeriod,
+  createWorkingHours,
   deleteBlockedPeriod,
+  deleteWorkingHours,
   fetchBlockedPeriods,
   fetchWorkingHours,
   updateBlockedPeriod,
+  updateWorkingHours,
 } from '../api/schedule'
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
@@ -41,13 +44,10 @@ function canManageSchedule(role: string | undefined): boolean {
   return role === 'owner' || role === 'admin'
 }
 
+/** Backend wall-clock TIME (`HH:mm` or `HH:mm:ss`) → display `HH:mm`, no timezone conversion. */
 function formatTimeOfDay(timeStr: string): string {
-  const parts = timeStr.split(':')
-  const hours = Number(parts[0])
-  const minutes = Number(parts[1] ?? 0)
-  const date = new Date()
-  date.setHours(hours, minutes, 0, 0)
-  return date.toLocaleTimeString(undefined, { timeStyle: 'short' })
+  const [hours = '00', minutes = '00'] = timeStr.split(':')
+  return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`
 }
 
 function formatDateOnly(isoDate: string): string {
@@ -130,6 +130,159 @@ function formToUpdateBody(form: BlockedPeriodFormState) {
   }
 }
 
+/** Backend TIME → `<input type="time">` value (HH:mm), no timezone conversion. */
+function apiTimeToTimeInput(timeStr: string): string {
+  const [hours = '00', minutes = '00'] = timeStr.split(':')
+  return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`
+}
+
+/** `<input type="time">` value → API wall-clock time string. */
+function timeInputToApi(timeInput: string): string {
+  if (timeInput.length === 5) {
+    return `${timeInput}:00`
+  }
+  return timeInput
+}
+
+function scopeStaffIdFromSelector(scopeStaffId: string): string | null {
+  return scopeStaffId === WH_SCOPE_SALON ? null : scopeStaffId
+}
+
+function mapWorkingHoursActionError(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) {
+    if (err.status === 403) {
+      return 'You do not have permission to manage working hours.'
+    }
+    return err.message
+  }
+  return fallback
+}
+
+type WorkingHoursFormState = {
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  effectiveFrom: string
+  effectiveTo: string
+}
+
+const emptyWorkingHoursForm = (): WorkingHoursFormState => ({
+  dayOfWeek: 0,
+  startTime: '',
+  endTime: '',
+  effectiveFrom: '',
+  effectiveTo: '',
+})
+
+function workingHoursFormFromRow(row: WorkingHoursItem): WorkingHoursFormState {
+  return {
+    dayOfWeek: row.day_of_week,
+    startTime: apiTimeToTimeInput(row.start_time),
+    endTime: apiTimeToTimeInput(row.end_time),
+    effectiveFrom: row.effective_from ?? '',
+    effectiveTo: row.effective_to ?? '',
+  }
+}
+
+function workingHoursFormToCreateBody(
+  form: WorkingHoursFormState,
+  staffId: string | null,
+) {
+  return {
+    staff_id: staffId,
+    day_of_week: form.dayOfWeek,
+    start_time: timeInputToApi(form.startTime),
+    end_time: timeInputToApi(form.endTime),
+    effective_from: form.effectiveFrom === '' ? null : form.effectiveFrom,
+    effective_to: form.effectiveTo === '' ? null : form.effectiveTo,
+  }
+}
+
+function workingHoursFormToUpdateBody(
+  form: WorkingHoursFormState,
+  staffId: string | null,
+) {
+  return {
+    staff_id: staffId,
+    day_of_week: form.dayOfWeek,
+    start_time: timeInputToApi(form.startTime),
+    end_time: timeInputToApi(form.endTime),
+    effective_from: form.effectiveFrom === '' ? null : form.effectiveFrom,
+    effective_to: form.effectiveTo === '' ? null : form.effectiveTo,
+  }
+}
+
+function WorkingHoursFormFields({
+  form,
+  onChange,
+  idPrefix,
+}: {
+  form: WorkingHoursFormState
+  onChange: (next: WorkingHoursFormState) => void
+  idPrefix: string
+}) {
+  return (
+    <>
+      <label className="admin-schedule__filter">
+        <span>Day</span>
+        <select
+          id={`${idPrefix}-day`}
+          value={form.dayOfWeek}
+          onChange={(event) =>
+            onChange({ ...form, dayOfWeek: Number(event.target.value) })
+          }
+        >
+          {DAY_NAMES.map((name, index) => (
+            <option key={name} value={index}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="admin-schedule__filter">
+        <span>Start</span>
+        <input
+          id={`${idPrefix}-start`}
+          type="time"
+          required
+          value={form.startTime}
+          onChange={(event) => onChange({ ...form, startTime: event.target.value })}
+        />
+      </label>
+      <label className="admin-schedule__filter">
+        <span>End</span>
+        <input
+          id={`${idPrefix}-end`}
+          type="time"
+          required
+          value={form.endTime}
+          onChange={(event) => onChange({ ...form, endTime: event.target.value })}
+        />
+      </label>
+      <label className="admin-schedule__filter">
+        <span>Effective from</span>
+        <input
+          id={`${idPrefix}-effective-from`}
+          type="date"
+          value={form.effectiveFrom}
+          onChange={(event) =>
+            onChange({ ...form, effectiveFrom: event.target.value })
+          }
+        />
+      </label>
+      <label className="admin-schedule__filter">
+        <span>Effective to</span>
+        <input
+          id={`${idPrefix}-effective-to`}
+          type="date"
+          value={form.effectiveTo}
+          onChange={(event) => onChange({ ...form, effectiveTo: event.target.value })}
+        />
+      </label>
+    </>
+  )
+}
+
 export function AdminSchedulePage() {
   const { session, clearAuthAndRedirect } = useAuth()
   const manage = canManageSchedule(session?.salon.role)
@@ -141,6 +294,13 @@ export function AdminSchedulePage() {
   const [workingHours, setWorkingHours] = useState<WorkingHoursItem[]>([])
   const [whLoading, setWhLoading] = useState(true)
   const [whError, setWhError] = useState<string | null>(null)
+  const [whActionError, setWhActionError] = useState<string | null>(null)
+  const [whSaving, setWhSaving] = useState(false)
+  const [whCreateForm, setWhCreateForm] = useState<WorkingHoursFormState>(
+    emptyWorkingHoursForm(),
+  )
+  const [whEditingId, setWhEditingId] = useState<string | null>(null)
+  const [whEditForm, setWhEditForm] = useState<WorkingHoursFormState>(emptyWorkingHoursForm())
 
   const [bpFilterStaffId, setBpFilterStaffId] = useState('')
   const [bpFilterStartsFrom, setBpFilterStartsFrom] = useState('')
@@ -263,6 +423,11 @@ export function AdminSchedulePage() {
   }, [loadWorkingHours])
 
   useEffect(() => {
+    setWhEditingId(null)
+    setWhEditForm(emptyWorkingHoursForm())
+  }, [whScopeStaffId])
+
+  useEffect(() => {
     void loadBlockedPeriods()
   }, [loadBlockedPeriods])
 
@@ -285,6 +450,99 @@ export function AdminSchedulePage() {
     }
     return closed
   }, [hoursByDay])
+
+  async function handleCreateWorkingHours(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!session || !manage) {
+      return
+    }
+    setWhSaving(true)
+    setWhActionError(null)
+    const staffId = scopeStaffIdFromSelector(whScopeStaffId)
+    try {
+      await createWorkingHours(
+        session.token,
+        session.salon.salon_id,
+        workingHoursFormToCreateBody(whCreateForm, staffId),
+      )
+      setWhCreateForm(emptyWorkingHoursForm())
+      await loadWorkingHours()
+    } catch (err) {
+      if (isUnauthorizedError(err)) {
+        clearAuthAndRedirect()
+        return
+      }
+      setWhActionError(mapWorkingHoursActionError(err, 'Could not create working hours.'))
+    } finally {
+      setWhSaving(false)
+    }
+  }
+
+  function startWhEdit(row: WorkingHoursItem) {
+    setWhEditingId(row.id)
+    setWhEditForm(workingHoursFormFromRow(row))
+    setWhActionError(null)
+  }
+
+  function cancelWhEdit() {
+    setWhEditingId(null)
+    setWhEditForm(emptyWorkingHoursForm())
+  }
+
+  async function handleUpdateWorkingHours(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!session || !manage || whEditingId === null) {
+      return
+    }
+    setWhSaving(true)
+    setWhActionError(null)
+    const staffId = scopeStaffIdFromSelector(whScopeStaffId)
+    try {
+      await updateWorkingHours(
+        session.token,
+        session.salon.salon_id,
+        whEditingId,
+        workingHoursFormToUpdateBody(whEditForm, staffId),
+      )
+      cancelWhEdit()
+      await loadWorkingHours()
+    } catch (err) {
+      if (isUnauthorizedError(err)) {
+        clearAuthAndRedirect()
+        return
+      }
+      setWhActionError(mapWorkingHoursActionError(err, 'Could not update working hours.'))
+    } finally {
+      setWhSaving(false)
+    }
+  }
+
+  async function handleDeleteWorkingHours(row: WorkingHoursItem) {
+    if (!session || !manage) {
+      return
+    }
+    const ok = window.confirm('Delete this working hours window?')
+    if (!ok) {
+      return
+    }
+    setWhSaving(true)
+    setWhActionError(null)
+    try {
+      await deleteWorkingHours(session.token, session.salon.salon_id, row.id)
+      if (whEditingId === row.id) {
+        cancelWhEdit()
+      }
+      await loadWorkingHours()
+    } catch (err) {
+      if (isUnauthorizedError(err)) {
+        clearAuthAndRedirect()
+        return
+      }
+      setWhActionError(mapWorkingHoursActionError(err, 'Could not delete working hours.'))
+    } finally {
+      setWhSaving(false)
+    }
+  }
 
   function handleBpFiltersSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -413,7 +671,8 @@ export function AdminSchedulePage() {
         <header className="admin-schedule__header">
           <h1 className="admin-schedule__title">Schedule</h1>
           <p className="admin-schedule__lead">
-            Working hours are read-only. Blocked periods can be managed by owners and admins.
+            Owners and admins can manage working hours and blocked periods. Other roles have
+            read-only access to working hours.
           </p>
         </header>
 
@@ -439,6 +698,68 @@ export function AdminSchedulePage() {
               </select>
             </label>
           </div>
+
+          {manage ? (
+            <form
+              className="admin-schedule__form admin-schedule__form--create"
+              onSubmit={handleCreateWorkingHours}
+            >
+              <h3 className="admin-schedule__form-title">Add working hours</h3>
+              <div className="admin-schedule__form-grid">
+                <WorkingHoursFormFields
+                  idPrefix="wh-create"
+                  form={whCreateForm}
+                  onChange={setWhCreateForm}
+                />
+              </div>
+              <button
+                type="submit"
+                className="btn btn--primary btn--compact"
+                disabled={whSaving}
+              >
+                Create
+              </button>
+            </form>
+          ) : null}
+
+          {whActionError ? (
+            <p className="admin-schedule__state admin-schedule__state--error" role="alert">
+              {whActionError}
+            </p>
+          ) : null}
+
+          {whEditingId !== null && manage ? (
+            <form
+              className="admin-schedule__form admin-schedule__form--edit"
+              onSubmit={handleUpdateWorkingHours}
+            >
+              <h3 className="admin-schedule__form-title">Edit working hours</h3>
+              <div className="admin-schedule__form-grid">
+                <WorkingHoursFormFields
+                  idPrefix="wh-edit"
+                  form={whEditForm}
+                  onChange={setWhEditForm}
+                />
+              </div>
+              <div className="admin-schedule__form-actions">
+                <button
+                  type="submit"
+                  className="btn btn--primary btn--compact"
+                  disabled={whSaving}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--compact"
+                  onClick={cancelWhEdit}
+                  disabled={whSaving}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : null}
 
           {whLoading ? (
             <p className="admin-schedule__state" role="status">
@@ -496,6 +817,7 @@ export function AdminSchedulePage() {
                         <th scope="col">End</th>
                         <th scope="col">Effective from</th>
                         <th scope="col">Effective to</th>
+                        {manage ? <th scope="col">Actions</th> : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -506,6 +828,26 @@ export function AdminSchedulePage() {
                           <td>{formatTimeOfDay(row.end_time)}</td>
                           <td>{row.effective_from ? formatDateOnly(row.effective_from) : '—'}</td>
                           <td>{row.effective_to ? formatDateOnly(row.effective_to) : '—'}</td>
+                          {manage ? (
+                            <td className="admin-schedule__actions">
+                              <button
+                                type="button"
+                                className="btn btn--secondary btn--compact"
+                                onClick={() => startWhEdit(row)}
+                                disabled={whSaving}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn--secondary btn--compact"
+                                onClick={() => void handleDeleteWorkingHours(row)}
+                                disabled={whSaving}
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          ) : null}
                         </tr>
                       ))}
                     </tbody>

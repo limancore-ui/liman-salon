@@ -38,6 +38,26 @@ export type ListBlockedPeriodsParams = {
   block_type?: BlockType
 }
 
+/** Matches backend `WorkingHoursCreateRequest`. Times are local wall-clock `HH:mm:ss` strings. */
+export type WorkingHoursCreateBody = {
+  staff_id?: string | null
+  day_of_week: number
+  start_time: string
+  end_time: string
+  effective_from?: string | null
+  effective_to?: string | null
+}
+
+/** Matches backend `WorkingHoursUpdateRequest`. */
+export type WorkingHoursUpdateBody = {
+  staff_id?: string | null
+  day_of_week?: number
+  start_time?: string
+  end_time?: string
+  effective_from?: string | null
+  effective_to?: string | null
+}
+
 /** Matches backend `BlockedPeriodCreateRequest`. */
 export type BlockedPeriodCreateBody = {
   staff_id?: string | null
