@@ -30,6 +30,11 @@ import {
   formatBookingDateTime,
   formatDashboardPrice,
 } from '../utils/adminSalonFormat'
+import {
+  isoToSalonLocalDatetimeLocal,
+  salonLocalDateRangeToUtcIso,
+  salonLocalDateTimeToIso,
+} from '../utils/adminBookingTime'
 import { parseAdminBookingsFilterParams } from '../utils/adminBookingsFilterParams'
 
 const STATUS_OPTIONS = [
@@ -63,82 +68,6 @@ function isActionableBookingStatus(status: string): boolean {
 
 function hasVisitLifecycleActions(status: string): boolean {
   return status === 'confirmed' || status === 'in_progress'
-}
-
-function dateInputToUtcRange(from: string, to: string): {
-  starts_at_from?: string
-  starts_at_to?: string
-} {
-  const range: { starts_at_from?: string; starts_at_to?: string } = {}
-  if (from) {
-    range.starts_at_from = `${from}T00:00:00.000Z`
-  }
-  if (to) {
-    const end = new Date(`${to}T00:00:00.000Z`)
-    end.setUTCDate(end.getUTCDate() + 1)
-    range.starts_at_to = end.toISOString()
-  }
-  return range
-}
-
-function timeZoneOffsetMs(timeZone: string, instant: Date): number {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    dtf.formatToParts(instant).find((p) => p.type === type)?.value ?? '0'
-  const asUtc = Date.UTC(
-    Number(part('year')),
-    Number(part('month')) - 1,
-    Number(part('day')),
-    Number(part('hour')),
-    Number(part('minute')),
-    Number(part('second')),
-  )
-  return asUtc - instant.getTime()
-}
-
-/** Interpret `datetime-local` wall time in salon IANA timezone; return UTC ISO. */
-function datetimeLocalToIso(value: string, timeZone: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value)
-  if (!match) {
-    return new Date(value).toISOString()
-  }
-  const [, y, mo, d, h, mi] = match
-  const wallUtc = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), 0)
-  let utcMs = wallUtc
-  for (let i = 0; i < 4; i++) {
-    utcMs = wallUtc - timeZoneOffsetMs(timeZone, new Date(utcMs))
-  }
-  return new Date(utcMs).toISOString()
-}
-
-/** Format instant as `datetime-local` value in salon IANA timezone. */
-function isoToDatetimeLocal(iso: string, timeZone: string): string {
-  const instant = new Date(iso)
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    dtf.formatToParts(instant).find((p) => p.type === type)?.value ?? '00'
-  let hour = part('hour')
-  if (hour === '24') {
-    hour = '00'
-  }
-  return `${part('year')}-${part('month')}-${part('day')}T${hour}:${part('minute')}`
 }
 
 function resolveStaffIdForBooking(
@@ -239,7 +168,7 @@ export function AdminBookingsPage() {
     setLoading(true)
     setError(null)
     try {
-      const range = dateInputToUtcRange(dateFrom, dateTo)
+      const range = salonLocalDateRangeToUtcIso(dateFrom, dateTo, salonTimeZoneForInput)
       const rows = await fetchAdminBookings(session.token, session.salon.salon_id, {
         ...range,
         status: status || undefined,
@@ -260,7 +189,21 @@ export function AdminBookingsPage() {
     } finally {
       setLoading(false)
     }
-  }, [session, dateFrom, dateTo, status, clearAuthAndRedirect])
+  }, [
+    session,
+    dateFrom,
+    dateTo,
+    status,
+    salonTimeZoneForInput,
+    clearAuthAndRedirect,
+  ])
+
+  useEffect(() => {
+    const parsed = parseAdminBookingsFilterParams(searchParams)
+    setDateFrom(parsed.dateFrom)
+    setDateTo(parsed.dateTo)
+    setStatus(parsed.status)
+  }, [searchParams])
 
   useEffect(() => {
     void load()
@@ -435,7 +378,7 @@ export function AdminBookingsPage() {
       setActionBooking(row)
       setActionMode('reschedule')
       setRescheduleStaffId(resolveStaffIdForBooking(staffList, row.staff_name))
-      setRescheduleStartLocal(isoToDatetimeLocal(row.starts_at, salonTimeZoneForInput))
+      setRescheduleStartLocal(isoToSalonLocalDatetimeLocal(row.starts_at, salonTimeZoneForInput))
     },
     [clearCreate, staffList, salonTimeZoneForInput],
   )
@@ -470,7 +413,7 @@ export function AdminBookingsPage() {
           customer_id: createCustomerId,
           staff_id: createStaffId,
           service_id: createServiceId,
-          requested_service_start: datetimeLocalToIso(
+          requested_service_start: salonLocalDateTimeToIso(
             createStartLocal,
             salonTimeZoneForInput,
           ),
@@ -618,7 +561,7 @@ export function AdminBookingsPage() {
           actionBooking.id,
           {
             staff_id: rescheduleStaffId,
-            service_start: datetimeLocalToIso(rescheduleStartLocal, salonTimeZoneForInput),
+            service_start: salonLocalDateTimeToIso(rescheduleStartLocal, salonTimeZoneForInput),
           },
         )
         clearAction()
@@ -681,7 +624,7 @@ export function AdminBookingsPage() {
           }}
         >
           <label className="admin-bookings__filter">
-            <span>From</span>
+            <span>From (salon day)</span>
             <input
               type="date"
               value={dateFrom}
@@ -689,7 +632,7 @@ export function AdminBookingsPage() {
             />
           </label>
           <label className="admin-bookings__filter">
-            <span>To</span>
+            <span>To (salon day)</span>
             <input
               type="date"
               value={dateTo}
