@@ -1,0 +1,88 @@
+# Full production-like stack: PostgreSQL, API, static web + nginx, job scheduler.
+#
+# Usage:
+#   cp .env.example .env   # set secrets and passwords
+#   docker compose up --build
+#
+# External PostgreSQL: remove the `postgres` service, set DATABASE_URL to your host,
+# and drop postgres from `depends_on` on api / job-scheduler (or use profiles).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-liman}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-liman_salon}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://${POSTGRES_USER:-liman}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-liman_salon}}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}
+      BOOKING_MANAGE_TOKEN_PEPPER: ${BOOKING_MANAGE_TOKEN_PEPPER:?Set BOOKING_MANAGE_TOKEN_PEPPER in .env}
+      MEDIA_STORAGE_ROOT: /data/media
+    volumes:
+      - media_data:/data/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  job-scheduler:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.jobs
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://${POSTGRES_USER:-liman}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-liman_salon}}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}
+      BOOKING_MANAGE_TOKEN_PEPPER: ${BOOKING_MANAGE_TOKEN_PEPPER:?Set BOOKING_MANAGE_TOKEN_PEPPER in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  media_data:
