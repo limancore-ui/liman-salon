@@ -26,6 +26,7 @@ from app.services.media.service import MediaService
 from app.services.dashboard.service import DashboardService
 from app.services.staff.service import StaffService
 from app.services.notifications.service import NotificationService
+from app.services.review.service import ReviewService
 
 SessionDep = Annotated[Session, Depends(get_db)]
 
@@ -167,3 +168,10 @@ def get_salon_settings_service(session: SessionDep) -> SalonSettingsService:
 SalonSettingsServiceDep = Annotated[
     SalonSettingsService, Depends(get_salon_settings_service)
 ]
+
+
+def get_review_service(session: SessionDep) -> ReviewService:
+    return ReviewService(session)
+
+
+ReviewServiceDep = Annotated[ReviewService, Depends(get_review_service)]

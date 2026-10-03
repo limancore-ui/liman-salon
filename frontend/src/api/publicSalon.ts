@@ -14,6 +14,11 @@ import type {
   PublicBookingRescheduleResponse,
 } from '../types/publicBooking'
 import type {
+  PublicBookingReviewCreateRequest,
+  PublicBookingReviewCreateResponse,
+  PublicBookingReviewStatusResponse,
+} from '../types/reviews'
+import type {
   PublicCatalogServiceOut,
   PublicCatalogServiceWithMedia,
   PublicCatalogServicesResponse,
@@ -304,4 +309,64 @@ export async function reschedulePublicBookingBySlug(
     throw new ApiError(0, 'network error')
   }
   return parseJsonResponse<PublicBookingRescheduleResponse>(response)
+}
+
+export async function getPublicBookingReviewBySlug(
+  slug: string,
+  bookingId: string,
+  token: string,
+  signal?: AbortSignal,
+): Promise<PublicBookingReviewStatusResponse> {
+  const query = new URLSearchParams({ token })
+  let response: Response
+  try {
+    response = await fetch(
+      `/api/v1/public/salons/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/review?${query.toString()}`,
+      { signal },
+    )
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err
+    }
+    throw new ApiError(0, 'network error')
+  }
+  return parseJsonResponse<PublicBookingReviewStatusResponse>(response)
+}
+
+export async function createPublicBookingReviewBySlug(
+  slug: string,
+  bookingId: string,
+  body: PublicBookingReviewCreateRequest,
+  signal?: AbortSignal,
+): Promise<PublicBookingReviewCreateResponse> {
+  const payload: Record<string, string | number> = {
+    token: body.token,
+    rating: body.rating,
+  }
+  const title = body.title?.trim()
+  if (title) {
+    payload.title = title
+  }
+  const text = body.body?.trim()
+  if (text) {
+    payload.body = text
+  }
+  let response: Response
+  try {
+    response = await fetch(
+      `/api/v1/public/salons/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/review`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal,
+      },
+    )
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err
+    }
+    throw new ApiError(0, 'network error')
+  }
+  return parseJsonResponse<PublicBookingReviewCreateResponse>(response)
 }

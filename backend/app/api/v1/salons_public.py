@@ -14,6 +14,7 @@ from app.api.deps import (
     MediaServiceDep,
     PublicBookingOrchestratorDep,
     PublicCatalogServiceDep,
+    ReviewServiceDep,
     SalonPublicServiceDep,
 )
 from app.api.schemas.public_booking_cancel import (
@@ -42,6 +43,13 @@ from app.api.schemas.public_catalog import (
 from app.api.schemas.public_customer import (
     PublicCustomerLookupRequest,
     PublicCustomerLookupResponse,
+)
+from app.api.schemas.review import (
+    PublicBookingReviewCreateRequest,
+    PublicBookingReviewCreateResponse,
+    PublicBookingReviewStatusResponse,
+    PublicReviewOut,
+    PublicReviewsListResponse,
 )
 from app.api.schemas.salon_public import PublicSalonEntryResponse
 from app.services.availability.types import ServiceAvailabilityResult
@@ -308,4 +316,100 @@ def reschedule_public_booking_by_slug(
         staff_id=result.staff_id,
         service_start=result.service_start,
         service_end=result.service_end,
+    )
+
+
+@router.get(
+    "/public/salons/{slug}/reviews",
+    response_model=PublicReviewsListResponse,
+    status_code=200,
+)
+def list_public_reviews_by_slug(
+    slug: str,
+    salon_public_service: SalonPublicServiceDep,
+    review_service: ReviewServiceDep,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> PublicReviewsListResponse:
+    entry = salon_public_service.resolve_public_salon_by_slug(slug)
+    rows = review_service.list_public_published_reviews(
+        salon_id=entry.salon_id,
+        limit=limit,
+        offset=offset,
+    )
+    return PublicReviewsListResponse(
+        salon_id=entry.salon_id,
+        reviews=[
+            PublicReviewOut(
+                id=row.id,
+                rating=row.rating,
+                title=row.title,
+                body=row.body,
+                staff_display_name=row.staff_display_name,
+                published_at=row.published_at,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ],
+    )
+
+
+@router.get(
+    "/public/salons/{slug}/bookings/{booking_id}/review",
+    response_model=PublicBookingReviewStatusResponse,
+    status_code=200,
+)
+def get_public_booking_review_by_slug(
+    slug: str,
+    booking_id: uuid.UUID,
+    token: Annotated[str, Query(min_length=1)],
+    salon_public_service: SalonPublicServiceDep,
+    review_service: ReviewServiceDep,
+) -> PublicBookingReviewStatusResponse:
+    entry = salon_public_service.resolve_public_salon_by_slug(slug)
+    result = review_service.get_booking_review_for_token(
+        salon_id=entry.salon_id,
+        booking_id=booking_id,
+        token=token,
+    )
+    return PublicBookingReviewStatusResponse(
+        review_id=result.review_id,
+        booking_id=result.booking_id,
+        status=result.status,
+        rating=result.rating,
+        title=result.title,
+        body=result.body,
+        created_at=result.created_at,
+    )
+
+
+@router.post(
+    "/public/salons/{slug}/bookings/{booking_id}/review",
+    response_model=PublicBookingReviewCreateResponse,
+    status_code=201,
+)
+def create_public_booking_review_by_slug(
+    slug: str,
+    booking_id: uuid.UUID,
+    body: PublicBookingReviewCreateRequest,
+    salon_public_service: SalonPublicServiceDep,
+    review_service: ReviewServiceDep,
+) -> PublicBookingReviewCreateResponse:
+    entry = salon_public_service.resolve_public_salon_by_slug(slug)
+    result = review_service.create_review_for_booking(
+        salon_id=entry.salon_id,
+        booking_id=booking_id,
+        token=body.token,
+        rating=body.rating,
+        title=body.title,
+        body=body.body,
+    )
+    return PublicBookingReviewCreateResponse(
+        review_id=result.review_id,
+        booking_id=result.booking_id,
+        status=result.status,
+        rating=result.rating,
+        title=result.title,
+        body=result.body,
+        created_at=result.created_at,
     )

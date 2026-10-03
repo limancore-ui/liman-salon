@@ -56,6 +56,12 @@ from app.services.media.errors import (
     MediaValidationError,
 )
 from app.services.salon_settings.errors import SalonSettingsError, SalonSettingsNotFoundError
+from app.services.review.errors import (
+    ReviewConflictError,
+    ReviewError,
+    ReviewNotFoundError,
+    ReviewValidationError,
+)
 
 
 class ErrorBody(BaseModel):
@@ -281,6 +287,36 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content=ErrorBody(detail=str(exc), code="booking_error").model_dump(),
+        )
+
+    @app.exception_handler(ReviewNotFoundError)
+    async def review_not_found(_request: Request, exc: ReviewNotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(ReviewConflictError)
+    async def review_conflict(_request: Request, exc: ReviewConflictError) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content=ErrorBody(detail=str(exc), code="conflict").model_dump(),
+        )
+
+    @app.exception_handler(ReviewValidationError)
+    async def review_validation(
+        _request: Request, exc: ReviewValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(ReviewError)
+    async def review_error(_request: Request, exc: ReviewError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="review_error").model_dump(),
         )
 
     @app.exception_handler(SalonSettingsNotFoundError)

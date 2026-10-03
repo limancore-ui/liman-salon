@@ -10,6 +10,7 @@ from app.api.v1 import (
     media,
     salons_public,
     salon_settings,
+    reviews,
     schedule,
     services,
     staff,
@@ -27,4 +28,5 @@ v1_router.include_router(staff.router)
 v1_router.include_router(media.router)
 v1_router.include_router(services.router)
 v1_router.include_router(schedule.router)
+v1_router.include_router(reviews.router)
 v1_router.include_router(salon_settings.router)

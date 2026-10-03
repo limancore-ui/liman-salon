@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { label: 'Dashboard', to: '/admin' },
   { label: 'Bookings', to: '/admin/bookings' },
   { label: 'Customers', to: '/admin/customers' },
+  { label: 'Reviews', to: '/admin/reviews' },
   { label: 'Staff', to: '/admin/staff' },
   { label: 'Services', to: '/admin/services' },
   { label: 'Schedule', to: '/admin/schedule' },

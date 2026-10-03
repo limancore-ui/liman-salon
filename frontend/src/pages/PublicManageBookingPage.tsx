@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   cancelPublicBookingBySlug,
+  createPublicBookingReviewBySlug,
+  getPublicBookingReviewBySlug,
   getPublicSalon,
   getPublicServiceAvailability,
   getPublicServiceStaff,
@@ -35,6 +37,8 @@ import {
   isManageSlotConflictError,
   mapPublicManageBookingError,
 } from '../utils/mapPublicManageBookingError'
+import { mapPublicReviewError } from '../utils/mapPublicReviewError'
+import type { PublicBookingReviewStatusResponse } from '../types/reviews'
 
 type ManageView =
   | 'summary'
@@ -42,6 +46,14 @@ type ManageView =
   | 'reschedule_staff'
   | 'reschedule_date'
   | 'reschedule_time'
+  | 'review'
+
+type ReviewLoadState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'none' }
+  | { status: 'exists'; review: PublicBookingReviewStatusResponse }
+  | { status: 'error'; message: string }
 
 type StaffChoice =
   | { kind: 'any' }
@@ -121,6 +133,13 @@ export function PublicManageBookingPage() {
   const [availabilityState, setAvailabilityState] =
     useState<AvailabilityTimeListState>({ status: 'idle' })
   const [availabilityNonce, setAvailabilityNonce] = useState(0)
+  const [reviewLoadState, setReviewLoadState] = useState<ReviewLoadState>({
+    status: 'idle',
+  })
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewTitle, setReviewTitle] = useState('')
+  const [reviewBody, setReviewBody] = useState('')
+  const [reviewSuccess, setReviewSuccess] = useState(false)
 
   useEffect(() => {
     if (!slug || !bookingId) {
@@ -164,6 +183,39 @@ export function PublicManageBookingPage() {
       cancelled = true
     }
   }, [slug, accessChecked])
+
+  useEffect(() => {
+    if (!slug || !bookingId || !snapshot?.token) {
+      setReviewLoadState({ status: 'idle' })
+      return
+    }
+
+    let cancelled = false
+    setReviewLoadState({ status: 'loading' })
+
+    getPublicBookingReviewBySlug(slug, bookingId, snapshot.token)
+      .then((review) => {
+        if (!cancelled) {
+          setReviewLoadState({ status: 'exists', review })
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) {
+          return
+        }
+        if (err instanceof ApiError && err.status === 404) {
+          setReviewLoadState({ status: 'none' })
+          return
+        }
+        const message =
+          err instanceof ApiError ? err.message : 'Не удалось проверить отзыв'
+        setReviewLoadState({ status: 'error', message })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [slug, bookingId, snapshot?.token])
 
   useEffect(() => {
     if (
@@ -256,6 +308,66 @@ export function PublicManageBookingPage() {
     persistManageSnapshot(next)
     setSnapshot(next)
   }, [])
+
+  const handleStartReview = useCallback(() => {
+    setActionError(null)
+    setReviewSuccess(false)
+    setView('review')
+  }, [])
+
+  const handleReviewBack = useCallback(() => {
+    setActionError(null)
+    setView('summary')
+  }, [])
+
+  const handleSubmitReview = useCallback(async () => {
+    if (!slug || !bookingId || !snapshot?.token || submitInFlightRef.current) {
+      return
+    }
+    if (reviewRating < 1 || reviewRating > 5) {
+      setActionError('Выберите оценку от 1 до 5.')
+      return
+    }
+
+    submitInFlightRef.current = true
+    setSubmitting(true)
+    setActionError(null)
+
+    try {
+      const result = await createPublicBookingReviewBySlug(slug, bookingId, {
+        token: snapshot.token,
+        rating: reviewRating,
+        title: reviewTitle.trim() || undefined,
+        body: reviewBody.trim() || undefined,
+      })
+      setReviewLoadState({
+        status: 'exists',
+        review: {
+          review_id: result.review_id,
+          booking_id: result.booking_id,
+          status: result.status,
+          rating: result.rating,
+          title: result.title,
+          body: result.body,
+          created_at: result.created_at,
+        },
+      })
+      setReviewSuccess(true)
+      setView('summary')
+    } catch (err: unknown) {
+      setActionError(mapPublicReviewError(err))
+    } finally {
+      setSubmitting(false)
+      submitInFlightRef.current = false
+    }
+  }, [
+    slug,
+    bookingId,
+    snapshot?.token,
+    reviewRating,
+    reviewTitle,
+    reviewBody,
+  ])
 
   const handleStartCancel = useCallback(() => {
     setActionError(null)
@@ -448,6 +560,11 @@ export function PublicManageBookingPage() {
 
   const canReschedule =
     hasToken && !isCancelled && Boolean(snapshot.service_id.trim())
+  const canReview =
+    hasToken &&
+    !isCancelled &&
+    reviewLoadState.status !== 'loading' &&
+    reviewLoadState.status !== 'exists'
   const staffListSelectedId = staffChoiceToSelectedId(staffChoice)
 
   return (
@@ -513,8 +630,30 @@ export function PublicManageBookingPage() {
           </div>
         ) : null}
 
+        {reviewLoadState.status === 'exists' ? (
+          <p className="public-manage-page__status" role="status">
+            Спасибо! Ваш отзыв отправлен (статус: {reviewLoadState.review.status}
+            ).
+          </p>
+        ) : null}
+
+        {reviewSuccess ? (
+          <p className="public-manage-page__status" role="status">
+            Отзыв принят и ожидает модерации.
+          </p>
+        ) : null}
+
         {view === 'summary' && !isCancelled && hasToken ? (
           <div className="public-manage-page__actions">
+            {canReview ? (
+              <button
+                type="button"
+                className="btn btn--primary btn--block"
+                onClick={handleStartReview}
+              >
+                Оставить отзыв
+              </button>
+            ) : null}
             <button
               type="button"
               className="btn btn--secondary btn--block"
@@ -530,6 +669,75 @@ export function PublicManageBookingPage() {
             >
               Отменить запись
             </button>
+          </div>
+        ) : null}
+
+        {view === 'review' ? (
+          <div className="public-manage-page__subflow">
+            <h2 className="booking-step__heading">Отзыв о визите</h2>
+            <label className="public-manage-page__field">
+              <span className="public-manage-page__label">Оценка</span>
+              <select
+                className="form-field__input"
+                value={reviewRating}
+                disabled={submitting}
+                onChange={(e) => setReviewRating(Number(e.target.value))}
+              >
+                {[5, 4, 3, 2, 1].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="public-manage-page__field">
+              <span className="public-manage-page__label">
+                Заголовок (необязательно)
+              </span>
+              <input
+                className="form-field__input"
+                type="text"
+                maxLength={200}
+                value={reviewTitle}
+                disabled={submitting}
+                onChange={(e) => setReviewTitle(e.target.value)}
+              />
+            </label>
+            <label className="public-manage-page__field">
+              <span className="public-manage-page__label">
+                Комментарий (необязательно)
+              </span>
+              <textarea
+                className="public-manage-page__textarea"
+                rows={4}
+                value={reviewBody}
+                disabled={submitting}
+                onChange={(e) => setReviewBody(e.target.value)}
+              />
+            </label>
+            {actionError ? (
+              <div className="form-error-banner" role="alert">
+                <p>{actionError}</p>
+              </div>
+            ) : null}
+            <div className="booking-step__actions">
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={submitting}
+                onClick={handleReviewBack}
+              >
+                Назад
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={submitting}
+                onClick={() => void handleSubmitReview()}
+              >
+                {submitting ? 'Отправка…' : 'Отправить отзыв'}
+              </button>
+            </div>
           </div>
         ) : null}
 
