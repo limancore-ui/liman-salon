@@ -3,7 +3,7 @@
 
 FROM python:3.11-slim-bookworm
 
-ARG SUPERCRONIC_VERSION=v0.2.33
+ARG SUPERCRONIC_VERSION=v0.2.36
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
@@ -30,4 +30,4 @@ RUN pip install --no-cache-dir -e .
 
 COPY deploy/cron/liman-jobs.crontab /etc/cron/liman-jobs.crontab
 
-CMD ["supercronic", "/etc/cron/liman-jobs.crontab"]
+CMD ["/usr/local/bin/supercronic", "/etc/cron/liman-jobs.crontab"]
