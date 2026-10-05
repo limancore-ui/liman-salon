@@ -31,6 +31,14 @@ The following capabilities are in scope for **Liman Salon MVP v0.1**:
 
 Detailed module boundaries and isolation rules live in [docs/architecture.md](docs/architecture.md).
 
+## Delivery milestones (architecture)
+
+Incremental slices are documented as they are approved. Implementation may lag the contract docs.
+
+| Milestone | Name | Architecture contract |
+|-----------|------|------------------------|
+| **C20** | Salon Bonus Ledger (MVP) | [docs/reviews/c20-salon-bonus-ledger-architecture.md](docs/reviews/c20-salon-bonus-ledger-architecture.md) |
+
 ## Planned tech stack
 
 Implementation has **not** started in this repository phase; the following stack is **planned**:
@@ -54,3 +62,4 @@ Infrastructure, CI, and packaging choices will be documented as they are approve
 
 - [AGENTS.md](AGENTS.md) — rules for human developers and AI implementers
 - [docs/architecture.md](docs/architecture.md) — modular monolith design, modules, tenant isolation, and provider abstractions
+- [docs/reviews/c20-salon-bonus-ledger-architecture.md](docs/reviews/c20-salon-bonus-ledger-architecture.md) — C20 bonus ledger MVP (approved contract)

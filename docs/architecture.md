@@ -36,7 +36,7 @@ Liman Salon is a **modular monolith**:
 | **schedule** | Working hours, blocked periods, staff calendars |
 | **booking** | Appointments lifecycle (create, reschedule, cancel) |
 | **customers** | Customer records and salon-scoped history |
-| **bonuses** | Global / cross-cutting bonus rules (MVP level) |
+| **bonuses** | Salon-scoped loyalty ledger (`BonusLedgerService`); earn on completed bookings and manual adjustments — see [Salon Bonus Ledger (C20)](#salon-bonus-ledger-c20--mvp) |
 | **reviews** | Feedback linked to visits or bookings |
 | **notifications** | Outbound messages via provider abstraction |
 | **ai** | Assistant orchestration over allowed tools only |
@@ -94,16 +94,33 @@ Modules may share a common **kernel** (IDs, `salon_id` conventions, errors) but 
     "v": 1,
     "booking": {
       "public_hold_seconds": 900
+    },
+    "bonuses": {
+      "enabled": false,
+      "earn_percentage": 0
     }
   }
   ```
+
+- **Bonuses (C20):** optional `bonuses.enabled` (default **`false`** when absent) and `bonuses.earn_percentage` (non-negative). When disabled or 0%, earn on booking completion is a **silent no-op**; completion must still succeed. Parsed via the same typed settings layer as booking keys; extend admin `GET`/`PATCH` settings when C20 APIs land (bonus settings UI deferred).
 
 - **Pending hold TTL resolution** (public checkout and admin-created `pending` bookings): `settings.booking.public_hold_seconds` when present and valid → else deployment env `PUBLIC_BOOKING_HOLD_SECONDS` / `Settings.public_booking_hold_seconds` → else application default **900** seconds. Malformed non-empty JSONB fails closed (`SalonSettingsError`) rather than silently ignoring bad overrides.
 - **Admin API (owner/admin, tenant-scoped):** `GET` and `PATCH` `/api/v1/salons/{salon_id}/settings` — read/update v1 JSONB via `SalonSettingsService` (merge PATCH, validate, persist). Path `salon_id` must match the authenticated salon context.
   - **GET / PATCH response body** mirrors stored v1 settings only (no derived TTL fields): `{ "v": 1 }` when the salon has no booking override (empty stored JSONB), or `{ "v": 1, "booking": { "public_hold_seconds": N } }` when a valid override is stored (`N` is 60–3600). Omitted keys are not returned (`response_model_exclude_none`).
   - **PATCH body:** partial update; only `booking` is in scope. Set `{ "booking": { "public_hold_seconds": N } }` to write or replace the override. **Clearing** the override is **only** `{ "booking": null }`, which removes `booking` from stored JSONB and persists `{}` — there is no `public_hold_seconds: null` clear mechanism. An empty PATCH `{}` is a no-op merge.
   - **Not in API responses:** `effective_public_hold_seconds`, `using_salon_override`, or any other computed “effective hold” / env-default disclosure; admins infer deployment fallback from product docs or ops config, while **runtime** hold TTL still follows **Pending hold TTL resolution** below.
-- **Explicitly not in JSONB v0.1:** service **buffers** and duration (stay on `services` rows), **logo/branding** (Media attachments), **timezone** and **currency** (stay on `salons` columns).
+- **Explicitly not in JSONB v0.1:** service **buffers** and duration (stay on `services` rows), **logo/branding** (Media attachments), **timezone** and **currency** (stay on `salons` columns). **Currency for bonus amounts** is always **`salons.currency_code`** (not duplicated in ledger rows for MVP).
+
+## Salon Bonus Ledger (C20 — MVP)
+
+Approved contract: [docs/reviews/c20-salon-bonus-ledger-architecture.md](reviews/c20-salon-bonus-ledger-architecture.md).
+
+- **Write authority:** **`BonusLedgerService`** only — append `bonus_transactions` and update `customers.bonus_balance_cents` under the same `salon_id`.
+- **Earn:** on booking **`completed`**, from **`bookings.price_cents`**, using salon **`bonuses.earn_percentage`** when **`bonuses.enabled`** is true; idempotency key **`earn:booking:{booking_id}`**; **`SELECT FOR UPDATE`** on the customer row; single DB transaction for ledger insert + balance cache.
+- **Completion path:** **`confirmed → completed`** is allowed without `in_progress`. Booking completion and optional earn share **one transaction**; ledger failure **rolls back** completion. Disabled or zero-percent bonuses **must not** fail completion.
+- **Clawback:** none in C20 — use **manual adjustment** only.
+- **Admin APIs:** paginated ledger **GET** (owner, admin, staff, receptionist); adjustment **POST** (owner, admin) with mandatory description and non-negative balance invariant.
+- **Deferred:** redeem, payments hooks, expire jobs, campaigns, per-service rates, public wallet, automatic clawback, `reverses_transaction_id`, HTTP `Idempotency-Key` header, bonus settings UI.
 
 ## Booking and schedule as source of truth for availability
 

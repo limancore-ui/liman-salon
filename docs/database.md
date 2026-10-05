@@ -2,7 +2,7 @@
 
 PostgreSQL schema design for the modular-monolith beauty salon SaaS. This document is the reference for SQLAlchemy models and Alembic migrations; it does not contain implementation code.
 
-**Related:** [architecture.md](architecture.md) (tenancy, modules, availability), [AGENTS.md](../AGENTS.md) (isolation and access rules).
+**Related:** [architecture.md](architecture.md) (tenancy, modules, availability), [C20 bonus ledger contract](reviews/c20-salon-bonus-ledger-architecture.md), [AGENTS.md](../AGENTS.md) (isolation and access rules).
 
 ---
 
@@ -34,6 +34,7 @@ PostgreSQL schema design for the modular-monolith beauty salon SaaS. This docume
 7. [Enumerations and lifecycles](#enumerations-and-lifecycles)
    - [Booking status](#booking-status)
    - [Bonus transaction types](#bonus-transaction-types)
+   - [Salon bonus ledger (C20 MVP)](#salon-bonus-ledger-c20-mvp)
    - [Review status](#review-status)
    - [Subscription and payment states](#subscription-and-payment-states)
 8. [Smart Gap Engine (availability)](#smart-gap-engine-availability)
@@ -182,7 +183,7 @@ Tenant root.
 | `country_code` | `CHAR(2)` | NULL | | ISO 3166-1 alpha-2 |
 | `phone` | `VARCHAR(32)` | NULL | | |
 | `email` | `VARCHAR(320)` | NULL | | Contact, not auth |
-| `settings` | `JSONB` | NOT NULL | `'{}'` | Per-salon business settings (v0.1: optional `booking.public_hold_seconds`; validated in app). Branding logo = Media; buffers = `services`; timezone/currency = columns above |
+| `settings` | `JSONB` | NOT NULL | `'{}'` | Per-salon business settings (v0.1: optional `booking.public_hold_seconds`, optional `bonuses.enabled` / `bonuses.earn_percentage` — see [architecture.md](architecture.md#salon-settings-jsonb-v01-contract) and [C20 contract](reviews/c20-salon-bonus-ledger-architecture.md)). Branding logo = Media; buffers = `services`; timezone/currency = columns above |
 | `is_active` | `BOOLEAN` | NOT NULL | `true` | Soft disable tenant |
 | `created_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | |
 | `updated_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | |
@@ -417,7 +418,7 @@ Salon-scoped customer profile (walk-in and registered guests).
 
 **CHECK**
 
-- `bonus_balance_cents >= 0` (or allow negative with credit limit in app; MVP: non-negative)
+- `bonus_balance_cents >= 0` — **C20:** enforced on manual **adjustment** via `BonusLedgerService`; earn/redeem paths must not violate non-negative balance in MVP
 
 **Consent (application rules)**
 
@@ -505,7 +506,7 @@ Append-only **salon-scoped** loyalty ledger per customer within one tenant.
 | `amount_cents` | `INTEGER` | NOT NULL | | Signed: earn positive, redeem negative |
 | `balance_after_cents` | `INTEGER` | NOT NULL | | Running balance snapshot |
 | `description` | `VARCHAR(255)` | NULL | | |
-| `idempotency_key` | `VARCHAR(64)` | NULL | | Provider/webhook dedup |
+| `idempotency_key` | `VARCHAR(64)` | NULL | | Dedup; **C20 earn:** `earn:booking:{booking_id}` (see [Salon bonus ledger (C20 MVP)](#salon-bonus-ledger-c20-mvp)) |
 | `created_by_user_id` | `UUID` | NULL | | **FK → users(id)** ON DELETE SET NULL |
 | `created_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | |
 
@@ -773,6 +774,8 @@ expired → (terminal)
 no_show → (terminal)
 ```
 
+**C20 completion path:** **`confirmed → completed`** without passing through `in_progress` is **explicitly allowed** (e.g. mark visit done from the calendar). Bonus earn hooks run only when entering **`completed`**.
+
 **Rules**
 
 - Reschedule: update `starts_at` / `ends_at` (and audit in app); only while `pending` or `confirmed` (policy).
@@ -791,7 +794,27 @@ no_show → (terminal)
 | `expire` | Negative | Campaign expiry job |
 | `refund` | Positive | Restore redeemed amount on cancellation |
 
-Balance on `customers.bonus_balance_cents` (same `salon_id` as the transaction) updated in the same database transaction as insert (application service). Redeem/earn never apply across salons.
+Balance on `customers.bonus_balance_cents` (same `salon_id` as the transaction) updated in the same database transaction as insert (**`BonusLedgerService`**). Redeem/earn never apply across salons.
+
+### Salon bonus ledger (C20 MVP)
+
+Approved application contract: [c20-salon-bonus-ledger-architecture.md](reviews/c20-salon-bonus-ledger-architecture.md).
+
+| Topic | C20 rule |
+|-------|----------|
+| Write path | **`BonusLedgerService`** only |
+| Ledger GET access | owner, admin, staff, receptionist |
+| Ledger GET pagination | uses pagination |
+| Earn trigger | Booking status → **`completed`** |
+| Earn base | `bookings.price_cents` |
+| Policy | `salons.settings.bonuses.enabled` (default off) + `earn_percentage`; disabled/0% = **no row**, completion **must succeed** |
+| Idempotency | `idempotency_key = earn:booking:{booking_id}` |
+| Concurrency | `SELECT FOR UPDATE` on `(salon_id, customer_id)` before balance update |
+| Atomicity | Ledger insert + `bonus_balance_cents` in **one** transaction with booking completion; failure **rolls back** completion |
+| Clawback | **None** automatic; **`adjustment`** only (owner/admin, mandatory `description`, balance ≥ 0) |
+| Currency | `salons.currency_code` (ledger amounts are cents in salon currency) |
+| Types in use | **`earn`**, **`adjustment`** only in C20 |
+| Types deferred | **`redeem`**, **`expire`**, **`refund`** (documented above, not implemented in C20) |
 
 ### Review status
 
