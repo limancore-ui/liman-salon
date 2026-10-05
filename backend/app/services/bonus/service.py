@@ -84,6 +84,31 @@ class BonusLedgerService:
             created_by_user_id=None,
         )
 
+    def list_transactions(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        customer_id: uuid.UUID,
+        limit: int,
+        offset: int,
+    ) -> list[LedgerTransactionResult]:
+        customer = self._repo.get_customer(
+            salon_id=salon_id,
+            customer_id=customer_id,
+        )
+        if customer is None:
+            raise BonusLedgerNotFoundError("customer not found")
+
+        rows = self._repo.list_transactions_for_customer(
+            salon_id=salon_id,
+            customer_id=customer_id,
+            limit=limit,
+            offset=offset,
+        )
+        return [
+            self._to_result(row, idempotent_replay=False) for row in rows
+        ]
+
     def create_adjustment(
         self,
         *,
@@ -210,6 +235,7 @@ class BonusLedgerService:
             balance_after_cents=transaction.balance_after_cents,
             description=transaction.description,
             idempotency_key=transaction.idempotency_key,
+            created_by_user_id=transaction.created_by_user_id,
             created_at=transaction.created_at,
             idempotent_replay=idempotent_replay,
         )

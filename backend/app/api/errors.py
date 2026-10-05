@@ -62,6 +62,12 @@ from app.services.review.errors import (
     ReviewNotFoundError,
     ReviewValidationError,
 )
+from app.services.bonus.errors import (
+    BonusLedgerConflictError,
+    BonusLedgerError,
+    BonusLedgerNotFoundError,
+    BonusLedgerValidationError,
+)
 
 
 class ErrorBody(BaseModel):
@@ -317,6 +323,42 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content=ErrorBody(detail=str(exc), code="review_error").model_dump(),
+        )
+
+    @app.exception_handler(BonusLedgerNotFoundError)
+    async def bonus_ledger_not_found(
+        _request: Request, exc: BonusLedgerNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(BonusLedgerValidationError)
+    async def bonus_ledger_validation(
+        _request: Request, exc: BonusLedgerValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(BonusLedgerConflictError)
+    async def bonus_ledger_conflict(
+        _request: Request, exc: BonusLedgerConflictError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content=ErrorBody(detail=str(exc), code="conflict").model_dump(),
+        )
+
+    @app.exception_handler(BonusLedgerError)
+    async def bonus_ledger_error(
+        _request: Request, exc: BonusLedgerError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="bonus_ledger_error").model_dump(),
         )
 
     @app.exception_handler(SalonSettingsNotFoundError)

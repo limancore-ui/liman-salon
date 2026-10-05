@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auth_routes,
     availability,
+    bonus_ledger,
     bookings,
     customers,
     customers_public,
@@ -22,6 +23,7 @@ v1_router.include_router(availability.router)
 v1_router.include_router(bookings.router)
 v1_router.include_router(dashboard.router)
 v1_router.include_router(customers.router)
+v1_router.include_router(bonus_ledger.router)
 v1_router.include_router(customers_public.router)
 v1_router.include_router(salons_public.router)
 v1_router.include_router(staff.router)

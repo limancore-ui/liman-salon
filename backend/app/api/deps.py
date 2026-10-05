@@ -27,6 +27,7 @@ from app.services.dashboard.service import DashboardService
 from app.services.staff.service import StaffService
 from app.services.notifications.service import NotificationService
 from app.services.review.service import ReviewService
+from app.services.bonus.service import BonusLedgerService
 
 SessionDep = Annotated[Session, Depends(get_db)]
 
@@ -175,3 +176,12 @@ def get_review_service(session: SessionDep) -> ReviewService:
 
 
 ReviewServiceDep = Annotated[ReviewService, Depends(get_review_service)]
+
+
+def get_bonus_ledger_service(session: SessionDep) -> BonusLedgerService:
+    return BonusLedgerService(session)
+
+
+BonusLedgerServiceDep = Annotated[
+    BonusLedgerService, Depends(get_bonus_ledger_service)
+]

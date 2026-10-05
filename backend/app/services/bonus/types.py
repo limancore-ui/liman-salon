@@ -16,5 +16,6 @@ class LedgerTransactionResult:
     balance_after_cents: int
     description: str | None
     idempotency_key: str | None
+    created_by_user_id: uuid.UUID | None
     created_at: datetime
     idempotent_replay: bool = False

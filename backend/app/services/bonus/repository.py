@@ -13,6 +13,16 @@ class BonusLedgerRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def get_customer(
+        self, *, salon_id: uuid.UUID, customer_id: uuid.UUID
+    ) -> Customer | None:
+        return self._session.scalar(
+            select(Customer).where(
+                Customer.salon_id == salon_id,
+                Customer.id == customer_id,
+            )
+        )
+
     def get_customer_for_update(
         self, *, salon_id: uuid.UUID, customer_id: uuid.UUID
     ) -> Customer | None:
@@ -34,6 +44,29 @@ class BonusLedgerRepository:
                 BonusTransaction.idempotency_key == idempotency_key,
             )
         )
+
+    def list_transactions_for_customer(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        customer_id: uuid.UUID,
+        limit: int,
+        offset: int,
+    ) -> list[BonusTransaction]:
+        stmt = (
+            select(BonusTransaction)
+            .where(
+                BonusTransaction.salon_id == salon_id,
+                BonusTransaction.customer_id == customer_id,
+            )
+            .order_by(
+                BonusTransaction.created_at.desc(),
+                BonusTransaction.id.desc(),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(self._session.scalars(stmt))
 
     def add_transaction(self, transaction: BonusTransaction) -> BonusTransaction:
         self._session.add(transaction)
