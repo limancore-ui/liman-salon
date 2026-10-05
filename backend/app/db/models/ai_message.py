@@ -18,7 +18,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import UUIDPrimaryKeyMixin
@@ -26,6 +26,16 @@ from app.db.mixins import UUIDPrimaryKeyMixin
 if TYPE_CHECKING:
     from app.db.models.ai_conversation import AIConversation
     from app.db.models.salon import Salon
+
+
+def _ai_message_conversation_join():
+    from app.db.models.ai_conversation import AIConversation
+
+    return (
+        (AIConversation.salon_id == AIMessage.salon_id)
+        & (AIConversation.id == foreign(AIMessage.conversation_id))
+    )
+
 
 _AI_MESSAGE_ROLE_CHECK = (
     "role IN ('user', 'assistant', 'system', 'tool')"
@@ -66,7 +76,7 @@ class AIMessage(Base, UUIDPrimaryKeyMixin):
     salon: Mapped[Salon] = relationship(back_populates="ai_messages")
     conversation: Mapped[AIConversation] = relationship(
         back_populates="messages",
-        foreign_keys=[salon_id, conversation_id],
+        primaryjoin=_ai_message_conversation_join,
     )
 
     __table_args__ = (

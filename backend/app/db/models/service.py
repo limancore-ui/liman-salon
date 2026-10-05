@@ -14,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
@@ -23,6 +23,24 @@ if TYPE_CHECKING:
     from app.db.models.booking import Booking
     from app.db.models.salon import Salon
     from app.db.models.staff_service import StaffService
+
+
+def _service_staff_services_join():
+    from app.db.models.staff_service import StaffService
+
+    return (
+        (Service.salon_id == StaffService.salon_id)
+        & (Service.id == foreign(StaffService.service_id))
+    )
+
+
+def _service_bookings_join():
+    from app.db.models.booking import Booking
+
+    return (
+        (Service.salon_id == Booking.salon_id)
+        & (Service.id == foreign(Booking.service_id))
+    )
 
 
 class Service(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -49,8 +67,15 @@ class Service(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
 
     salon: Mapped[Salon] = relationship(back_populates="services")
-    staff_services: Mapped[list[StaffService]] = relationship(back_populates="service")
-    bookings: Mapped[list[Booking]] = relationship(back_populates="service")
+    staff_services: Mapped[list[StaffService]] = relationship(
+        back_populates="service",
+        primaryjoin=_service_staff_services_join,
+    )
+    bookings: Mapped[list[Booking]] = relationship(
+        "Booking",
+        back_populates="service",
+        primaryjoin=_service_bookings_join,
+    )
 
     __table_args__ = (
         UniqueConstraint("salon_id", "id", name="uq_services_salon_id_id"),

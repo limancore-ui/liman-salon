@@ -16,7 +16,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
@@ -32,6 +32,15 @@ _SUBSCRIPTION_STATUS_CHECK = (
 _ACTIVE_SUBSCRIPTION_STATUS_WHERE = text(
     "status IN ('trialing', 'active', 'past_due')"
 )
+
+
+def _subscription_payments_join():
+    from app.db.models.payment import Payment
+
+    return (
+        (Subscription.salon_id == Payment.salon_id)
+        & (Subscription.id == foreign(Payment.subscription_id))
+    )
 
 
 class Subscription(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -81,7 +90,10 @@ class Subscription(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
 
     salon: Mapped[Salon] = relationship(back_populates="subscriptions")
-    payments: Mapped[list[Payment]] = relationship(back_populates="subscription")
+    payments: Mapped[list[Payment]] = relationship(
+        back_populates="subscription",
+        primaryjoin=_subscription_payments_join,
+    )
 
     __table_args__ = (
         UniqueConstraint("salon_id", "id", name="uq_subscriptions_salon_id_id"),

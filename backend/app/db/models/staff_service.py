@@ -13,7 +13,7 @@ from sqlalchemy import (
     Uuid,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import UUIDPrimaryKeyMixin
@@ -22,6 +22,24 @@ if TYPE_CHECKING:
     from app.db.models.salon import Salon
     from app.db.models.service import Service
     from app.db.models.staff import Staff
+
+
+def _staff_service_staff_join():
+    from app.db.models.staff import Staff
+
+    return (
+        (Staff.salon_id == StaffService.salon_id)
+        & (Staff.id == foreign(StaffService.staff_id))
+    )
+
+
+def _staff_service_service_join():
+    from app.db.models.service import Service
+
+    return (
+        (Service.salon_id == StaffService.salon_id)
+        & (Service.id == foreign(StaffService.service_id))
+    )
 
 
 class StaffService(Base, UUIDPrimaryKeyMixin):
@@ -43,8 +61,16 @@ class StaffService(Base, UUIDPrimaryKeyMixin):
     )
 
     salon: Mapped[Salon] = relationship(back_populates="staff_services")
-    staff: Mapped[Staff] = relationship(back_populates="staff_services")
-    service: Mapped[Service] = relationship(back_populates="staff_services")
+    staff: Mapped[Staff] = relationship(
+        back_populates="staff_services",
+        foreign_keys=[staff_id],
+        primaryjoin=_staff_service_staff_join,
+    )
+    service: Mapped[Service] = relationship(
+        back_populates="staff_services",
+        foreign_keys=[service_id],
+        primaryjoin=_staff_service_service_join,
+    )
 
     __table_args__ = (
         ForeignKeyConstraint(

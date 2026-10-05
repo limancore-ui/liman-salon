@@ -20,16 +20,16 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ExcludeConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.models.customer import Customer
+from app.db.models.staff import Staff
+from app.db.models.service import Service
 
 if TYPE_CHECKING:
-    from app.db.models.customer import Customer
     from app.db.models.salon import Salon
-    from app.db.models.service import Service
-    from app.db.models.staff import Staff
     from app.db.models.user import User
     from app.db.models.bonus_transaction import BonusTransaction
     from app.db.models.review import Review
@@ -42,6 +42,42 @@ _BOOKING_STATUS_CHECK = (
 )
 
 _EXCLUSION_WHERE = text("status IN ('pending', 'confirmed', 'in_progress')")
+
+
+def _booking_bonus_transactions_join():
+    from app.db.models.bonus_transaction import BonusTransaction
+
+    return (
+        (Booking.salon_id == BonusTransaction.salon_id)
+        & (Booking.id == foreign(BonusTransaction.booking_id))
+    )
+
+
+def _booking_notifications_join():
+    from app.db.models.notification import Notification
+
+    return (
+        (Booking.salon_id == Notification.salon_id)
+        & (Booking.id == foreign(Notification.booking_id))
+    )
+
+
+def _booking_payments_join():
+    from app.db.models.payment import Payment
+
+    return (
+        (Booking.salon_id == Payment.salon_id)
+        & (Booking.id == foreign(Payment.booking_id))
+    )
+
+
+def _booking_review_join():
+    from app.db.models.review import Review
+
+    return (
+        (Booking.salon_id == Review.salon_id)
+        & (Booking.id == foreign(Review.booking_id))
+    )
 
 
 class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -96,30 +132,48 @@ class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     salon: Mapped[Salon] = relationship(back_populates="bookings")
     customer: Mapped[Customer] = relationship(
+        "Customer",
         back_populates="bookings",
-        foreign_keys=[salon_id, customer_id],
+        primaryjoin=lambda: (
+            (Customer.salon_id == Booking.salon_id)
+            & (Customer.id == foreign(Booking.customer_id))
+        ),
     )
     staff: Mapped[Staff] = relationship(
         back_populates="bookings",
-        foreign_keys=[salon_id, staff_id],
+        primaryjoin=lambda: (
+            (Staff.salon_id == Booking.salon_id)
+            & (Staff.id == foreign(Booking.staff_id))
+        ),
     )
     service: Mapped[Service] = relationship(
         back_populates="bookings",
-        foreign_keys=[salon_id, service_id],
+        foreign_keys=[service_id],
+        primaryjoin=lambda: (
+            (Service.salon_id == Booking.salon_id)
+            & (Service.id == foreign(Booking.service_id))
+        ),
     )
     created_by_user: Mapped[User | None] = relationship(
         back_populates="bookings_created",
+        foreign_keys=[created_by_user_id],
     )
     bonus_transactions: Mapped[list[BonusTransaction]] = relationship(
         back_populates="booking",
+        primaryjoin=_booking_bonus_transactions_join,
     )
     review: Mapped[Review | None] = relationship(
         back_populates="booking",
+        primaryjoin=_booking_review_join,
         uselist=False,
     )
-    payments: Mapped[list[Payment]] = relationship(back_populates="booking")
+    payments: Mapped[list[Payment]] = relationship(
+        back_populates="booking",
+        primaryjoin=_booking_payments_join,
+    )
     notifications: Mapped[list[Notification]] = relationship(
         back_populates="booking",
+        primaryjoin=_booking_notifications_join,
     )
 
     __table_args__ = (

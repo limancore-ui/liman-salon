@@ -17,7 +17,7 @@ from sqlalchemy import (
     desc,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
@@ -32,6 +32,33 @@ if TYPE_CHECKING:
 _REVIEW_STATUS_CHECK = (
     "status IN ('pending', 'published', 'rejected', 'hidden')"
 )
+
+
+def _review_booking_join():
+    from app.db.models.booking import Booking
+
+    return (
+        (Booking.salon_id == Review.salon_id)
+        & (Booking.id == foreign(Review.booking_id))
+    )
+
+
+def _review_customer_join():
+    from app.db.models.customer import Customer
+
+    return (
+        (Customer.salon_id == Review.salon_id)
+        & (Customer.id == foreign(Review.customer_id))
+    )
+
+
+def _review_staff_join():
+    from app.db.models.staff import Staff
+
+    return (
+        (Staff.salon_id == Review.salon_id)
+        & (Staff.id == foreign(Review.staff_id))
+    )
 
 
 class Review(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -74,15 +101,15 @@ class Review(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     salon: Mapped[Salon] = relationship(back_populates="reviews")
     booking: Mapped[Booking | None] = relationship(
         back_populates="review",
-        foreign_keys=[salon_id, booking_id],
+        primaryjoin=_review_booking_join,
     )
     customer: Mapped[Customer] = relationship(
         back_populates="reviews",
-        foreign_keys=[salon_id, customer_id],
+        primaryjoin=_review_customer_join,
     )
     staff: Mapped[Staff | None] = relationship(
         back_populates="reviews",
-        foreign_keys=[salon_id, staff_id],
+        primaryjoin=_review_staff_join,
     )
     moderated_by_user: Mapped[User | None] = relationship(
         back_populates="reviews_moderated",

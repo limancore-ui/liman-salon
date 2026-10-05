@@ -17,7 +17,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import UUIDPrimaryKeyMixin
@@ -27,6 +27,24 @@ if TYPE_CHECKING:
     from app.db.models.customer import Customer
     from app.db.models.salon import Salon
     from app.db.models.user import User
+
+
+def _ai_conversation_customer_join():
+    from app.db.models.customer import Customer
+
+    return (
+        (AIConversation.salon_id == Customer.salon_id)
+        & (Customer.id == foreign(AIConversation.customer_id))
+    )
+
+
+def _ai_conversation_messages_join():
+    from app.db.models.ai_message import AIMessage
+
+    return (
+        (AIMessage.salon_id == AIConversation.salon_id)
+        & (AIConversation.id == foreign(AIMessage.conversation_id))
+    )
 
 
 class AIConversation(Base, UUIDPrimaryKeyMixin):
@@ -83,10 +101,11 @@ class AIConversation(Base, UUIDPrimaryKeyMixin):
     user: Mapped[User | None] = relationship(back_populates="ai_conversations")
     customer: Mapped[Customer | None] = relationship(
         back_populates="ai_conversations",
-        foreign_keys=[salon_id, customer_id],
+        primaryjoin=_ai_conversation_customer_join,
     )
     messages: Mapped[list[AIMessage]] = relationship(
         back_populates="conversation",
+        primaryjoin=_ai_conversation_messages_join,
     )
 
     __table_args__ = (

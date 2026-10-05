@@ -19,7 +19,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import UUIDPrimaryKeyMixin
@@ -32,6 +32,24 @@ if TYPE_CHECKING:
 _NOTIFICATION_STATUS_CHECK = (
     "status IN ('pending', 'sent', 'failed', 'skipped')"
 )
+
+
+def _notification_booking_join():
+    from app.db.models.booking import Booking
+
+    return (
+        (Booking.salon_id == Notification.salon_id)
+        & (Booking.id == foreign(Notification.booking_id))
+    )
+
+
+def _notification_customer_join():
+    from app.db.models.customer import Customer
+
+    return (
+        (Customer.salon_id == Notification.salon_id)
+        & (Customer.id == foreign(Notification.customer_id))
+    )
 
 
 class Notification(Base, UUIDPrimaryKeyMixin):
@@ -88,11 +106,11 @@ class Notification(Base, UUIDPrimaryKeyMixin):
     salon: Mapped[Salon] = relationship(back_populates="notifications")
     booking: Mapped[Booking | None] = relationship(
         back_populates="notifications",
-        foreign_keys=[salon_id, booking_id],
+        primaryjoin=_notification_booking_join,
     )
     customer: Mapped[Customer | None] = relationship(
         back_populates="notifications",
-        foreign_keys=[salon_id, customer_id],
+        primaryjoin=_notification_customer_join,
     )
 
     __table_args__ = (

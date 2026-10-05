@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import UUIDPrimaryKeyMixin
@@ -37,6 +37,24 @@ _AMOUNT_SIGN_CHECK = (
     "(transaction_type = 'earn' AND amount_cents >= 0) OR "
     "transaction_type IN ('adjustment', 'expire', 'refund'))"
 )
+
+
+def _bonus_transaction_customer_join():
+    from app.db.models.customer import Customer
+
+    return (
+        (Customer.salon_id == BonusTransaction.salon_id)
+        & (Customer.id == foreign(BonusTransaction.customer_id))
+    )
+
+
+def _bonus_transaction_booking_join():
+    from app.db.models.booking import Booking
+
+    return (
+        (Booking.salon_id == BonusTransaction.salon_id)
+        & (Booking.id == foreign(BonusTransaction.booking_id))
+    )
 
 
 class BonusTransaction(Base, UUIDPrimaryKeyMixin):
@@ -72,11 +90,11 @@ class BonusTransaction(Base, UUIDPrimaryKeyMixin):
     salon: Mapped[Salon] = relationship(back_populates="bonus_transactions")
     customer: Mapped[Customer] = relationship(
         back_populates="bonus_transactions",
-        foreign_keys=[salon_id, customer_id],
+        primaryjoin=_bonus_transaction_customer_join,
     )
     booking: Mapped[Booking | None] = relationship(
         back_populates="bonus_transactions",
-        foreign_keys=[salon_id, booking_id],
+        primaryjoin=_bonus_transaction_booking_join,
     )
     created_by_user: Mapped[User | None] = relationship(
         back_populates="bonus_transactions_created",

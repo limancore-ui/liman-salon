@@ -16,7 +16,7 @@ from sqlalchemy import (
     Uuid,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
@@ -29,6 +29,51 @@ if TYPE_CHECKING:
     from app.db.models.booking import Booking
     from app.db.models.review import Review
     from app.db.models.working_hour import WorkingHour
+
+
+def _staff_blocked_periods_join():
+    from app.db.models.blocked_period import BlockedPeriod
+
+    return (
+        (Staff.salon_id == BlockedPeriod.salon_id)
+        & (Staff.id == foreign(BlockedPeriod.staff_id))
+    )
+
+
+def _staff_working_hours_join():
+    from app.db.models.working_hour import WorkingHour
+
+    return (
+        (Staff.salon_id == WorkingHour.salon_id)
+        & (Staff.id == foreign(WorkingHour.staff_id))
+    )
+
+
+def _staff_reviews_join():
+    from app.db.models.review import Review
+
+    return (
+        (Staff.salon_id == Review.salon_id)
+        & (Staff.id == foreign(Review.staff_id))
+    )
+
+
+def _staff_staff_services_join():
+    from app.db.models.staff_service import StaffService
+
+    return (
+        (Staff.salon_id == StaffService.salon_id)
+        & (Staff.id == foreign(StaffService.staff_id))
+    )
+
+
+def _staff_bookings_join():
+    from app.db.models.booking import Booking
+
+    return (
+        (Staff.salon_id == Booking.salon_id)
+        & (Staff.id == foreign(Booking.staff_id))
+    )
 
 
 class Staff(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -56,11 +101,27 @@ class Staff(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     salon: Mapped[Salon] = relationship(back_populates="staff")
     user: Mapped[User | None] = relationship(back_populates="staff_profiles")
-    staff_services: Mapped[list[StaffService]] = relationship(back_populates="staff")
-    working_hours: Mapped[list[WorkingHour]] = relationship(back_populates="staff")
-    blocked_periods: Mapped[list[BlockedPeriod]] = relationship(back_populates="staff")
-    bookings: Mapped[list[Booking]] = relationship(back_populates="staff")
-    reviews: Mapped[list[Review]] = relationship(back_populates="staff")
+    staff_services: Mapped[list[StaffService]] = relationship(
+        back_populates="staff",
+        primaryjoin=_staff_staff_services_join,
+    )
+    working_hours: Mapped[list[WorkingHour]] = relationship(
+        back_populates="staff",
+        primaryjoin=_staff_working_hours_join,
+    )
+    blocked_periods: Mapped[list[BlockedPeriod]] = relationship(
+        back_populates="staff",
+        primaryjoin=_staff_blocked_periods_join,
+    )
+    bookings: Mapped[list[Booking]] = relationship(
+        "Booking",
+        back_populates="staff",
+        primaryjoin=_staff_bookings_join,
+    )
+    reviews: Mapped[list[Review]] = relationship(
+        back_populates="staff",
+        primaryjoin=_staff_reviews_join,
+    )
 
     __table_args__ = (
         UniqueConstraint("salon_id", "id", name="uq_staff_salon_id_id"),

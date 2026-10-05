@@ -18,10 +18,11 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
+
 
 if TYPE_CHECKING:
     from app.db.models.booking import Booking
@@ -31,6 +32,51 @@ if TYPE_CHECKING:
     from app.db.models.review import Review
     from app.db.models.salon import Salon
     from app.db.models.user import User
+
+
+def _customer_bookings_join():
+    from app.db.models.booking import Booking
+
+    return (
+        (Customer.salon_id == Booking.salon_id)
+        & (Customer.id == foreign(Booking.customer_id))
+    )
+
+
+def _customer_ai_conversations_join():
+    from app.db.models.ai_conversation import AIConversation
+
+    return (
+        (Customer.salon_id == AIConversation.salon_id)
+        & (Customer.id == foreign(AIConversation.customer_id))
+    )
+
+
+def _customer_bonus_transactions_join():
+    from app.db.models.bonus_transaction import BonusTransaction
+
+    return (
+        (Customer.salon_id == BonusTransaction.salon_id)
+        & (Customer.id == foreign(BonusTransaction.customer_id))
+    )
+
+
+def _customer_reviews_join():
+    from app.db.models.review import Review
+
+    return (
+        (Customer.salon_id == Review.salon_id)
+        & (Customer.id == foreign(Review.customer_id))
+    )
+
+
+def _customer_notifications_join():
+    from app.db.models.notification import Notification
+
+    return (
+        (Customer.salon_id == Notification.salon_id)
+        & (Customer.id == foreign(Notification.customer_id))
+    )
 
 
 class Customer(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -67,16 +113,28 @@ class Customer(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     salon: Mapped[Salon] = relationship(back_populates="customers")
     user: Mapped[User | None] = relationship(back_populates="customers")
-    bookings: Mapped[list[Booking]] = relationship(back_populates="customer")
+
+    bookings: Mapped[list[Booking]] = relationship(
+        "Booking",
+        back_populates="customer",
+        primaryjoin=_customer_bookings_join,
+    )
+
     bonus_transactions: Mapped[list[BonusTransaction]] = relationship(
         back_populates="customer",
+        primaryjoin=_customer_bonus_transactions_join,
     )
-    reviews: Mapped[list[Review]] = relationship(back_populates="customer")
+    reviews: Mapped[list[Review]] = relationship(
+        back_populates="customer",
+        primaryjoin=_customer_reviews_join,
+    )
     notifications: Mapped[list[Notification]] = relationship(
         back_populates="customer",
+        primaryjoin=_customer_notifications_join,
     )
     ai_conversations: Mapped[list[AIConversation]] = relationship(
         back_populates="customer",
+        primaryjoin=_customer_ai_conversations_join,
     )
 
     __table_args__ = (

@@ -21,6 +21,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.db.models.booking import _booking_payments_join
+from app.db.models.subscription import _subscription_payments_join
+
 from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
@@ -83,11 +86,11 @@ class Payment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     salon: Mapped[Salon] = relationship(back_populates="payments")
     subscription: Mapped[Subscription | None] = relationship(
         back_populates="payments",
-        foreign_keys=[salon_id, subscription_id],
+        primaryjoin=_subscription_payments_join,
     )
     booking: Mapped[Booking | None] = relationship(
         back_populates="payments",
-        foreign_keys=[salon_id, booking_id],
+        primaryjoin=_booking_payments_join,
     )
 
     __table_args__ = (

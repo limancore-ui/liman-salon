@@ -15,7 +15,7 @@ from sqlalchemy import (
     Uuid,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
@@ -23,6 +23,15 @@ from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 if TYPE_CHECKING:
     from app.db.models.salon import Salon
     from app.db.models.staff import Staff
+
+
+def _working_hour_staff_join():
+    from app.db.models.staff import Staff
+
+    return (
+        (Staff.salon_id == WorkingHour.salon_id)
+        & (Staff.id == foreign(WorkingHour.staff_id))
+    )
 
 
 class WorkingHour(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -45,7 +54,7 @@ class WorkingHour(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     salon: Mapped[Salon] = relationship(back_populates="working_hours")
     staff: Mapped[Staff | None] = relationship(
         back_populates="working_hours",
-        foreign_keys=[salon_id, staff_id],
+        primaryjoin=_working_hour_staff_join,
     )
 
     __table_args__ = (

@@ -13,7 +13,7 @@ from sqlalchemy import (
     String,
     Uuid,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
@@ -22,6 +22,15 @@ if TYPE_CHECKING:
     from app.db.models.salon import Salon
     from app.db.models.staff import Staff
     from app.db.models.user import User
+
+
+def _blocked_period_staff_join():
+    from app.db.models.staff import Staff
+
+    return (
+        (Staff.salon_id == BlockedPeriod.salon_id)
+        & (Staff.id == foreign(BlockedPeriod.staff_id))
+    )
 
 
 class BlockedPeriod(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -52,7 +61,7 @@ class BlockedPeriod(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     salon: Mapped[Salon] = relationship(back_populates="blocked_periods")
     staff: Mapped[Staff | None] = relationship(
         back_populates="blocked_periods",
-        foreign_keys=[salon_id, staff_id],
+        primaryjoin=_blocked_period_staff_join,
     )
     created_by_user: Mapped[User | None] = relationship(
         back_populates="blocked_periods_created",
