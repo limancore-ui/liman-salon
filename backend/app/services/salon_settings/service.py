@@ -122,4 +122,4 @@ def validate_stored_settings(stored: dict[str, Any]) -> dict[str, Any]:
         raise SalonSettingsError("invalid salon settings") from exc
     if parsed.booking is None:
         return {}
-    return parsed.model_dump(mode="json")
+    return parsed.model_dump(mode="json", exclude_none=True)

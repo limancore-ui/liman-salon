@@ -11,6 +11,13 @@ class SalonBookingSettingsV1(BaseModel):
     public_hold_seconds: int = Field(ge=60, le=3600)
 
 
+class SalonBonusesSettingsV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    earn_percentage: float = Field(default=0, ge=0)
+
+
 class SalonSettingsV1(BaseModel):
     """v0.1 per-salon business settings stored in salons.settings JSONB."""
 
@@ -18,3 +25,4 @@ class SalonSettingsV1(BaseModel):
 
     v: Literal[1]
     booking: SalonBookingSettingsV1 | None = None
+    bonuses: SalonBonusesSettingsV1 | None = None
