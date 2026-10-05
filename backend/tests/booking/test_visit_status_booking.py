@@ -93,9 +93,23 @@ def test_admin_complete_visit_from_in_progress_sets_completed_at() -> None:
     session.flush.assert_called()
 
 
+def test_admin_complete_visit_from_confirmed_sets_completed_at() -> None:
+    booking = _booking(status="confirmed")
+    svc, session = _service_with_booking(booking)
+    result = svc.admin_complete_visit(
+        salon_id=SALON_ID,
+        booking_id=BOOKING_ID,
+        as_of=AS_OF,
+    )
+    assert result.status == "completed"
+    assert result.completed_at == AS_OF
+    assert booking.status == "completed"
+    session.flush.assert_called()
+
+
 @pytest.mark.parametrize(
     "status",
-    ["pending", "confirmed", "completed", "cancelled", "no_show", "expired"],
+    ["pending", "completed", "cancelled", "no_show", "expired"],
 )
 def test_admin_complete_visit_illegal_status_rejected(status: str) -> None:
     booking = _booking(status=status)

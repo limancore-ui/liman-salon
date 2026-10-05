@@ -61,6 +61,7 @@ def get_booking_service(session: SessionDep) -> BookingService:
     return BookingService(
         session,
         notifications=NotificationService(session),
+        bonus_ledger=BonusLedgerService(session),
     )
 
 
