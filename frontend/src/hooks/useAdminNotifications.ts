@@ -24,6 +24,37 @@ export function countUnread(items: AdminNotificationItem[]): number {
   return items.filter((n) => n.read_at == null).length
 }
 
+export type ApplyStreamNotificationResult = {
+  items: AdminNotificationItem[]
+  unreadCount: number
+  latestId: string | null
+}
+
+/** Applies one SSE notification to list + unread cursor state (pure, for hook + tests). */
+export function applyStreamNotification(
+  prevItems: AdminNotificationItem[],
+  unreadCount: number,
+  item: AdminNotificationItem,
+): ApplyStreamNotificationResult {
+  const next = mergeNotification(prevItems, item)
+  if (next === prevItems) {
+    return { items: prevItems, unreadCount, latestId: null }
+  }
+  return {
+    items: next,
+    unreadCount: item.read_at == null ? unreadCount + 1 : unreadCount,
+    latestId: item.id,
+  }
+}
+
+/** True when an in-flight refresh snapshot may still be applied to state. */
+export function shouldApplyRefreshSnapshot(
+  snapshotGeneration: number,
+  currentGeneration: number,
+): boolean {
+  return snapshotGeneration === currentGeneration
+}
+
 type UseAdminNotificationsArgs = {
   token: string | null
   salonId: string | null
@@ -44,18 +75,31 @@ export function useAdminNotifications({
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const latestIdRef = useRef<string | null>(null)
+  const unreadCountRef = useRef(0)
+  const refreshGenerationRef = useRef(0)
 
   const canUse = enabled && Boolean(token && salonId) && (role === 'owner' || role === 'admin')
+
+  useEffect(() => {
+    unreadCountRef.current = unreadCount
+  }, [unreadCount])
 
   const refresh = useCallback(async () => {
     if (!canUse || !token || !salonId) {
       return
     }
+    const snapshotGeneration = ++refreshGenerationRef.current
     setLoading(true)
     try {
       const list = await fetchAdminNotifications(token, salonId, { limit: 50 })
+      if (
+        !shouldApplyRefreshSnapshot(snapshotGeneration, refreshGenerationRef.current)
+      ) {
+        return
+      }
       setItems(list.items)
       setUnreadCount(list.unread_count)
+      unreadCountRef.current = list.unread_count
       if (list.items.length > 0) {
         latestIdRef.current = list.items[0].id
       }
@@ -101,9 +145,26 @@ export function useAdminNotifications({
             latestIdRef.current,
             {
               onNotification: (item) => {
-                latestIdRef.current = item.id
-                setItems((prev) => mergeNotification(prev, item))
-                setUnreadCount((prev) => prev + (item.read_at == null ? 1 : 0))
+                refreshGenerationRef.current += 1
+                let nextUnread: number | undefined
+                setItems((prev) => {
+                  const result = applyStreamNotification(
+                    prev,
+                    unreadCountRef.current,
+                    item,
+                  )
+                  if (result.latestId != null) {
+                    latestIdRef.current = result.latestId
+                  }
+                  if (result.unreadCount !== unreadCountRef.current) {
+                    unreadCountRef.current = result.unreadCount
+                    nextUnread = result.unreadCount
+                  }
+                  return result.items
+                })
+                if (nextUnread !== undefined) {
+                  setUnreadCount(nextUnread)
+                }
               },
             },
             activeController.signal,

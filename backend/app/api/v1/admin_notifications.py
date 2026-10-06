@@ -6,7 +6,7 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import AdminNotificationServiceDep, AsOfDep
@@ -115,6 +115,7 @@ def mark_all_admin_notifications_read(
 
 async def _sse_notification_stream(
     *,
+    request: Request,
     salon_id: uuid.UUID,
     recipient_user_id: uuid.UUID,
     after_id: uuid.UUID | None,
@@ -124,6 +125,8 @@ async def _sse_notification_stream(
     heartbeat_every = 15
     ticks = 0
     while True:
+        if await request.is_disconnected():
+            break
         session = SessionLocal()
         try:
             service = AdminNotificationService(session)
@@ -150,15 +153,19 @@ async def _sse_notification_stream(
             ticks = 0
             yield ": heartbeat\n\n"
         await asyncio.sleep(2)
+        if await request.is_disconnected():
+            break
 
 
 @router.get("/salons/{salon_id}/admin-notifications/stream")
 async def stream_admin_notifications(
     salon_id: uuid.UUID,
+    request: Request,
     context: OwnerAdminSalonContext,
     after_id: uuid.UUID | None = Query(default=None),
 ) -> StreamingResponse:
     generator = _sse_notification_stream(
+        request=request,
         salon_id=context.salon_id,
         recipient_user_id=context.user_id,
         after_id=after_id,

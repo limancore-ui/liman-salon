@@ -71,15 +71,23 @@ def _auth_headers(*, role: str = "owner", salon_id: uuid.UUID = SALON_A) -> dict
     return app, {"Authorization": f"Bearer {token}"}
 
 
+def _mock_request(*, disconnected: bool = False) -> MagicMock:
+    request = MagicMock()
+    request.is_disconnected = AsyncMock(return_value=disconnected)
+    return request
+
+
 async def _first_sse_data_event(
     *,
     after_id: uuid.UUID | None = None,
     poll_results: list[list[AdminNotificationRow]] | None = None,
+    request: MagicMock | None = None,
 ) -> tuple[str, MagicMock]:
     mock_session = MagicMock()
     mock_service = MagicMock()
     row = _sample_row()
     results = poll_results if poll_results is not None else [[row]]
+    mock_request = request or _mock_request()
 
     def _list_since(**_kwargs):
         return results.pop(0) if results else []
@@ -96,6 +104,7 @@ async def _first_sse_data_event(
         ),
     ):
         gen = admin_notifications_module._sse_notification_stream(
+            request=mock_request,
             salon_id=SALON_A,
             recipient_user_id=USER_ID,
             after_id=after_id,
@@ -188,6 +197,7 @@ async def test_stream_deduplicates_repeated_poll_results() -> None:
         ),
     ):
         gen = admin_notifications_module._sse_notification_stream(
+            request=_mock_request(),
             salon_id=SALON_A,
             recipient_user_id=USER_ID,
             after_id=None,
@@ -204,3 +214,117 @@ async def test_stream_deduplicates_repeated_poll_results() -> None:
 
     assert len(events) == 1
     assert events[0]["notification"]["id"] == str(NOTIFICATION_ID)
+
+
+@pytest.mark.anyio
+async def test_stream_exits_when_client_disconnects_before_poll() -> None:
+    mock_request = _mock_request(disconnected=True)
+    mock_session = MagicMock()
+
+    with (
+        patch.object(admin_notifications_module.asyncio, "sleep", new_callable=AsyncMock),
+        patch.object(admin_notifications_module, "SessionLocal", return_value=mock_session),
+        patch.object(
+            admin_notifications_module,
+            "AdminNotificationService",
+        ) as mock_service_cls,
+    ):
+        gen = admin_notifications_module._sse_notification_stream(
+            request=mock_request,
+            salon_id=SALON_A,
+            recipient_user_id=USER_ID,
+            after_id=None,
+        )
+        with pytest.raises(StopAsyncIteration):
+            await gen.__anext__()
+        await gen.aclose()
+
+    mock_session.close.assert_not_called()
+    mock_service_cls.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_stream_exits_after_sleep_when_client_disconnects() -> None:
+    disconnect_after_sleep = False
+    poll_count = 0
+    mock_request = MagicMock()
+
+    async def _is_disconnected() -> bool:
+        return disconnect_after_sleep
+
+    mock_request.is_disconnected = _is_disconnected
+    mock_session = MagicMock()
+    mock_service = MagicMock()
+    row = _sample_row()
+
+    def _list_since(**_kwargs):
+        nonlocal poll_count
+        poll_count += 1
+        if poll_count == 1:
+            return [row]
+        return []
+
+    mock_service.list_since.side_effect = _list_since
+
+    with (
+        patch.object(admin_notifications_module.asyncio, "sleep", new_callable=AsyncMock),
+        patch.object(admin_notifications_module, "SessionLocal", return_value=mock_session),
+        patch.object(
+            admin_notifications_module,
+            "AdminNotificationService",
+            return_value=mock_service,
+        ),
+    ):
+        gen = admin_notifications_module._sse_notification_stream(
+            request=mock_request,
+            salon_id=SALON_A,
+            recipient_user_id=USER_ID,
+            after_id=None,
+        )
+        chunk = await gen.__anext__()
+        assert chunk.startswith("data: ")
+        disconnect_after_sleep = True
+        with pytest.raises(StopAsyncIteration):
+            await gen.__anext__()
+        await gen.aclose()
+
+    assert poll_count == 1
+    assert mock_service.list_since.call_count == 1
+    assert mock_session.close.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_stream_session_close_bounded_on_disconnect() -> None:
+    disconnect_checks = 0
+    mock_request = MagicMock()
+
+    async def _is_disconnected() -> bool:
+        nonlocal disconnect_checks
+        disconnect_checks += 1
+        return disconnect_checks > 2
+
+    mock_request.is_disconnected = _is_disconnected
+    mock_session = MagicMock()
+    mock_service = MagicMock()
+    mock_service.list_since.return_value = []
+
+    with (
+        patch.object(admin_notifications_module.asyncio, "sleep", new_callable=AsyncMock),
+        patch.object(admin_notifications_module, "SessionLocal", return_value=mock_session),
+        patch.object(
+            admin_notifications_module,
+            "AdminNotificationService",
+            return_value=mock_service,
+        ),
+    ):
+        gen = admin_notifications_module._sse_notification_stream(
+            request=mock_request,
+            salon_id=SALON_A,
+            recipient_user_id=USER_ID,
+            after_id=None,
+        )
+        with pytest.raises(StopAsyncIteration):
+            await gen.__anext__()
+        await gen.aclose()
+
+    assert mock_session.close.call_count <= 2

@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   ADMIN_NOTIFICATION_STREAM_RECONNECT_MS,
+  applyStreamNotification,
   countUnread,
   mergeNotification,
+  shouldApplyRefreshSnapshot,
 } from './useAdminNotifications'
 import type { AdminNotificationItem } from '../types/adminNotifications'
 
@@ -32,6 +34,62 @@ describe('mergeNotification', () => {
 describe('countUnread', () => {
   it('counts only unread notifications', () => {
     expect(countUnread([item('a'), item('b', true)])).toBe(1)
+  })
+})
+
+describe('applyStreamNotification', () => {
+  it('does not change unread when duplicate id is replayed', () => {
+    const items = [item('a'), item('b')]
+    const result = applyStreamNotification(items, 2, item('b'))
+    expect(result.items).toBe(items)
+    expect(result.unreadCount).toBe(2)
+    expect(result.latestId).toBeNull()
+  })
+
+  it('increments unread by one for a new unread notification', () => {
+    const items = [item('a')]
+    const result = applyStreamNotification(items, 1, item('c'))
+    expect(result.items.map((n) => n.id)).toEqual(['c', 'a'])
+    expect(result.unreadCount).toBe(2)
+    expect(result.latestId).toBe('c')
+  })
+
+  it('does not increase unreadCount for a new already-read notification', () => {
+    const items = [item('a')]
+    const result = applyStreamNotification(items, 1, item('c', true))
+    expect(result.items.map((n) => n.id)).toEqual(['c', 'a'])
+    expect(result.unreadCount).toBe(1)
+    expect(result.latestId).toBe('c')
+  })
+
+  it('keeps unread at 3 when three known ids are replayed', () => {
+    let items = [item('1'), item('2'), item('3')]
+    let unread = 3
+    for (const id of ['1', '2', '3']) {
+      const result = applyStreamNotification(items, unread, item(id))
+      items = result.items
+      unread = result.unreadCount
+    }
+    expect(unread).toBe(3)
+    expect(items.map((n) => n.id)).toEqual(['1', '2', '3'])
+  })
+})
+
+describe('shouldApplyRefreshSnapshot', () => {
+  it('allows apply when generation unchanged (no SSE during refresh)', () => {
+    expect(shouldApplyRefreshSnapshot(2, 2)).toBe(true)
+  })
+
+  it('blocks apply when SSE bumped generation during refresh', () => {
+    const snapshotAtRefreshStart = 1
+    let currentGeneration = 1
+    expect(shouldApplyRefreshSnapshot(snapshotAtRefreshStart, currentGeneration)).toBe(
+      true,
+    )
+    currentGeneration += 1
+    expect(shouldApplyRefreshSnapshot(snapshotAtRefreshStart, currentGeneration)).toBe(
+      false,
+    )
   })
 })
 
