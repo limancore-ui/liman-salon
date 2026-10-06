@@ -1,0 +1,1 @@
+EVENT_TYPE_PUBLIC_BOOKING_PENDING = "public_booking_pending"

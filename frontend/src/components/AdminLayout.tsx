@@ -2,6 +2,7 @@ import { useState, type ChangeEvent, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { membershipLabel } from '../auth/workspace'
+import { AdminNotificationBell } from './AdminNotificationBell'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/admin' },
@@ -101,6 +102,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <span className="admin-shell__email">{user?.email}</span>
             <span className="admin-shell__role">{salon?.role}</span>
           </div>
+          <AdminNotificationBell />
           <button
             type="button"
             className="btn btn--secondary btn--compact"

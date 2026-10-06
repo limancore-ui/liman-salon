@@ -28,6 +28,7 @@ from app.services.staff.service import StaffService
 from app.services.notifications.service import NotificationService
 from app.services.review.service import ReviewService
 from app.services.bonus.service import BonusLedgerService
+from app.services.admin_notifications.service import AdminNotificationService
 
 SessionDep = Annotated[Session, Depends(get_db)]
 
@@ -74,7 +75,17 @@ def get_public_booking_service(session: SessionDep) -> PublicBookingService:
     return PublicBookingService(
         session,
         booking_manage_token_pepper=settings.booking_manage_token_pepper,
+        admin_notifications=AdminNotificationService(session),
     )
+
+
+def get_admin_notification_service(session: SessionDep) -> AdminNotificationService:
+    return AdminNotificationService(session)
+
+
+AdminNotificationServiceDep = Annotated[
+    AdminNotificationService, Depends(get_admin_notification_service)
+]
 
 
 PublicBookingServiceDep = Annotated[

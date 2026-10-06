@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.db.models.bonus_transaction import BonusTransaction
     from app.db.models.ai_conversation import AIConversation
     from app.db.models.review import Review
+    from app.db.models.admin_notification_event import AdminNotificationEvent
 
 
 class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -60,6 +61,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     ai_conversations: Mapped[list[AIConversation]] = relationship(
         back_populates="user",
+    )
+    admin_notification_events: Mapped[list[AdminNotificationEvent]] = relationship(
+        back_populates="recipient",
     )
 
     __table_args__ = (

@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from app.db.models.ai_conversation import AIConversation
     from app.db.models.ai_message import AIMessage
     from app.db.models.notification import Notification
+    from app.db.models.admin_notification_event import AdminNotificationEvent
     from app.db.models.payment import Payment
     from app.db.models.media_asset import MediaAsset
     from app.db.models.media_attachment import MediaAttachment
@@ -68,6 +69,9 @@ class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     subscriptions: Mapped[list[Subscription]] = relationship(back_populates="salon")
     payments: Mapped[list[Payment]] = relationship(back_populates="salon")
     notifications: Mapped[list[Notification]] = relationship(
+        back_populates="salon",
+    )
+    admin_notification_events: Mapped[list[AdminNotificationEvent]] = relationship(
         back_populates="salon",
     )
     ai_conversations: Mapped[list[AIConversation]] = relationship(

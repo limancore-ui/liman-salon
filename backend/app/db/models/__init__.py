@@ -5,6 +5,7 @@ from app.db.models.ai_message import AIMessage
 from app.db.models.blocked_period import BlockedPeriod
 from app.db.models.bonus_transaction import BonusTransaction
 from app.db.models.notification import Notification
+from app.db.models.admin_notification_event import AdminNotificationEvent
 from app.db.models.payment import Payment
 from app.db.models.booking import Booking
 from app.db.models.review import Review
@@ -26,6 +27,7 @@ __all__ = [
     "BlockedPeriod",
     "BonusTransaction",
     "Notification",
+    "AdminNotificationEvent",
     "Payment",
     "Booking",
     "Review",

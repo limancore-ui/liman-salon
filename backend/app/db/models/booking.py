@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from app.db.models.bonus_transaction import BonusTransaction
     from app.db.models.review import Review
     from app.db.models.notification import Notification
+    from app.db.models.admin_notification_event import AdminNotificationEvent
     from app.db.models.payment import Payment
 
 _BOOKING_STATUS_CHECK = (
@@ -59,6 +60,15 @@ def _booking_notifications_join():
     return (
         (Booking.salon_id == Notification.salon_id)
         & (Booking.id == foreign(Notification.booking_id))
+    )
+
+
+def _booking_admin_notification_events_join():
+    from app.db.models.admin_notification_event import AdminNotificationEvent
+
+    return (
+        (Booking.salon_id == AdminNotificationEvent.salon_id)
+        & (Booking.id == foreign(AdminNotificationEvent.booking_id))
     )
 
 
@@ -174,6 +184,10 @@ class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     notifications: Mapped[list[Notification]] = relationship(
         back_populates="booking",
         primaryjoin=_booking_notifications_join,
+    )
+    admin_notification_events: Mapped[list[AdminNotificationEvent]] = relationship(
+        back_populates="booking",
+        primaryjoin=_booking_admin_notification_events_join,
     )
 
     __table_args__ = (

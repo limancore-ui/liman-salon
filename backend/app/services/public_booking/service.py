@@ -11,6 +11,7 @@ from app.services.availability.service import AvailabilityService
 from app.services.booking.errors import SlotNotAvailableError
 from app.services.booking.manage_token import generate_manage_token, hash_manage_token
 from app.services.booking.service import BookingService
+from app.services.admin_notifications.service import AdminNotificationService
 from app.services.public_booking.types import PublicBookingResult
 
 
@@ -22,9 +23,11 @@ class PublicBookingService:
         session: Session,
         *,
         booking_manage_token_pepper: str,
+        admin_notifications: AdminNotificationService | None = None,
     ) -> None:
         self._session = session
         self._manage_token_pepper = booking_manage_token_pepper
+        self._admin_notifications = admin_notifications
         self._booking = BookingService(session)
         self._availability = AvailabilityService(session)
         self._availability_repo = AvailabilityRepository(session)
@@ -81,6 +84,12 @@ class PublicBookingService:
             customer_notes=customer_notes,
             manage_token_hash=manage_token_hash,
         )
+
+        if self._admin_notifications is not None:
+            self._admin_notifications.enqueue_public_booking_pending(
+                salon_id=salon_id,
+                booking_id=result.booking_id,
+            )
 
         service_end = service_start + timedelta(minutes=service.duration_minutes)
 
