@@ -62,6 +62,19 @@ export function isNewRealtimeStreamNotification(
   return result.latestId != null
 }
 
+/** Plan SSE apply + sound callback from a ref snapshot (never call inside setState updaters). */
+export function planStreamNotificationFromSnapshot(
+  items: AdminNotificationItem[],
+  unreadCount: number,
+  item: AdminNotificationItem,
+): ApplyStreamNotificationResult & { notifyNew: boolean } {
+  const result = applyStreamNotification(items, unreadCount, item)
+  return {
+    ...result,
+    notifyNew: isNewRealtimeStreamNotification(result),
+  }
+}
+
 type UseAdminNotificationsArgs = {
   token: string | null
   salonId: string | null
@@ -84,6 +97,7 @@ export function useAdminNotifications({
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const latestIdRef = useRef<string | null>(null)
+  const itemsRef = useRef<AdminNotificationItem[]>([])
   const unreadCountRef = useRef(0)
   const refreshGenerationRef = useRef(0)
   const onNewRealtimeNotificationRef = useRef(onNewRealtimeNotification)
@@ -93,6 +107,10 @@ export function useAdminNotifications({
   useEffect(() => {
     onNewRealtimeNotificationRef.current = onNewRealtimeNotification
   }, [onNewRealtimeNotification])
+
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
 
   useEffect(() => {
     unreadCountRef.current = unreadCount
@@ -112,6 +130,7 @@ export function useAdminNotifications({
         return
       }
       setItems(list.items)
+      itemsRef.current = list.items
       setUnreadCount(list.unread_count)
       unreadCountRef.current = list.unread_count
       if (list.items.length > 0) {
@@ -160,29 +179,35 @@ export function useAdminNotifications({
             {
               onNotification: (item) => {
                 refreshGenerationRef.current += 1
-                let nextUnread: number | undefined
-                let notifyNew = false
+                const snapshotUnread = unreadCountRef.current
+                const planned = planStreamNotificationFromSnapshot(
+                  itemsRef.current,
+                  snapshotUnread,
+                  item,
+                )
+                itemsRef.current = planned.items
+                if (planned.latestId != null) {
+                  latestIdRef.current = planned.latestId
+                }
                 setItems((prev) => {
-                  const result = applyStreamNotification(
+                  const applied = applyStreamNotification(
                     prev,
-                    unreadCountRef.current,
+                    snapshotUnread,
                     item,
                   )
-                  notifyNew = isNewRealtimeStreamNotification(result)
-                  if (result.latestId != null) {
-                    latestIdRef.current = result.latestId
+                  itemsRef.current = applied.items
+                  if (applied.latestId != null) {
+                    latestIdRef.current = applied.latestId
                   }
-                  if (result.unreadCount !== unreadCountRef.current) {
-                    unreadCountRef.current = result.unreadCount
-                    nextUnread = result.unreadCount
-                  }
-                  return result.items
+                  unreadCountRef.current = applied.unreadCount
+                  return applied.items
                 })
-                if (notifyNew) {
+                if (planned.notifyNew) {
                   onNewRealtimeNotificationRef.current?.(item)
                 }
-                if (nextUnread !== undefined) {
-                  setUnreadCount(nextUnread)
+                if (planned.unreadCount !== snapshotUnread) {
+                  unreadCountRef.current = planned.unreadCount
+                  setUnreadCount(planned.unreadCount)
                 }
               },
             },

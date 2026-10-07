@@ -5,6 +5,7 @@ import {
   countUnread,
   isNewRealtimeStreamNotification,
   mergeNotification,
+  planStreamNotificationFromSnapshot,
   shouldApplyRefreshSnapshot,
 } from './useAdminNotifications'
 import type { AdminNotificationItem } from '../types/adminNotifications'
@@ -73,6 +74,46 @@ describe('applyStreamNotification', () => {
     }
     expect(unread).toBe(3)
     expect(items.map((n) => n.id)).toEqual(['1', '2', '3'])
+  })
+})
+
+describe('planStreamNotificationFromSnapshot', () => {
+  it('sets notifyNew false for duplicate replay (ref snapshot path)', () => {
+    const items = [item('a'), item('b')]
+    const planned = planStreamNotificationFromSnapshot(items, 2, item('b'))
+    expect(planned.notifyNew).toBe(false)
+    expect(planned.items).toBe(items)
+    expect(planned.unreadCount).toBe(2)
+  })
+
+  it('sets notifyNew true once for a new id on the snapshot', () => {
+    const items = [item('a')]
+    const planned = planStreamNotificationFromSnapshot(items, 1, item('new'))
+    expect(planned.notifyNew).toBe(true)
+    expect(planned.items.map((n) => n.id)).toEqual(['new', 'a'])
+    expect(planned.unreadCount).toBe(2)
+  })
+
+  it('simulates sequential SSE handlers updating snapshot refs', () => {
+    let itemsSnapshot: AdminNotificationItem[] = [item('1'), item('2')]
+    let unreadSnapshot = 2
+    const notifyFlags: boolean[] = []
+
+    for (const id of ['1', '2', '3', '3', '1'] as const) {
+      const planned = planStreamNotificationFromSnapshot(
+        itemsSnapshot,
+        unreadSnapshot,
+        item(id),
+      )
+      notifyFlags.push(planned.notifyNew)
+      itemsSnapshot = planned.items
+      if (planned.unreadCount !== unreadSnapshot) {
+        unreadSnapshot = planned.unreadCount
+      }
+    }
+
+    expect(notifyFlags).toEqual([false, false, true, false, false])
+    expect(unreadSnapshot).toBe(3)
   })
 })
 
