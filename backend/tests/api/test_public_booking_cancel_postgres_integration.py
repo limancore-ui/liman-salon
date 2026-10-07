@@ -164,7 +164,7 @@ def _create_public_booking(
     staff_id: uuid.UUID,
     service_start: str,
 ) -> tuple[uuid.UUID, str]:
-    phone = f"+996{uuid.uuid4().int % 1_000_000_000:09d}"
+    phone = f"+7760{uuid.uuid4().int % 10_000_000:07d}"
     resp = client.post(
         f"{base}/bookings",
         json={
@@ -248,7 +248,7 @@ def test_cancel_pending_stores_fields_and_releases_slot(
         f"{base}/bookings",
         json={
             "full_name": "Rebook Guest",
-            "phone": f"+996{uuid.uuid4().int % 1_000_000_000:09d}",
+            "phone": f"+7761{uuid.uuid4().int % 10_000_000:07d}",
             "service_id": str(service.id),
             "staff_id": str(staff.id),
             "service_start": service_start,

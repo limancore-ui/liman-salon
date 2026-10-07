@@ -32,14 +32,14 @@ def test_resolve_returns_existing_by_phone_without_update() -> None:
         id=CUSTOMER_ID,
         salon_id=SALON_ID,
         full_name="Original",
-        phone="+996700112233",
+        phone="+77001112233",
     )
     svc._repo.get_customer_by_phone = MagicMock(return_value=existing)
     svc._repo.add_customer = MagicMock()
 
     result = svc.resolve_public_customer(
         salon_id=SALON_ID,
-        data=PublicCustomerResolveData(full_name="New Name", phone="+996700112233"),
+        data=PublicCustomerResolveData(full_name="New Name", phone="+77001112233"),
     )
 
     assert result == CustomerResolveResult(customer_id=CUSTOMER_ID, created=False)
@@ -60,7 +60,7 @@ def test_resolve_creates_with_defaults() -> None:
         salon_id=SALON_ID,
         data=PublicCustomerResolveData(
             full_name="Walk-in",
-            phone="+996700556677",
+            phone="+77005556677",
             email="w@example.com",
         ),
     )
@@ -80,7 +80,7 @@ def test_resolve_integrity_error_becomes_conflict() -> None:
     with pytest.raises(CustomerConflictError):
         svc.resolve_public_customer(
             salon_id=SALON_ID,
-            data=PublicCustomerResolveData(full_name="A", phone="+996700556677"),
+            data=PublicCustomerResolveData(full_name="A", phone="+7700"),
         )
 
 
@@ -142,17 +142,17 @@ def test_lookup_public_customer_found() -> None:
         id=CUSTOMER_ID,
         salon_id=SALON_ID,
         full_name="Jane Doe",
-        phone="+996700112233",
+        phone="+77001112233",
         email="jane@example.com",
     )
     svc._repo.get_customer_by_phone = MagicMock(return_value=existing)
 
-    result = svc.lookup_public_customer(salon_id=SALON_ID, phone="  +996700112233  ")
+    result = svc.lookup_public_customer(salon_id=SALON_ID, phone="  +77001112233  ")
 
     assert result == PublicCustomerLookupResult(found=True, full_name="Jane Doe")
     svc._repo.get_customer_by_phone.assert_called_once_with(
         salon_id=SALON_ID,
-        phone="+996700112233",
+        phone="+77001112233",
     )
 
 
@@ -160,7 +160,7 @@ def test_lookup_public_customer_not_found() -> None:
     svc = _svc()
     svc._repo.get_customer_by_phone = MagicMock(return_value=None)
 
-    result = svc.lookup_public_customer(salon_id=SALON_ID, phone="+996700999999")
+    result = svc.lookup_public_customer(salon_id=SALON_ID, phone="+77009999999")
 
     assert result == PublicCustomerLookupResult(found=False, full_name=None)
 

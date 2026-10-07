@@ -49,7 +49,6 @@ import {
   isSlotConflictError,
   mapPublicBookingError,
 } from '../utils/mapPublicBookingError'
-import { toCanonicalKgPhone } from '../utils/kyrgyzPhone'
 import {
   customerFormHasErrors,
   isCustomerPhoneLookupEligible,
@@ -230,11 +229,7 @@ export function PublicSalonPage() {
       const seq = (customerLookupSeqRef.current += 1)
       setPhoneLookupPending(true)
 
-      void lookupPublicCustomer(
-        slug,
-        toCanonicalKgPhone(trimmedPhone),
-        controller.signal,
-      )
+      void lookupPublicCustomer(slug, trimmedPhone, controller.signal)
         .then((result) => {
           if (seq !== customerLookupSeqRef.current) {
             return
@@ -519,7 +514,7 @@ export function PublicSalonPage() {
     try {
       const result = await createPublicBookingBySlug(slug, {
         full_name: customerForm.full_name.trim(),
-        phone: toCanonicalKgPhone(customerForm.phone.trim()),
+        phone: customerForm.phone.trim(),
         customer_notes: customerForm.customer_notes.trim() || undefined,
         service_id: selectedService.id,
         staff_id: selectedSlot.staff_id,
