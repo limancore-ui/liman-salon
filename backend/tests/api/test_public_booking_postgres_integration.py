@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -204,7 +204,6 @@ def test_public_booking_happy_path_http_postgres(
     assert avail_before.status_code == 200
     slot = _first_slot_for_staff(avail_before.json(), staff.id)
     service_start = slot["service_start"]
-    service_end = slot["service_end"]
 
     phone_a = f"+7750{uuid.uuid4().int % 10_000_000:07d}"
     booking_payload = {
@@ -219,7 +218,11 @@ def test_public_booking_happy_path_http_postgres(
     book_body = book_resp.json()
     assert book_body["salon_id"] == str(salon.id)
     assert book_body["service_start"] == service_start
-    assert book_body["service_end"] == service_end
+    parsed_start = datetime.fromisoformat(service_start.replace("Z", "+00:00"))
+    expected_service_end = (
+        parsed_start + timedelta(minutes=service.duration_minutes)
+    ).isoformat().replace("+00:00", "Z")
+    assert book_body["service_end"] == expected_service_end
     booking_id = uuid.UUID(book_body["booking_id"])
     customer_id = uuid.UUID(book_body["customer_id"])
 
@@ -241,7 +244,6 @@ def test_public_booking_happy_path_http_postgres(
         booking_row.manage_token_hash,
         pepper=get_settings().booking_manage_token_pepper,
     )
-    parsed_start = datetime.fromisoformat(service_start.replace("Z", "+00:00"))
     assert booking_row.starts_at == parsed_start
 
     customer_row = db_session.scalar(

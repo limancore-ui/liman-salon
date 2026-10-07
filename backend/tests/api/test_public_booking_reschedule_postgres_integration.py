@@ -71,8 +71,17 @@ def _seed_bookable_salon(session: Session) -> tuple[Salon, Staff, Service]:
                 salon_id=salon.id,
                 staff_id=None,
                 day_of_week=day,
-                start_time=time(0, 0),
-                end_time=time(23, 59),
+                start_time=time(9, 0),
+                end_time=time(12, 0),
+            )
+        )
+        session.add(
+            WorkingHour(
+                salon_id=salon.id,
+                staff_id=None,
+                day_of_week=day,
+                start_time=time(14, 0),
+                end_time=time(17, 0),
             )
         )
 
