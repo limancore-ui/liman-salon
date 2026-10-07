@@ -5,18 +5,15 @@ import { fetchAdminCustomers } from '../api/customers'
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
 import type { CustomerListItem } from '../types/customers'
-import { formatPrice } from '../utils/format'
+import { formatDashboardPrice } from '../utils/adminSalonFormat'
 
 function formatBool(value: boolean): string {
   return value ? 'Yes' : 'No'
 }
 
-function bonusBalance(row: CustomerListItem): string {
-  return formatPrice(row.bonus_balance_cents, 'USD')
-}
-
 export function AdminCustomersPage() {
   const { session, clearAuthAndRedirect } = useAuth()
+  const salonCurrencyCode = session?.salon.currency_code ?? undefined
   const [items, setItems] = useState<CustomerListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -122,7 +119,7 @@ export function AdminCustomersPage() {
                     </td>
                     <td>{row.phone ?? '—'}</td>
                     <td>{row.email ?? '—'}</td>
-                    <td>{bonusBalance(row)}</td>
+                    <td>{formatDashboardPrice(row.bonus_balance_cents, salonCurrencyCode)}</td>
                     <td>{formatBool(row.whatsapp_opt_in)}</td>
                     <td>{formatBool(row.marketing_opt_in)}</td>
                   </tr>
