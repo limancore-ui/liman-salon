@@ -3,6 +3,7 @@ import {
   ADMIN_NOTIFICATION_STREAM_RECONNECT_MS,
   applyStreamNotification,
   countUnread,
+  isNewRealtimeStreamNotification,
   mergeNotification,
   shouldApplyRefreshSnapshot,
 } from './useAdminNotifications'
@@ -72,6 +73,33 @@ describe('applyStreamNotification', () => {
     }
     expect(unread).toBe(3)
     expect(items.map((n) => n.id)).toEqual(['1', '2', '3'])
+  })
+})
+
+describe('isNewRealtimeStreamNotification', () => {
+  it('is false for duplicate SSE replay (no UI callback)', () => {
+    const items = [item('a'), item('b')]
+    const result = applyStreamNotification(items, 2, item('b'))
+    expect(isNewRealtimeStreamNotification(result)).toBe(false)
+  })
+
+  it('is true once for a new SSE notification id', () => {
+    const items = [item('a')]
+    const result = applyStreamNotification(items, 1, item('new'))
+    expect(isNewRealtimeStreamNotification(result)).toBe(true)
+  })
+
+  it('stays false when the same ids are replayed after reconnect', () => {
+    let items = [item('1'), item('2')]
+    let unread = 2
+    const seen: boolean[] = []
+    for (const id of ['1', '2', '3', '3', '1']) {
+      const result = applyStreamNotification(items, unread, item(id))
+      seen.push(isNewRealtimeStreamNotification(result))
+      items = result.items
+      unread = result.unreadCount
+    }
+    expect(seen).toEqual([false, false, true, false, false])
   })
 })
 

@@ -55,12 +55,20 @@ export function shouldApplyRefreshSnapshot(
   return snapshotGeneration === currentGeneration
 }
 
+/** True when SSE added a notification id not already in list state (UI callback once per id). */
+export function isNewRealtimeStreamNotification(
+  result: ApplyStreamNotificationResult,
+): boolean {
+  return result.latestId != null
+}
+
 type UseAdminNotificationsArgs = {
   token: string | null
   salonId: string | null
   role: string | undefined
   enabled: boolean
   onUnauthorized?: () => void
+  onNewRealtimeNotification?: (item: AdminNotificationItem) => void
 }
 
 export function useAdminNotifications({
@@ -69,6 +77,7 @@ export function useAdminNotifications({
   role,
   enabled,
   onUnauthorized,
+  onNewRealtimeNotification,
 }: UseAdminNotificationsArgs) {
   const [items, setItems] = useState<AdminNotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -77,8 +86,13 @@ export function useAdminNotifications({
   const latestIdRef = useRef<string | null>(null)
   const unreadCountRef = useRef(0)
   const refreshGenerationRef = useRef(0)
+  const onNewRealtimeNotificationRef = useRef(onNewRealtimeNotification)
 
   const canUse = enabled && Boolean(token && salonId) && (role === 'owner' || role === 'admin')
+
+  useEffect(() => {
+    onNewRealtimeNotificationRef.current = onNewRealtimeNotification
+  }, [onNewRealtimeNotification])
 
   useEffect(() => {
     unreadCountRef.current = unreadCount
@@ -147,12 +161,14 @@ export function useAdminNotifications({
               onNotification: (item) => {
                 refreshGenerationRef.current += 1
                 let nextUnread: number | undefined
+                let notifyNew = false
                 setItems((prev) => {
                   const result = applyStreamNotification(
                     prev,
                     unreadCountRef.current,
                     item,
                   )
+                  notifyNew = isNewRealtimeStreamNotification(result)
                   if (result.latestId != null) {
                     latestIdRef.current = result.latestId
                   }
@@ -162,6 +178,9 @@ export function useAdminNotifications({
                   }
                   return result.items
                 })
+                if (notifyNew) {
+                  onNewRealtimeNotificationRef.current?.(item)
+                }
                 if (nextUnread !== undefined) {
                   setUnreadCount(nextUnread)
                 }
