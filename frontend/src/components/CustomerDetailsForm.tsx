@@ -2,11 +2,6 @@ import type {
   CustomerFormFieldErrors,
   CustomerFormState,
 } from '../types/publicBooking'
-import {
-  KG_PHONE_LOCAL_LENGTH,
-  KG_PHONE_PREFIX,
-  sanitizeKgLocalPhone,
-} from '../utils/kyrgyzPhone'
 
 type CustomerDetailsFormProps = {
   form: CustomerFormState
@@ -57,26 +52,17 @@ export function CustomerDetailsForm({
         <label className="form-field__label" htmlFor="customer-phone">
           Телефон <span className="form-field__required">*</span>
         </label>
-        <div className="phone-input">
-          <span className="phone-input__prefix" aria-hidden="true">
-            {KG_PHONE_PREFIX}
-          </span>
-          <input
-            id="customer-phone"
-            className={`form-field__input phone-input__field${fieldErrors.phone ? ' form-field__input--invalid' : ''}`}
-            type="tel"
-            name="phone"
-            inputMode="numeric"
-            autoComplete="tel-national"
-            placeholder="555123456"
-            maxLength={KG_PHONE_LOCAL_LENGTH}
-            value={form.phone}
-            disabled={disabled}
-            onChange={(event) =>
-              onChange('phone', sanitizeKgLocalPhone(event.target.value))
-            }
-          />
-        </div>
+        <input
+          id="customer-phone"
+          className={`form-field__input${fieldErrors.phone ? ' form-field__input--invalid' : ''}`}
+          type="tel"
+          name="phone"
+          autoComplete="tel"
+          maxLength={32}
+          value={form.phone}
+          disabled={disabled}
+          onChange={(event) => onChange('phone', event.target.value)}
+        />
         {fieldErrors.phone ? (
           <p className="form-field__error" role="alert">
             {fieldErrors.phone}

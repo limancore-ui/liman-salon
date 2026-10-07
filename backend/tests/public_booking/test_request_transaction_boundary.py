@@ -124,7 +124,7 @@ def test_orchestrated_flow_after_customer_flush(db_session: Session) -> None:
     salon, staff, service = _seed_bookable_salon(db_session)
     as_of = datetime(2026, 6, 2, 8, 0, tzinfo=UTC)
     service_start = datetime(2026, 6, 2, 10, 0, tzinfo=UTC)
-    phone = f"+996{uuid.uuid4().int % 1_000_000_000:09d}"
+    phone = f"+7700{uuid.uuid4().int % 10_000_000:07d}"
 
     orch = _orchestrator_for(db_session)
     result = orch.create_public_booking_by_slug(
@@ -160,7 +160,7 @@ def test_get_db_success_commits_customer_and_booking() -> None:
     salon_id: uuid.UUID
     customer_id: uuid.UUID
     booking_id: uuid.UUID
-    phone = f"+996{uuid.uuid4().int % 1_000_000_000:09d}"
+    phone = f"+7701{uuid.uuid4().int % 10_000_000:07d}"
     slug: str
     staff_id: uuid.UUID
     service_id: uuid.UUID
@@ -223,7 +223,7 @@ def test_get_db_success_commits_customer_and_booking() -> None:
 
 
 def test_booking_failure_rolls_back_new_customer() -> None:
-    phone = f"+996{uuid.uuid4().int % 1_000_000_000:09d}"
+    phone = f"+7702{uuid.uuid4().int % 10_000_000:07d}"
     as_of = datetime(2026, 6, 4, 8, 0, tzinfo=UTC)
     service_start = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
 
@@ -284,7 +284,7 @@ def test_overlap_integrity_error_still_booking_overlap(db_session: Session) -> N
     requested = datetime(2026, 6, 5, 10, 0, tzinfo=UTC)
     customer = CustomerService(db_session).resolve_public_customer(
         salon_id=salon.id,
-        data=PublicCustomerResolveData(full_name="Overlap", phone="+996700998877"),
+        data=PublicCustomerResolveData(full_name="Overlap", phone="+77009998877"),
     )
     booking_svc = BookingService(db_session)
     booking_svc.create_booking(
@@ -299,7 +299,7 @@ def test_overlap_integrity_error_still_booking_overlap(db_session: Session) -> N
     )
     other = CustomerService(db_session).resolve_public_customer(
         salon_id=salon.id,
-        data=PublicCustomerResolveData(full_name="Other", phone="+996700998878"),
+        data=PublicCustomerResolveData(full_name="Other", phone="+77009998878"),
     )
     with patch.object(
         booking_svc._availability,
