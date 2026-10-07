@@ -366,7 +366,7 @@ def test_public_booking_stale_precheck_returns_409_booking_overlap(
     client = TestClient(app)
     payload = {
         "full_name": "Race Guest",
-        "phone": f"+7741{uuid.uuid4().int % 10_000_000:07d}",
+        "phone": f"+996{uuid.uuid4().int % 1_000_000_000:09d}",
         "service_id": str(service.id),
         "staff_id": str(staff.id),
         "service_start": service_start.isoformat(),

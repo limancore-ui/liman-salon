@@ -2,6 +2,7 @@ import type {
   CustomerFormFieldErrors,
   CustomerFormState,
 } from '../types/publicBooking'
+import { isCompleteKgLocalPhone } from './kyrgyzPhone'
 
 export function validateCustomerForm(
   form: CustomerFormState,
@@ -19,8 +20,8 @@ export function validateCustomerForm(
 
   if (phone.length === 0) {
     errors.phone = 'Укажите телефон'
-  } else if (phone.length > 32) {
-    errors.phone = 'Слишком длинный номер'
+  } else if (!isCompleteKgLocalPhone(phone)) {
+    errors.phone = 'Введите 9 цифр номера после +996'
   }
 
   if (notes.length > 2000) {
@@ -36,8 +37,7 @@ export function customerFormHasErrors(
   return Object.keys(errors).length > 0
 }
 
-/** Same trim/length rules as phone validation; used before public lookup. */
+/** Lookup runs only for a complete 9-digit local number (form state value). */
 export function isCustomerPhoneLookupEligible(phone: string): boolean {
-  const trimmed = phone.trim()
-  return trimmed.length > 0 && trimmed.length <= 32
+  return isCompleteKgLocalPhone(phone.trim())
 }

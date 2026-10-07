@@ -14,6 +14,7 @@ from app.services.customer.errors import (
     CustomerNotFoundError,
     CustomerValidationError,
 )
+from app.services.customer.phone import normalize_kg_phone
 from app.services.customer.repository import CustomerRepository
 from app.services.customer.types import CustomerResolveResult, PublicCustomerLookupResult
 
@@ -84,10 +85,11 @@ class CustomerService:
         clock: Callable[[], datetime],
     ) -> Customer:
         full_name = self._validate_full_name(data.full_name)
+        phone = normalize_kg_phone(data.phone) if data.phone is not None else None
         customer = Customer(
             salon_id=salon_id,
             full_name=full_name,
-            phone=data.phone,
+            phone=phone,
             email=data.email,
             notes=data.notes,
             marketing_opt_in=data.marketing_opt_in,
@@ -114,10 +116,11 @@ class CustomerService:
     ) -> Customer:
         customer = self.get_customer(salon_id=salon_id, customer_id=customer_id)
         previous_whatsapp = customer.whatsapp_opt_in
+        new_phone = normalize_kg_phone(data.phone) if data.phone is not None else None
         if data.full_name is not None:
             customer.full_name = self._validate_full_name(data.full_name)
-        if data.phone is not None:
-            customer.phone = data.phone
+        if new_phone is not None:
+            customer.phone = new_phone
         if data.email is not None:
             customer.email = data.email
         if data.notes is not None:
@@ -145,9 +148,7 @@ class CustomerService:
         data: PublicCustomerResolveData,
     ) -> CustomerResolveResult:
         full_name = self._validate_full_name(data.full_name)
-        phone = data.phone.strip()
-        if not phone:
-            raise CustomerValidationError("phone must not be blank")
+        phone = normalize_kg_phone(data.phone)
         existing = self._repo.get_customer_by_phone(salon_id=salon_id, phone=phone)
         if existing is not None:
             return CustomerResolveResult(customer_id=existing.id, created=False)
@@ -173,9 +174,7 @@ class CustomerService:
         salon_id: uuid.UUID,
         phone: str,
     ) -> PublicCustomerLookupResult:
-        phone = phone.strip()
-        if not phone:
-            raise CustomerValidationError("phone must not be blank")
+        phone = normalize_kg_phone(phone)
         existing = self._repo.get_customer_by_phone(salon_id=salon_id, phone=phone)
         if existing is not None:
             return PublicCustomerLookupResult(found=True, full_name=existing.full_name)
