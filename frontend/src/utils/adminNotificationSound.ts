@@ -65,8 +65,8 @@ export function playAdminNotificationSound(ctx: AudioContext): void {
     const start = ctx.currentTime
     const gain = ctx.createGain()
     gain.gain.setValueAtTime(0.0001, start)
-    gain.gain.exponentialRampToValueAtTime(0.06, start + 0.015)
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22)
+    gain.gain.exponentialRampToValueAtTime(0.13, start + 0.015)
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.28)
     gain.connect(ctx.destination)
 
     const osc = ctx.createOscillator()
@@ -75,7 +75,7 @@ export function playAdminNotificationSound(ctx: AudioContext): void {
     osc.frequency.exponentialRampToValueAtTime(523.25, start + 0.1)
     osc.connect(gain)
     osc.start(start)
-    osc.stop(start + 0.24)
+    osc.stop(start + 0.3)
   } catch {
     /* ignore playback / autoplay failures */
   }
