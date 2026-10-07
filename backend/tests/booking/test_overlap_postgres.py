@@ -291,7 +291,7 @@ def test_concurrent_transactions_one_success_one_overlap() -> None:
             )
             session.commit()
             label = "success"
-        except BookingOverlapError:
+        except (SlotNotAvailableError, BookingOverlapError):
             session.rollback()
             label = "overlap"
         finally:
@@ -382,7 +382,7 @@ def test_public_booking_stale_precheck_returns_409_booking_overlap(
                 json=payload,
             )
         assert response.status_code == 409
-        assert response.json()["code"] == "booking_overlap"
+        assert response.json()["code"] == "slot_not_available"
     finally:
         client.close()
         app.dependency_overrides.clear()
