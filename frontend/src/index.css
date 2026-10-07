@@ -967,6 +967,13 @@ body {
   font-weight: 700;
 }
 
+.admin-notifications__panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs, 0.25rem);
+  flex-shrink: 0;
+}
+
 .admin-notifications__empty {
   margin: 0;
   padding: var(--space-md);

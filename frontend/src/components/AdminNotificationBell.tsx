@@ -1,7 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useAdminNotifications } from '../hooks/useAdminNotifications'
+import type { AdminNotificationItem } from '../types/adminNotifications'
+import {
+  ensureAdminNotificationAudioReady,
+  isAdminNotificationSoundMuted,
+  playAdminNotificationSound,
+  setAdminNotificationSoundMuted,
+} from '../utils/adminNotificationSound'
 import { formatBookingDateTime } from '../utils/adminSalonFormat'
 
 export function AdminNotificationBell() {
@@ -10,6 +17,19 @@ export function AdminNotificationBell() {
   const salonId = session?.salon?.salon_id ?? null
   const role = session?.salon?.role
   const panelRef = useRef<HTMLDivElement>(null)
+  const [soundMuted, setSoundMuted] = useState(isAdminNotificationSoundMuted)
+
+  const onNewRealtimeNotification = useCallback((_item: AdminNotificationItem) => {
+    if (soundMuted) {
+      return
+    }
+    void (async () => {
+      const ctx = await ensureAdminNotificationAudioReady()
+      if (ctx) {
+        playAdminNotificationSound(ctx)
+      }
+    })()
+  }, [soundMuted])
 
   const {
     canUse,
@@ -26,7 +46,31 @@ export function AdminNotificationBell() {
     role,
     enabled: session != null,
     onUnauthorized: clearAuthAndRedirect,
+    onNewRealtimeNotification,
   })
+
+  useEffect(() => {
+    const unlock = () => {
+      void ensureAdminNotificationAudioReady()
+    }
+    window.addEventListener('pointerdown', unlock, { once: true, passive: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+  }, [])
+
+  const toggleSoundMuted = () => {
+    setSoundMuted((prev) => {
+      const next = !prev
+      setAdminNotificationSoundMuted(next)
+      if (!next) {
+        void ensureAdminNotificationAudioReady()
+      }
+      return next
+    })
+  }
 
   useEffect(() => {
     if (!open) {
@@ -57,7 +101,10 @@ export function AdminNotificationBell() {
             ? `Notifications, ${unreadCount} unread`
             : 'Notifications'
         }
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          void ensureAdminNotificationAudioReady()
+          setOpen((v) => !v)
+        }}
       >
         <span aria-hidden="true">🔔</span>
         {unreadCount > 0 ? (
@@ -68,15 +115,27 @@ export function AdminNotificationBell() {
         <div className="admin-notifications__panel" role="dialog" aria-label="Notifications">
           <div className="admin-notifications__panel-header">
             <h2 className="admin-notifications__title">Notifications</h2>
-            {unreadCount > 0 ? (
+            <div className="admin-notifications__panel-actions">
               <button
                 type="button"
                 className="btn btn--link btn--compact"
-                onClick={() => void markAllRead()}
+                aria-pressed={soundMuted}
+                aria-label={soundMuted ? 'Unmute notification sounds' : 'Mute notification sounds'}
+                title={soundMuted ? 'Unmute sounds' : 'Mute sounds'}
+                onClick={toggleSoundMuted}
               >
-                Mark all read
+                {soundMuted ? 'Sound off' : 'Sound on'}
               </button>
-            ) : null}
+              {unreadCount > 0 ? (
+                <button
+                  type="button"
+                  className="btn btn--link btn--compact"
+                  onClick={() => void markAllRead()}
+                >
+                  Mark all read
+                </button>
+              ) : null}
+            </div>
           </div>
           {loading && items.length === 0 ? (
             <p className="admin-notifications__empty">Loading…</p>
