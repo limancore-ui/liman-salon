@@ -179,19 +179,23 @@ Automatic backfill is **prohibited** until manual collision resolution (see [§5
 
 ## 9. Migration order
 
-Future work must follow this sequence. Do not skip steps or reorder collision handling before verification.
+Future work must follow this **MVP sequence**. Do not skip steps. **Manual collision resolution** (see [§5 Collision policy](#5-collision-policy)) is **mandatory before** any **SAFE backfill** (see [§6](#6-confirmed-safe-backfill-candidates) and [§7](#7-needs-manual-candidates)); automated backfill for NEEDS MANUAL or unresolved collision groups remains **prohibited** per §5.
 
-1. **Production audit** (read-only; repeatable baseline).
-2. **Policy approval** (this document; architect sign-off).
-3. **Implementation** (application normalization on write, migration tooling—separate tasks).
-4. **Automated tests** (create, update, public resolve, lookup; tenant isolation).
-5. **Staging migration rehearsal** (dry-run counts, collision report).
-6. **Collision verification** (re-run conservative canonicalization on staging/production snapshot).
-7. **SAFE backfill** (only rows re-verified as SAFE; no NEEDS MANUAL rows).
-8. **Manual collision resolution** (NEEDS MANUAL and any newly discovered groups).
-9. **Unmappable cleanup / re-entry** (manual or approved workflow; not guessing).
-10. **Strict validation** (reject non-canonical writes; read-path consistency).
-11. **Only then** consider a **unique normalized-phone constraint** per salon (see [§10](#10-constraints-before-unique-phone-constraint)).
+### Prohibited mixed legacy/canonical production state
+
+Production must **not** rely on **strict canonical write, resolve, and validation** as the **sole** phone lookup representation while **legacy-equivalent** values still exist in stored customer data (for example, `0XXXXXXXXX` alongside another row’s `+996XXXXXXXXX` for the same intended number, or unmigrated `0…` rows that strict resolve would not match). Deploying application behavior that **only** reads or matches canonical `+996` + 9 digits **before** stored data is canonicalized (or explicitly NULL) under the steps below would strand customers and break public resolve/booking lookup for legacy strings. **Strict canonical write/resolve/validation** (step 8) applies **only after** collision resolution, SAFE backfill, and unmappable handling have brought existing rows to canonical or approved NULL—not before.
+
+### MVP sequence
+
+1. **Production audit** — read-only, repeatable baseline (see [§3](#3-existing-production-findings)).
+2. **Policy approval** — this document; architect sign-off.
+3. **Implementation, automated tests, and staging migration rehearsal** — normalization/migration tooling, tests (create, update, public resolve, lookup; tenant isolation), staging dry-run counts and collision reports (separate approved tasks; no production mutation).
+4. **Production re-verification** — read-only re-audit or equivalent immediately before any production UPDATE; conservative canonicalization and collision report on **current** production data.
+5. **Manual collision resolution** — NEEDS MANUAL and any newly discovered groups; per [§5](#5-collision-policy); no automatic merges or booking reassignment.
+6. **SAFE backfill** — only rows re-verified as SAFE immediately before UPDATE; never NEEDS MANUAL or unresolved collision rows.
+7. **Unmappable cleanup / re-entry** — manual or approved workflow for unmappable values ([§8](#8-unmappable-phones)); no guessing or silent bulk fixups.
+8. **Strict canonical write, resolve, and validation** — reject non-canonical persistence on write; read/resolve paths may treat canonical form as the **sole** matching representation **only after** steps 1–7 have canonicalized or NULL’d existing stored phones (dependency: data canonicalization **before** strict canonical-only lookup, not the reverse).
+9. **Only then** consider a **unique normalized-phone constraint** per salon ([§10](#10-constraints-before-unique-phone-constraint)).
 
 ---
 
