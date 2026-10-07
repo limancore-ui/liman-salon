@@ -21,7 +21,7 @@ from app.services.salon_public.types import PublicSalonEntry
 
 SALON_A = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 SLUG_A = "lookup-salon-a"
-PHONE = "+77001234567"
+PHONE = "+996555123456"
 
 
 def _postgres_available() -> bool:
@@ -88,7 +88,7 @@ def test_lookup_unknown_phone_not_found() -> None:
     )
     response = client.get(
         f"/api/v1/public/salons/{SLUG_A}/customer",
-        params={"phone": "+77009999999"},
+        params={"phone": "+996555999999"},
     )
     assert response.status_code == 200
     assert response.json() == {"found": False, "full_name": None}

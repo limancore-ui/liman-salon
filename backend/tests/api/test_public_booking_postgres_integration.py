@@ -205,7 +205,7 @@ def test_public_booking_happy_path_http_postgres(
     slot = _first_slot_for_staff(avail_before.json(), staff.id)
     service_start = slot["service_start"]
 
-    phone_a = f"+7750{uuid.uuid4().int % 10_000_000:07d}"
+    phone_a = f"+996{uuid.uuid4().int % 1_000_000_000:09d}"
     booking_payload = {
         "full_name": "E2E Guest",
         "phone": phone_a,
@@ -270,7 +270,7 @@ def test_public_booking_happy_path_http_postgres(
         service_start=service_start,
     )
 
-    phone_b = f"+7751{uuid.uuid4().int % 10_000_000:07d}"
+    phone_b = f"+996{uuid.uuid4().int % 1_000_000_000:09d}"
     dup_resp = public_booking_client.post(
         f"{base}/bookings",
         json={

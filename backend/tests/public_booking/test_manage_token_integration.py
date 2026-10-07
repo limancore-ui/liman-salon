@@ -116,7 +116,7 @@ def test_public_create_persists_manage_token_hash_not_raw(
         salon, staff, service = _seed_bookable_salon(db_session)
         as_of = datetime(2026, 6, 10, 8, 0, tzinfo=UTC)
         service_start = datetime(2026, 6, 10, 12, 0, tzinfo=UTC)
-        phone = f"+7702{uuid.uuid4().int % 10_000_000:07d}"
+        phone = f"+996{uuid.uuid4().int % 1_000_000_000:09d}"
 
         orch = PublicBookingOrchestrator(
             SalonPublicService(db_session),
