@@ -30,6 +30,8 @@ def _view(**kwargs: object) -> SalonSettingsView:
         "stored": {},
         "v": 1,
         "public_hold_seconds": None,
+        "bonuses_enabled": None,
+        "bonuses_earn_percentage": None,
     }
     defaults.update(kwargs)
     return SalonSettingsView(**defaults)
@@ -230,6 +232,100 @@ def test_patch_tenant_scoped_salon_id() -> None:
         json={"booking": {"public_hold_seconds": 600}},
     )
     assert mock_settings.patch_settings.call_args.kwargs["salon_id"] == SALON_A
+    client.close()
+
+
+def test_get_settings_includes_bonuses_when_stored() -> None:
+    client, mock_settings, headers = _auth_app(role="owner")
+    mock_settings.get_settings.return_value = _view(
+        bonuses_enabled=True,
+        bonuses_earn_percentage=5,
+        stored={"v": 1, "bonuses": {"enabled": True, "earn_percentage": 5}},
+    )
+    response = client.get(SETTINGS_URL, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["bonuses"] == {"enabled": True, "earn_percentage": 5}
+    client.close()
+
+
+def test_get_settings_default_no_bonuses_key() -> None:
+    client, mock_settings, headers = _auth_app(role="owner")
+    mock_settings.get_settings.return_value = _view()
+    response = client.get(SETTINGS_URL, headers=headers)
+    assert response.status_code == 200
+    assert "bonuses" not in response.json()
+    client.close()
+
+
+def test_patch_set_bonuses() -> None:
+    client, mock_settings, headers = _auth_app(role="owner")
+    mock_settings.patch_settings.return_value = _view(
+        bonuses_enabled=True,
+        bonuses_earn_percentage=5,
+    )
+    response = client.patch(
+        SETTINGS_URL,
+        headers=headers,
+        json={"bonuses": {"enabled": True, "earn_percentage": 5}},
+    )
+    assert response.status_code == 200
+    assert response.json()["bonuses"]["enabled"] is True
+    patch_arg = mock_settings.patch_settings.call_args.kwargs["patch"]
+    assert patch_arg.bonuses_set is True
+    assert patch_arg.bonuses is not None
+    assert patch_arg.bonuses.enabled is True
+    assert patch_arg.bonuses.earn_percentage == 5
+    client.close()
+
+
+def test_patch_disable_bonuses_still_persists_values() -> None:
+    client, mock_settings, headers = _auth_app(role="admin")
+    mock_settings.patch_settings.return_value = _view(
+        bonuses_enabled=False,
+        bonuses_earn_percentage=10,
+    )
+    response = client.patch(
+        SETTINGS_URL,
+        headers=headers,
+        json={"bonuses": {"enabled": False, "earn_percentage": 10}},
+    )
+    assert response.status_code == 200
+    assert response.json()["bonuses"]["enabled"] is False
+    client.close()
+
+
+def test_patch_clear_bonuses_null() -> None:
+    client, mock_settings, headers = _auth_app(role="owner")
+    mock_settings.patch_settings.return_value = _view()
+    response = client.patch(SETTINGS_URL, headers=headers, json={"bonuses": None})
+    assert response.status_code == 200
+    patch_arg = mock_settings.patch_settings.call_args.kwargs["patch"]
+    assert patch_arg.bonuses_set is True
+    assert patch_arg.bonuses is None
+    client.close()
+
+
+def test_patch_invalid_earn_percentage_422() -> None:
+    client, mock_settings, headers = _auth_app(role="owner")
+    response = client.patch(
+        SETTINGS_URL,
+        headers=headers,
+        json={"bonuses": {"enabled": True, "earn_percentage": -0.1}},
+    )
+    assert response.status_code == 422
+    mock_settings.patch_settings.assert_not_called()
+    client.close()
+
+
+def test_patch_bonuses_staff_forbidden_403() -> None:
+    client, mock_settings, headers = _auth_app(role="staff")
+    response = client.patch(
+        SETTINGS_URL,
+        headers=headers,
+        json={"bonuses": {"enabled": True, "earn_percentage": 5}},
+    )
+    assert response.status_code == 403
+    mock_settings.patch_settings.assert_not_called()
     client.close()
 
 

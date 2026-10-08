@@ -21,9 +21,17 @@ class SalonBookingPatchData:
 
 
 @dataclass(frozen=True, slots=True)
+class SalonBonusesPatchData:
+    enabled: bool
+    earn_percentage: float
+
+
+@dataclass(frozen=True, slots=True)
 class SalonSettingsPatchData:
     booking_set: bool
     booking: SalonBookingPatchData | None = None
+    bonuses_set: bool = False
+    bonuses: SalonBonusesPatchData | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +39,8 @@ class SalonSettingsView:
     stored: dict[str, Any]
     v: int
     public_hold_seconds: int | None
+    bonuses_enabled: bool | None = None
+    bonuses_earn_percentage: float | None = None
 
 
 class SalonSettingsService:
@@ -67,6 +77,8 @@ class SalonSettingsService:
 
     def _to_view(self, stored: dict[str, Any]) -> SalonSettingsView:
         public_hold: int | None = None
+        bonuses_enabled: bool | None = None
+        bonuses_earn_percentage: float | None = None
         if stored:
             try:
                 parsed = SalonSettingsV1.model_validate(stored)
@@ -74,6 +86,9 @@ class SalonSettingsService:
                 raise SalonSettingsError("invalid salon settings") from exc
             if parsed.booking is not None:
                 public_hold = parsed.booking.public_hold_seconds
+            if parsed.bonuses is not None:
+                bonuses_enabled = parsed.bonuses.enabled
+                bonuses_earn_percentage = parsed.bonuses.earn_percentage
             v = parsed.v
         else:
             v = 1
@@ -81,6 +96,8 @@ class SalonSettingsService:
             stored=stored,
             v=v,
             public_hold_seconds=public_hold,
+            bonuses_enabled=bonuses_enabled,
+            bonuses_earn_percentage=bonuses_earn_percentage,
         )
 
 
@@ -89,17 +106,24 @@ def merge_settings_patch(
     patch: SalonSettingsPatchData,
 ) -> dict[str, Any]:
     merged: dict[str, Any] = dict(current)
-    if not patch.booking_set:
-        return normalize_stored_settings(merged)
+    if patch.booking_set:
+        if patch.booking is None:
+            merged.pop("booking", None)
+        else:
+            booking_patch = patch.booking
+            merged["booking"] = {
+                "public_hold_seconds": booking_patch.public_hold_seconds,
+            }
 
-    if patch.booking is None:
-        merged.pop("booking", None)
-        return normalize_stored_settings(merged)
-
-    booking_patch = patch.booking
-    merged["booking"] = {
-        "public_hold_seconds": booking_patch.public_hold_seconds,
-    }
+    if patch.bonuses_set:
+        if patch.bonuses is None:
+            merged.pop("bonuses", None)
+        else:
+            bonuses_patch = patch.bonuses
+            merged["bonuses"] = {
+                "enabled": bonuses_patch.enabled,
+                "earn_percentage": bonuses_patch.earn_percentage,
+            }
 
     return normalize_stored_settings(merged)
 
@@ -107,7 +131,7 @@ def merge_settings_patch(
 def normalize_stored_settings(merged: dict[str, Any]) -> dict[str, Any]:
     if not merged:
         return {}
-    if "booking" not in merged:
+    if "booking" not in merged and "bonuses" not in merged:
         return {}
     merged["v"] = 1
     return merged
@@ -120,6 +144,6 @@ def validate_stored_settings(stored: dict[str, Any]) -> dict[str, Any]:
         parsed = SalonSettingsV1.model_validate(stored)
     except ValidationError as exc:
         raise SalonSettingsError("invalid salon settings") from exc
-    if parsed.booking is None:
+    if parsed.booking is None and parsed.bonuses is None:
         return {}
     return parsed.model_dump(mode="json", exclude_none=True)

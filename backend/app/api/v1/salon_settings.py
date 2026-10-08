@@ -9,6 +9,8 @@ from app.api.deps import SalonSettingsServiceDep
 from app.api.schemas.salon_settings import (
     SalonBookingSettingsPatch,
     SalonBookingSettingsResponse,
+    SalonBonusesSettingsPatch,
+    SalonBonusesSettingsResponse,
     SalonSettingsPatchRequest,
     SalonSettingsResponse,
 )
@@ -16,6 +18,7 @@ from app.auth.deps import require_roles
 from app.auth.principals import SalonContext
 from app.services.salon_settings.service import (
     SalonBookingPatchData,
+    SalonBonusesPatchData,
     SalonSettingsPatchData,
     SalonSettingsView,
 )
@@ -29,23 +32,41 @@ def _to_response(view: SalonSettingsView) -> SalonSettingsResponse:
     booking = None
     if view.public_hold_seconds is not None:
         booking = SalonBookingSettingsResponse(public_hold_seconds=view.public_hold_seconds)
-    return SalonSettingsResponse(v=1, booking=booking)
+    bonuses = None
+    if view.bonuses_enabled is not None and view.bonuses_earn_percentage is not None:
+        bonuses = SalonBonusesSettingsResponse(
+            enabled=view.bonuses_enabled,
+            earn_percentage=view.bonuses_earn_percentage,
+        )
+    return SalonSettingsResponse(v=1, booking=booking, bonuses=bonuses)
 
 
 def _patch_from_request(body: SalonSettingsPatchRequest) -> SalonSettingsPatchData:
     fields_set = body.model_fields_set
-    if "booking" not in fields_set:
-        return SalonSettingsPatchData(booking_set=False)
+    booking_set = "booking" in fields_set
+    bonuses_set = "bonuses" in fields_set
 
-    if body.booking is None:
-        return SalonSettingsPatchData(booking_set=True, booking=None)
+    booking_patch: SalonBookingPatchData | None = None
+    if booking_set:
+        if body.booking is not None:
+            booking_body: SalonBookingSettingsPatch = body.booking
+            booking_patch = SalonBookingPatchData(
+                public_hold_seconds=booking_body.public_hold_seconds,
+            )
 
-    booking_body: SalonBookingSettingsPatch = body.booking
+    bonuses_patch: SalonBonusesPatchData | None = None
+    if bonuses_set and body.bonuses is not None:
+        bonuses_body: SalonBonusesSettingsPatch = body.bonuses
+        bonuses_patch = SalonBonusesPatchData(
+            enabled=bonuses_body.enabled,
+            earn_percentage=bonuses_body.earn_percentage,
+        )
+
     return SalonSettingsPatchData(
-        booking_set=True,
-        booking=SalonBookingPatchData(
-            public_hold_seconds=booking_body.public_hold_seconds,
-        ),
+        booking_set=booking_set,
+        booking=booking_patch,
+        bonuses_set=bonuses_set,
+        bonuses=bonuses_patch,
     )
 
 
