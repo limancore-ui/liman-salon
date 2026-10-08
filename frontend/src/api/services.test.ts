@@ -89,6 +89,31 @@ describe('patchAdminService', () => {
     )
   })
 
+  it('PATCHes editable service fields with partial body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: serviceId, name: 'Trim', price_cents: 3000 }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await patchAdminService(token, salonId, serviceId, {
+      name: 'Trim',
+      price_cents: 3000,
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/salons/${salonId}/services/${serviceId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: 'Trim', price_cents: 3000 }),
+      },
+    )
+  })
+
   it('throws ApiError on 403 forbidden', async () => {
     vi.stubGlobal(
       'fetch',
