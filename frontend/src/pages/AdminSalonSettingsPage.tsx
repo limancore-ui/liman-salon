@@ -25,6 +25,8 @@ export function AdminSalonSettingsPage() {
   const { session, clearAuthAndRedirect } = useAuth()
   const [settings, setSettings] = useState<SalonSettings | null>(null)
   const [holdInput, setHoldInput] = useState('')
+  const [bonusesEnabled, setBonusesEnabled] = useState(false)
+  const [earnPercentageInput, setEarnPercentageInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,6 +48,10 @@ export function AdminSalonSettingsPage() {
         data.booking?.public_hold_seconds != null
           ? String(data.booking.public_hold_seconds)
           : '',
+      )
+      setBonusesEnabled(data.bonuses?.enabled ?? false)
+      setEarnPercentageInput(
+        data.bonuses?.earn_percentage != null ? String(data.bonuses.earn_percentage) : '',
       )
     } catch (err) {
       if (isUnauthorizedError(err)) {
@@ -102,6 +108,76 @@ export function AdminSalonSettingsPage() {
     }
   }
 
+  async function handleSaveBonuses(event: React.FormEvent) {
+    event.preventDefault()
+    if (!session || !canWrite) {
+      return
+    }
+    const parsedPct = Number(earnPercentageInput)
+    if (!Number.isFinite(parsedPct) || parsedPct < 0) {
+      setError('Процент начисления должен быть неотрицательным числом.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    setSaveMessage(null)
+    try {
+      const updated = await patchSalonSettings(session.token, session.salon.salon_id, {
+        bonuses: { enabled: bonusesEnabled, earn_percentage: parsedPct },
+      })
+      setSettings(updated)
+      setBonusesEnabled(updated.bonuses?.enabled ?? false)
+      setEarnPercentageInput(
+        updated.bonuses?.earn_percentage != null
+          ? String(updated.bonuses.earn_percentage)
+          : '',
+      )
+      setSaveMessage('Settings saved.')
+    } catch (err) {
+      if (isUnauthorizedError(err)) {
+        clearAuthAndRedirect()
+        return
+      }
+      if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError('Could not save settings.')
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleResetBonuses() {
+    if (!session || !canWrite) {
+      return
+    }
+    setSaving(true)
+    setError(null)
+    setSaveMessage(null)
+    try {
+      const updated = await patchSalonSettings(session.token, session.salon.salon_id, {
+        bonuses: null,
+      })
+      setSettings(updated)
+      setBonusesEnabled(false)
+      setEarnPercentageInput('')
+      setSaveMessage('Бонусные настройки сброшены (программа выключена по умолчанию).')
+    } catch (err) {
+      if (isUnauthorizedError(err)) {
+        clearAuthAndRedirect()
+        return
+      }
+      if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError('Could not reset settings.')
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleResetToPlatformDefault() {
     if (!session || !canWrite) {
       return
@@ -133,6 +209,7 @@ export function AdminSalonSettingsPage() {
 
   const usingOverride = settings?.booking?.public_hold_seconds != null
   const overrideSeconds = settings?.booking?.public_hold_seconds
+  const usingBonusesConfig = settings?.bonuses != null
 
   return (
     <AdminLayout>
@@ -212,6 +289,60 @@ export function AdminSalonSettingsPage() {
                 Only owners and admins can change salon settings.
               </p>
             )}
+
+            <div className="admin-schedule__section">
+              <h2 className="admin-schedule__form-title">Бонусная программа</h2>
+              <p className="admin-schedule__lead">
+                {usingBonusesConfig
+                  ? bonusesEnabled
+                    ? `Начисление: ${settings!.bonuses!.earn_percentage}%`
+                    : 'Бонусы сохранены, но выключены.'
+                  : 'По умолчанию бонусы выключены (настройки не заданы).'}
+              </p>
+              {canWrite ? (
+                <form
+                  className="admin-schedule__form"
+                  onSubmit={(e) => void handleSaveBonuses(e)}
+                >
+                  <div className="admin-schedule__form-grid">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={bonusesEnabled}
+                        onChange={(e) => setBonusesEnabled(e.target.checked)}
+                        disabled={saving}
+                      />{' '}
+                      Включить бонусы
+                    </label>
+                    <label>
+                      Процент начисления
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={earnPercentageInput}
+                        onChange={(e) => setEarnPercentageInput(e.target.value)}
+                        disabled={saving}
+                        required
+                      />
+                    </label>
+                  </div>
+                  <div className="admin-schedule__form-actions">
+                    <button type="submit" className="btn btn--primary" disabled={saving}>
+                      {saving ? 'Saving…' : 'Save bonus settings'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={saving || !usingBonusesConfig}
+                      onClick={() => void handleResetBonuses()}
+                    >
+                      Сбросить бонусы
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </section>
