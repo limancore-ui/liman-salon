@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { buildServiceUpdatePatch, serviceFormFromRow } from './adminServiceForm'
+import { ApiError } from '../api/errors'
+import {
+  buildServiceUpdatePatch,
+  mapAdminServiceCreateError,
+  mapAdminServiceUpdateError,
+  serviceActiveToggleLabel,
+  serviceActiveTogglePatch,
+  serviceFormFromRow,
+} from './adminServiceForm'
 import type { ServiceListItem } from '../types/services'
 
 const baseRow: ServiceListItem = {
@@ -77,5 +85,50 @@ describe('buildServiceUpdatePatch', () => {
       sort_order: baseRow.sort_order,
     })
     expect(patch).toEqual({ description: null })
+  })
+})
+
+describe('serviceActiveTogglePatch', () => {
+  it('flips is_active only', () => {
+    expect(serviceActiveTogglePatch(true)).toEqual({ is_active: false })
+    expect(serviceActiveTogglePatch(false)).toEqual({ is_active: true })
+  })
+})
+
+describe('serviceActiveToggleLabel', () => {
+  it('shows Deactivate for active rows and Activate for inactive', () => {
+    expect(serviceActiveToggleLabel(true)).toBe('Deactivate')
+    expect(serviceActiveToggleLabel(false)).toBe('Activate')
+  })
+})
+
+describe('mapAdminServiceUpdateError', () => {
+  it('maps 403, 422 detail, network, and generic failures', () => {
+    expect(mapAdminServiceUpdateError(new ApiError(403, 'Forbidden'))).toBe(
+      'You do not have permission to update services.',
+    )
+    expect(mapAdminServiceUpdateError(new ApiError(422, 'name already taken'))).toBe(
+      'name already taken',
+    )
+    expect(mapAdminServiceUpdateError(new ApiError(0, ''))).toBe(
+      'Could not reach the server. Check your connection and try again.',
+    )
+    expect(mapAdminServiceUpdateError(new ApiError(500, 'x'))).toBe(
+      'Could not update the service. Try again later.',
+    )
+    expect(mapAdminServiceUpdateError(new Error('offline'))).toBe(
+      'Could not reach the server. Check your connection and try again.',
+    )
+  })
+})
+
+describe('mapAdminServiceCreateError', () => {
+  it('uses create-specific permission and failure copy', () => {
+    expect(mapAdminServiceCreateError(new ApiError(403, 'Forbidden'))).toBe(
+      'You do not have permission to create services.',
+    )
+    expect(mapAdminServiceCreateError(new ApiError(500, 'x'))).toBe(
+      'Could not create the service. Try again later.',
+    )
   })
 })
