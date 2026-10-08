@@ -1,3 +1,4 @@
+import { ApiError } from '../api/errors'
 import type { ServiceListItem, ServiceUpdateBody } from '../types/services'
 
 export type ServiceFormState = {
@@ -62,4 +63,49 @@ export function buildServiceUpdatePatch(
   }
 
   return body
+}
+
+function mapAdminServiceNetworkError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 403) {
+      return 'You do not have permission to update services.'
+    }
+    if (err.status === 422 && err.message.trim() !== '') {
+      return err.message
+    }
+    if (err.status === 0) {
+      return 'Could not reach the server. Check your connection and try again.'
+    }
+    return 'Could not update the service. Try again later.'
+  }
+  return 'Could not reach the server. Check your connection and try again.'
+}
+
+export function mapAdminServiceCreateError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 403) {
+      return 'You do not have permission to create services.'
+    }
+    if (err.status === 422 && err.message.trim() !== '') {
+      return err.message
+    }
+    if (err.status === 0) {
+      return 'Could not reach the server. Check your connection and try again.'
+    }
+    return 'Could not create the service. Try again later.'
+  }
+  return 'Could not reach the server. Check your connection and try again.'
+}
+
+/** Edit form saves and active/inactive toggles. */
+export function mapAdminServiceUpdateError(err: unknown): string {
+  return mapAdminServiceNetworkError(err)
+}
+
+export function serviceActiveToggleLabel(isActive: boolean): 'Activate' | 'Deactivate' {
+  return isActive ? 'Deactivate' : 'Activate'
+}
+
+export function serviceActiveTogglePatch(isActive: boolean): Pick<ServiceUpdateBody, 'is_active'> {
+  return { is_active: !isActive }
 }

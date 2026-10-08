@@ -114,6 +114,24 @@ describe('patchAdminService', () => {
     )
   })
 
+  it('PATCHes is_active toggle without other fields', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: serviceId, is_active: true }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await patchAdminService(token, salonId, serviceId, { is_active: true })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/salons/${salonId}/services/${serviceId}`,
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: true }),
+      }),
+    )
+  })
+
   it('throws ApiError on 403 forbidden', async () => {
     vi.stubGlobal(
       'fetch',

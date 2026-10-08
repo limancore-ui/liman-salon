@@ -14,6 +14,10 @@ import type { ServiceListItem } from '../types/services'
 import { formatDuration, formatPrice } from '../utils/format'
 import {
   buildServiceUpdatePatch,
+  mapAdminServiceCreateError,
+  mapAdminServiceUpdateError,
+  serviceActiveToggleLabel,
+  serviceActiveTogglePatch,
   serviceFormFromRow,
   type ParsedServiceFormValues,
   type ServiceFormState,
@@ -29,38 +33,6 @@ function formatBool(value: boolean): string {
 
 function servicePrice(row: ServiceListItem): string {
   return formatPrice(row.price_cents, row.currency_code ?? 'USD')
-}
-
-function mapAdminServiceCreateError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 403) {
-      return 'You do not have permission to create services.'
-    }
-    if (err.status === 422 && err.message.trim() !== '') {
-      return err.message
-    }
-    if (err.status === 0) {
-      return 'Could not reach the server. Check your connection and try again.'
-    }
-    return 'Could not create the service. Try again later.'
-  }
-  return 'Could not reach the server. Check your connection and try again.'
-}
-
-function mapAdminServiceEditError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 403) {
-      return 'You do not have permission to update services.'
-    }
-    if (err.status === 422 && err.message.trim() !== '') {
-      return err.message
-    }
-    if (err.status === 0) {
-      return 'Could not reach the server. Check your connection and try again.'
-    }
-    return 'Could not update the service. Try again later.'
-  }
-  return 'Could not reach the server. Check your connection and try again.'
 }
 
 function parseNonNegativeInt(raw: string): number | null {
@@ -292,6 +264,8 @@ export function AdminServicesPage() {
   const [editForm, setEditForm] = useState<ServiceFormState>(emptyCreateForm)
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [toggleErrors, setToggleErrors] = useState<Record<string, string>>({})
 
   const canWrite = canManageServices(session?.salon.role)
   const currencyCode = session?.salon.currency_code ?? 'USD'
@@ -456,7 +430,7 @@ export function AdminServicesPage() {
           clearAuthAndRedirect()
           return
         }
-        setEditError(mapAdminServiceEditError(err))
+        setEditError(mapAdminServiceUpdateError(err))
       } finally {
         setEditSubmitting(false)
       }
@@ -469,6 +443,60 @@ export function AdminServicesPage() {
       items,
       editForm,
       clearEdit,
+      load,
+      clearAuthAndRedirect,
+    ],
+  )
+
+  const handleToggleActive = useCallback(
+    async (row: ServiceListItem) => {
+      if (
+        !session ||
+        !canWrite ||
+        togglingId !== null ||
+        createSubmitting ||
+        editSubmitting
+      ) {
+        return
+      }
+
+      setTogglingId(row.id)
+      setToggleErrors((prev) => {
+        if (prev[row.id] === undefined) {
+          return prev
+        }
+        const next = { ...prev }
+        delete next[row.id]
+        return next
+      })
+
+      try {
+        await patchAdminService(
+          session.token,
+          session.salon.salon_id,
+          row.id,
+          serviceActiveTogglePatch(row.is_active),
+        )
+        await load()
+      } catch (err) {
+        if (isUnauthorizedError(err)) {
+          clearAuthAndRedirect()
+          return
+        }
+        setToggleErrors((prev) => ({
+          ...prev,
+          [row.id]: mapAdminServiceUpdateError(err),
+        }))
+      } finally {
+        setTogglingId(null)
+      }
+    },
+    [
+      session,
+      canWrite,
+      togglingId,
+      createSubmitting,
+      editSubmitting,
       load,
       clearAuthAndRedirect,
     ],
@@ -492,7 +520,7 @@ export function AdminServicesPage() {
                 type="button"
                 className="btn btn--primary btn--compact"
                 onClick={startCreate}
-                disabled={createSubmitting || editSubmitting}
+                disabled={createSubmitting || editSubmitting || togglingId !== null}
               >
                 Create service
               </button>
@@ -666,18 +694,46 @@ export function AdminServicesPage() {
                     </td>
                     {canWrite ? (
                       <td>
-                        <button
-                          type="button"
-                          className="btn btn--secondary btn--compact"
-                          onClick={() => startEdit(row)}
-                          disabled={
-                            createSubmitting ||
-                            editSubmitting ||
-                            (editingId !== null && editingId !== row.id)
-                          }
-                        >
-                          Edit
-                        </button>
+                        <div className="admin-services__row-actions">
+                          <button
+                            type="button"
+                            className="btn btn--secondary btn--compact"
+                            onClick={() => startEdit(row)}
+                            disabled={
+                              createSubmitting ||
+                              editSubmitting ||
+                              togglingId !== null ||
+                              (editingId !== null && editingId !== row.id)
+                            }
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn--secondary btn--compact"
+                            onClick={() => void handleToggleActive(row)}
+                            disabled={
+                              createSubmitting ||
+                              editSubmitting ||
+                              togglingId !== null
+                            }
+                            aria-busy={togglingId === row.id}
+                          >
+                            {togglingId === row.id
+                              ? row.is_active
+                                ? 'Deactivating…'
+                                : 'Activating…'
+                              : serviceActiveToggleLabel(row.is_active)}
+                          </button>
+                        </div>
+                        {toggleErrors[row.id] ? (
+                          <p
+                            className="admin-services__row-action-error"
+                            role="alert"
+                          >
+                            {toggleErrors[row.id]}
+                          </p>
+                        ) : null}
                       </td>
                     ) : null}
                   </tr>
