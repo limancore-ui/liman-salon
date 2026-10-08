@@ -19,6 +19,9 @@ from app.services.public_catalog.types import (
 from app.services.salon_public.service import SalonPublicService
 from app.services.service_catalog.errors import ServiceCatalogNotFoundError
 from app.services.service_catalog.service import ServiceCatalogService
+from app.services.public_catalog.availability_validation import (
+    validate_public_service_availability_date_range,
+)
 from app.services.staff.repository import StaffRepository
 
 
@@ -110,6 +113,7 @@ class PublicCatalogService:
         staff_id: uuid.UUID | None = None,
     ) -> ServiceAvailabilityResult:
         entry = self._salon_public.resolve_public_salon_by_slug(slug)
+        validate_public_service_availability_date_range(start_date, end_date)
         return self._availability.get_service_availability(
             salon_id=entry.salon_id,
             service_id=service_id,

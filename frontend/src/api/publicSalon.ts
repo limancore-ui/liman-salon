@@ -188,6 +188,19 @@ export function mapServiceAvailabilityToSelectedSlots(
     }
   }
   slots.sort((a, b) => a.service_start.localeCompare(b.service_start))
+
+  if (staffId === undefined) {
+    const byStart = new Map<string, PublicSelectedSlot>()
+    for (const slot of slots) {
+      if (!byStart.has(slot.service_start)) {
+        byStart.set(slot.service_start, slot)
+      }
+    }
+    return Array.from(byStart.values()).sort((a, b) =>
+      a.service_start.localeCompare(b.service_start),
+    )
+  }
+
   return slots
 }
 

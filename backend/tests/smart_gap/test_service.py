@@ -27,6 +27,7 @@ def _service_with_mocks() -> tuple[SmartGapService, MagicMock, MagicMock, MagicM
     availability = MagicMock()
     catalog = MagicMock()
     availability_repo = MagicMock()
+    availability_repo.get_salon_timezone.return_value = "UTC"
     svc._availability = availability
     svc._catalog = catalog
     svc._availability_repo = availability_repo
@@ -93,6 +94,7 @@ def test_service_fits_gap_in_result() -> None:
     assert suitable.name == "Haircut"
     assert suitable.duration_minutes == 60
     assert suitable.price_cents == 2500
+    assert suitable.bookable_start == gap.start
     availability.get_free_gaps.assert_called_once_with(
         salon_id=SALON_A,
         staff_id=STAFF_ID,
@@ -124,14 +126,14 @@ def test_service_does_not_fit_gap() -> None:
         as_of=AS_OF,
     )
 
-    assert result.entries[0].suitable_services == ()
+    assert result.entries == ()
 
 
 def test_buffers_required_for_fit() -> None:
     svc, availability, catalog, availability_repo = _service_with_mocks()
     gap_fits = TimeInterval(
         start=datetime(2025, 6, 2, 9, 0, tzinfo=UTC),
-        end=datetime(2025, 6, 2, 10, 30, tzinfo=UTC),
+        end=datetime(2025, 6, 2, 11, 0, tzinfo=UTC),
     )
     gap_too_short = TimeInterval(
         start=datetime(2025, 6, 2, 11, 0, tzinfo=UTC),
@@ -157,8 +159,8 @@ def test_buffers_required_for_fit() -> None:
         as_of=AS_OF,
     )
 
+    assert len(result.entries) == 1
     assert len(result.entries[0].suitable_services) == 1
-    assert result.entries[1].suitable_services == ()
 
 
 def test_tenant_isolation_empty_gaps_and_catalog_scoped() -> None:
@@ -202,10 +204,68 @@ def test_staff_not_eligible_excludes_service() -> None:
         as_of=AS_OF,
     )
 
-    assert result.entries[0].suitable_services == ()
+    assert result.entries == ()
     availability_repo.staff_eligible_for_service.assert_called_once_with(
         SALON_A, SERVICE_SHORT, STAFF_ID
     )
+
+
+def test_gap_with_past_raw_start_uses_future_bookable_start() -> None:
+    svc, availability, catalog, availability_repo = _service_with_mocks()
+    as_of = datetime(2025, 6, 2, 16, 55, tzinfo=UTC)
+    gap = TimeInterval(
+        start=datetime(2025, 6, 2, 9, 0, tzinfo=UTC),
+        end=datetime(2025, 6, 2, 18, 0, tzinfo=UTC),
+    )
+    availability.get_free_gaps.return_value = [gap]
+    catalog.list_services.return_value = [
+        _orm_service(
+            service_id=SERVICE_SHORT,
+            salon_id=SALON_A,
+            duration=60,
+            name="Haircut",
+            price_cents=2500,
+        ),
+    ]
+    availability_repo.staff_eligible_for_service.return_value = True
+
+    result = svc.get_gaps_with_suitable_services(
+        salon_id=SALON_A,
+        staff_id=STAFF_ID,
+        start_date=START,
+        end_date=END,
+        as_of=as_of,
+    )
+
+    assert len(result.entries) == 1
+    assert result.entries[0].gap.start == gap.start
+    bookable = result.entries[0].suitable_services[0].bookable_start
+    assert bookable >= as_of
+    assert bookable == datetime(2025, 6, 2, 17, 0, tzinfo=UTC)
+
+
+def test_gap_with_no_future_bookable_start_omitted() -> None:
+    svc, availability, catalog, availability_repo = _service_with_mocks()
+    as_of = datetime(2025, 6, 2, 16, 55, tzinfo=UTC)
+    gap = TimeInterval(
+        start=datetime(2025, 6, 2, 9, 0, tzinfo=UTC),
+        end=datetime(2025, 6, 2, 17, 0, tzinfo=UTC),
+    )
+    availability.get_free_gaps.return_value = [gap]
+    catalog.list_services.return_value = [
+        _orm_service(service_id=SERVICE_SHORT, salon_id=SALON_A, duration=60),
+    ]
+    availability_repo.staff_eligible_for_service.return_value = True
+
+    result = svc.get_gaps_with_suitable_services(
+        salon_id=SALON_A,
+        staff_id=STAFF_ID,
+        start_date=START,
+        end_date=END,
+        as_of=as_of,
+    )
+
+    assert result.entries == ()
 
 
 def test_naive_as_of_rejected() -> None:

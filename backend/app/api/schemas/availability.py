@@ -16,10 +16,10 @@ class AvailabilityResponse(BaseModel):
 
 
 class ServiceAvailabilitySlotOut(BaseModel):
-    service_start: datetime = Field(..., description="Earliest net service start (UTC)")
+    service_start: datetime = Field(..., description="Net service start (UTC)")
     service_end: datetime = Field(
         ...,
-        description="Latest net service end if started at latest valid start (UTC)",
+        description="Net service end for this start (UTC)",
     )
 
 

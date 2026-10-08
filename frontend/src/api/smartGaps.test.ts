@@ -19,6 +19,7 @@ const sampleResponse: SmartGapListResponse = {
           name: 'Haircut',
           duration_minutes: 60,
           price_cents: 2500,
+          bookable_start: '2026-09-25T09:00:00Z',
         },
       ],
     },

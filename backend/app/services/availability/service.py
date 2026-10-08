@@ -20,9 +20,29 @@ from app.services.availability.repository import AvailabilityRepository
 from app.services.booking.types import compute_occupied_interval
 from app.services.availability.types import (
     ServiceAvailabilityResult,
+    ServiceAvailabilitySlot,
     StaffServiceAvailability,
     TimeInterval,
 )
+
+
+def _filter_bookable_service_starts(
+    slots: list[ServiceAvailabilitySlot],
+    *,
+    tz: ZoneInfo,
+    as_of: datetime,
+) -> tuple[ServiceAvailabilitySlot, ...]:
+    """Drop past calendar days (salon local) and starts before application time."""
+    salon_today = as_of.astimezone(tz).date()
+    kept: list[ServiceAvailabilitySlot] = []
+    for slot in slots:
+        local_date = slot.service_start.astimezone(tz).date()
+        if local_date < salon_today:
+            continue
+        if slot.service_start < as_of:
+            continue
+        kept.append(slot)
+    return tuple(kept)
 
 
 class AvailabilityService:
@@ -108,6 +128,11 @@ class AvailabilityService:
         if not service.is_active:
             return ServiceAvailabilityResult(service_id=service_id, staff=())
 
+        tz_name = self._repo.get_salon_timezone(salon_id)
+        if not tz_name:
+            return ServiceAvailabilityResult(service_id=service_id, staff=())
+        tz = ZoneInfo(tz_name)
+
         if staff_id is not None:
             if not self._repo.staff_eligible_for_service(salon_id, service_id, staff_id):
                 return ServiceAvailabilityResult(service_id=service_id, staff=())
@@ -136,9 +161,11 @@ class AvailabilityService:
                 duration_minutes=service.duration_minutes,
                 buffer_before_minutes=service.buffer_before_minutes,
                 buffer_after_minutes=service.buffer_after_minutes,
+                tz=tz,
             )
+            visible = _filter_bookable_service_starts(slots, tz=tz, as_of=as_of)
             staff_results.append(
-                StaffServiceAvailability(staff_id=sid, slots=tuple(slots))
+                StaffServiceAvailability(staff_id=sid, slots=visible)
             )
 
         return ServiceAvailabilityResult(

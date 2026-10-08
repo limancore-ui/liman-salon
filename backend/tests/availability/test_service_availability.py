@@ -160,11 +160,15 @@ def test_net_slots_trim_buffers_from_free_gap() -> None:
 
     )
 
-    assert len(slots) == 1
+    assert len(slots) == 13
 
-    assert slots[0].service_start == datetime(2025, 6, 2, 9, 15, tzinfo=UTC)
+    assert slots[0].service_start == datetime(2025, 6, 2, 9, 30, tzinfo=UTC)
 
-    assert slots[0].service_end == datetime(2025, 6, 2, 16, 45, tzinfo=UTC)
+    assert slots[0].service_end == datetime(2025, 6, 2, 10, 30, tzinfo=UTC)
+
+    assert slots[-1].service_start == datetime(2025, 6, 2, 15, 30, tzinfo=UTC)
+
+    assert slots[-1].service_end == datetime(2025, 6, 2, 16, 30, tzinfo=UTC)
 
 
 
@@ -296,7 +300,7 @@ def test_any_staff_sorted_and_scoped() -> None:
 
     assert [s.staff_id for s in result.staff] == [STAFF_A, STAFF_B]
 
-    assert len(result.staff[0].slots) == 1
+    assert len(result.staff[0].slots) > 1
 
     assert repo.load_working_hours.call_count == 2
 
@@ -384,7 +388,13 @@ def test_staff_specific_blocked_period_clears_slots() -> None:
 
     )
 
-    assert len(result.staff[0].slots) == 2
+    blocked_starts = {
+        datetime(2025, 6, 2, 10, 0, tzinfo=UTC),
+        datetime(2025, 6, 2, 10, 30, tzinfo=UTC),
+    }
+    starts = {s.service_start for s in result.staff[0].slots}
+    assert starts.isdisjoint(blocked_starts)
+    assert len(starts) > 1
 
 
 
@@ -432,7 +442,9 @@ def test_confirmed_booking_reduces_service_slots() -> None:
 
     )
 
-    assert len(result.staff[0].slots) == 2
+    starts = {s.service_start for s in result.staff[0].slots}
+    assert datetime(2025, 6, 2, 12, 0, tzinfo=UTC) not in starts
+    assert len(starts) > 1
 
 
 
@@ -480,7 +492,9 @@ def test_live_pending_booking_reduces_service_slots() -> None:
 
     )
 
-    assert len(result.staff[0].slots) == 2
+    starts = {s.service_start for s in result.staff[0].slots}
+    assert datetime(2025, 6, 2, 12, 0, tzinfo=UTC) not in starts
+    assert len(starts) > 1
 
 
 
@@ -528,7 +542,7 @@ def test_stale_pending_does_not_reduce_service_slots() -> None:
 
     )
 
-    assert len(result.staff[0].slots) == 1
+    assert len(result.staff[0].slots) > 1
 
 
 
@@ -568,13 +582,13 @@ def test_buffers_require_occupied_span_in_gap() -> None:
 
     )
 
-    assert len(result.staff[0].slots) == 1
+    assert len(result.staff[0].slots) == 13
 
     slot = result.staff[0].slots[0]
 
-    assert slot.service_start == datetime(2025, 6, 2, 9, 15, tzinfo=UTC)
+    assert slot.service_start == datetime(2025, 6, 2, 9, 30, tzinfo=UTC)
 
-    assert slot.service_end == datetime(2025, 6, 2, 16, 45, tzinfo=UTC)
+    assert slot.service_end == datetime(2025, 6, 2, 10, 30, tzinfo=UTC)
 
 
 
@@ -606,7 +620,7 @@ def test_gap_exact_fit_for_occupied_span_yields_slot() -> None:
 
                 start_time=time(9, 0),
 
-                end_time=time(10, 30),
+                end_time=time(11, 0),
 
                 staff_id=None,
 
@@ -641,6 +655,8 @@ def test_gap_exact_fit_for_occupied_span_yields_slot() -> None:
     )
 
     assert len(result.staff[0].slots) == 1
+
+    assert result.staff[0].slots[0].service_start == datetime(2025, 6, 2, 9, 30, tzinfo=UTC)
 
 
 
@@ -768,7 +784,7 @@ def test_service_availability_uses_salon_timezone_for_working_day() -> None:
 
     )
 
-    assert len(result.staff[0].slots) == 1
+    assert len(result.staff[0].slots) > 1
 
     repo.load_working_hours.assert_called()
 

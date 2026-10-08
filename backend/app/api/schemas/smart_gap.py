@@ -11,6 +11,10 @@ class SuitableServiceOut(BaseModel):
     name: str
     duration_minutes: int
     price_cents: int
+    bookable_start: datetime = Field(
+        ...,
+        description="Earliest actionable NET service start in this gap (UTC)",
+    )
 
 
 class SmartGapOut(BaseModel):

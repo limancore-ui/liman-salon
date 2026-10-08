@@ -15,9 +15,17 @@ export function filterSmartGapsForService(
   )
 }
 
-/** Map gap.start (UTC ISO) to salon-local value for datetime-local input. */
-export function serviceStartFromSmartGap(gapStartIso: string, salonTimeZone: string): string {
-  return isoToSalonLocalDatetimeLocal(gapStartIso, salonTimeZone)
+/** Map actionable bookable start (UTC ISO) to salon-local datetime-local input. */
+export function serviceStartFromSmartGap(
+  gap: SmartGapOut,
+  serviceId: string,
+  salonTimeZone: string,
+): string | null {
+  const match = gap.suitable_services.find((service) => service.service_id === serviceId)
+  if (!match) {
+    return null
+  }
+  return isoToSalonLocalDatetimeLocal(match.bookable_start, salonTimeZone)
 }
 
 export function formatSmartGapIntervalLabel(

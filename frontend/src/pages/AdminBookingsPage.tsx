@@ -458,10 +458,19 @@ export function AdminBookingsPage() {
 
   const selectCreateSmartGap = useCallback(
     (gap: SmartGapOut) => {
-      setCreateStartLocal(serviceStartFromSmartGap(gap.start, salonTimeZoneForInput))
+      const startLocal = serviceStartFromSmartGap(
+        gap,
+        createServiceId,
+        salonTimeZoneForInput,
+      )
+      if (!startLocal) {
+        setCreateError('Could not derive a bookable start for this gap.')
+        return
+      }
+      setCreateStartLocal(startLocal)
       setCreateError(null)
     },
-    [salonTimeZoneForInput],
+    [createServiceId, salonTimeZoneForInput],
   )
 
   const searchCreateCustomers = useCallback(async () => {

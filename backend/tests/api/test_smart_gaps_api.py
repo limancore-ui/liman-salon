@@ -43,6 +43,7 @@ def _smart_gap_result() -> SmartGapResult:
                         name="Haircut",
                         duration_minutes=60,
                         price_cents=2500,
+                        bookable_start=GAP_START,
                     ),
                 ),
             ),

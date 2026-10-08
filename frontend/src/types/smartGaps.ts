@@ -3,6 +3,7 @@ export type SuitableServiceOut = {
   name: string
   duration_minutes: number
   price_cents: number
+  bookable_start: string
 }
 
 export type SmartGapOut = {

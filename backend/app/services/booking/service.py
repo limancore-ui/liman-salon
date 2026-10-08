@@ -194,6 +194,9 @@ class BookingService:
         if not self._repo.staff_performs_service(salon_id, staff_id, service_id):
             raise BookingValidationError("staff does not perform this service")
 
+        if requested_service_start < as_of:
+            raise BookingValidationError("service start is in the past")
+
         snapshot = ServiceSnapshot(
             duration_minutes=service.duration_minutes,
             buffer_before_minutes=service.buffer_before_minutes,
@@ -506,6 +509,9 @@ class BookingService:
             salon_id, new_staff_id, booking.service_id
         ):
             raise BookingValidationError("staff does not perform this service")
+
+        if new_service_start < as_of:
+            raise BookingValidationError("service start is in the past")
 
         occupied = compute_occupied_interval(
             requested_service_start=new_service_start,

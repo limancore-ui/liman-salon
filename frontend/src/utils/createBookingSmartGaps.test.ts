@@ -12,7 +12,10 @@ import type { SmartGapOut } from '../types/smartGaps'
 const serviceA = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
 const serviceB = 'ffffffff-ffff-4fff-8fff-ffffffffffff'
 
-const gapFor = (serviceId: string): SmartGapOut => ({
+const gapFor = (
+  serviceId: string,
+  bookableStart = '2026-09-25T09:00:00Z',
+): SmartGapOut => ({
   start: '2026-09-25T09:00:00Z',
   end: '2026-09-25T11:00:00Z',
   suitable_services: [
@@ -21,6 +24,7 @@ const gapFor = (serviceId: string): SmartGapOut => ({
       name: 'Service',
       duration_minutes: 60,
       price_cents: 1000,
+      bookable_start: bookableStart,
     },
   ],
 })
@@ -38,10 +42,18 @@ describe('filterSmartGapsForService', () => {
 })
 
 describe('serviceStartFromSmartGap', () => {
-  it('converts gap start UTC to salon-local datetime-local', () => {
-    expect(serviceStartFromSmartGap('2026-09-25T13:30:00.000Z', 'America/New_York')).toBe(
-      '2026-09-25T09:30',
-    )
+  it('uses bookable_start for the selected service in salon-local input', () => {
+    const gap = gapFor(serviceA, '2026-09-25T13:30:00.000Z')
+    expect(serviceStartFromSmartGap(gap, serviceA, 'America/New_York')).toBe('2026-09-25T09:30')
+  })
+
+  it('returns null when the service is not listed on the gap', () => {
+    expect(serviceStartFromSmartGap(gapFor(serviceB), serviceA, 'UTC')).toBeNull()
+  })
+
+  it('prefers future bookable_start over past gap.start', () => {
+    const gap = gapFor(serviceA, '2026-09-25T17:00:00.000Z')
+    expect(serviceStartFromSmartGap(gap, serviceA, 'UTC')).toBe('2026-09-25T17:00')
   })
 })
 
