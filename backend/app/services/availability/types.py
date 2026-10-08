@@ -63,10 +63,10 @@ class ServiceForAvailability:
 @dataclass(frozen=True, slots=True)
 class ServiceAvailabilitySlot:
     """
-    Bookable NET service window within one free gap.
+    One discrete bookable NET service start.
 
-    service_start: earliest net service start in the gap.
-    service_end: latest net service end (finish time if started at latest valid start).
+    service_start: customer-facing service start instant.
+    service_end: service_start + service duration (net finish time).
     """
 
     service_start: datetime

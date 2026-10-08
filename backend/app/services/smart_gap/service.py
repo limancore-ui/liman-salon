@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
 from app.db.models.service import Service
+from app.services.availability.intervals import first_bookable_net_start_on_or_after
 from app.services.availability.repository import AvailabilityRepository
 from app.services.availability.service import AvailabilityService
-from app.services.availability.types import ServiceForAvailability
+from app.services.availability.types import ServiceForAvailability, TimeInterval
 from app.services.service_catalog.service import ServiceCatalogService
 from app.services.smart_gap.matching import suitable_services_for_gap
 from app.services.smart_gap.types import SmartGapEntry, SmartGapResult, SuitableService
@@ -27,12 +29,13 @@ def _service_to_availability(row: Service) -> ServiceForAvailability:
     )
 
 
-def _service_to_suitable(row: Service) -> SuitableService:
+def _service_to_suitable(row: Service, *, bookable_start: datetime) -> SuitableService:
     return SuitableService(
         service_id=row.id,
         name=row.name,
         duration_minutes=row.duration_minutes,
         price_cents=row.price_cents,
+        bookable_start=bookable_start,
     )
 
 
@@ -69,23 +72,48 @@ class SmartGapService:
             as_of=as_of,
         )
 
+        tz_name = self._availability_repo.get_salon_timezone(salon_id)
+        if not tz_name:
+            return SmartGapResult(salon_id=salon_id, staff_id=staff_id, entries=())
+        tz = ZoneInfo(tz_name)
+
         eligible = self._eligible_services_for_staff(
             salon_id=salon_id,
             staff_id=staff_id,
         )
         for_matching = tuple(avail for avail, _ in eligible)
-        product_by_id = {avail.id: product for avail, product in eligible}
+        product_by_id = {avail.id: row for avail, row in eligible}
 
-        entries = tuple(
-            SmartGapEntry(
-                gap=gap,
-                suitable_services=tuple(
-                    product_by_id[s.id]
-                    for s in suitable_services_for_gap(gap, for_matching)
-                ),
+        entries_list: list[SmartGapEntry] = []
+        for gap in free_gaps:
+            fitting = suitable_services_for_gap(gap, for_matching)
+            suitable: list[SuitableService] = []
+            for fit in fitting:
+                bookable_start = first_bookable_net_start_on_or_after(
+                    gap,
+                    duration_minutes=fit.duration_minutes,
+                    buffer_before_minutes=fit.buffer_before_minutes,
+                    buffer_after_minutes=fit.buffer_after_minutes,
+                    not_before=as_of,
+                    tz=tz,
+                )
+                if bookable_start is None:
+                    continue
+                suitable.append(
+                    _service_to_suitable(
+                        product_by_id[fit.id],
+                        bookable_start=bookable_start,
+                    )
+                )
+            if not suitable:
+                continue
+            entries_list.append(
+                SmartGapEntry(
+                    gap=TimeInterval(start=gap.start, end=gap.end),
+                    suitable_services=tuple(suitable),
+                )
             )
-            for gap in free_gaps
-        )
+        entries = tuple(entries_list)
         return SmartGapResult(
             salon_id=salon_id,
             staff_id=staff_id,
@@ -97,12 +125,12 @@ class SmartGapService:
         *,
         salon_id: uuid.UUID,
         staff_id: uuid.UUID,
-    ) -> tuple[tuple[ServiceForAvailability, SuitableService], ...]:
+    ) -> tuple[tuple[ServiceForAvailability, Service], ...]:
         rows = self._catalog.list_services(salon_id=salon_id, active_only=True)
-        out: list[tuple[ServiceForAvailability, SuitableService]] = []
+        out: list[tuple[ServiceForAvailability, Service]] = []
         for row in rows:
             if self._availability_repo.staff_eligible_for_service(
                 salon_id, row.id, staff_id
             ):
-                out.append((_service_to_availability(row), _service_to_suitable(row)))
+                out.append((_service_to_availability(row), row))
         return tuple(out)

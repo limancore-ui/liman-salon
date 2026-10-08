@@ -39,6 +39,7 @@ from app.services.staff.errors import (
 )
 from app.services.availability.errors import (
     AvailabilityError,
+    AvailabilityValidationError,
     ServiceNotFoundError,
 )
 from app.services.booking.errors import (
@@ -251,6 +252,15 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=404,
             content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(AvailabilityValidationError)
+    async def availability_validation(
+        _request: Request, exc: AvailabilityValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
         )
 
     @app.exception_handler(AvailabilityError)

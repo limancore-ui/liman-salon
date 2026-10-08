@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 
 from app.services.availability.types import TimeInterval
 
@@ -14,6 +15,7 @@ class SuitableService:
     name: str
     duration_minutes: int
     price_cents: int
+    bookable_start: datetime
 
 
 @dataclass(frozen=True, slots=True)

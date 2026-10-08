@@ -43,6 +43,7 @@ def _to_response(result: SmartGapResult) -> SmartGapListResponse:
                         name=s.name,
                         duration_minutes=s.duration_minutes,
                         price_cents=s.price_cents,
+                        bookable_start=s.bookable_start,
                     )
                     for s in entry.suitable_services
                 ],

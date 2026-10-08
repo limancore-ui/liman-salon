@@ -10,6 +10,9 @@ from app.services.availability.types import (
     WorkingHourSpec,
 )
 
+# MVP public booking grid when no salon-level step is configured.
+DEFAULT_SERVICE_SLOT_STEP_MINUTES = 30
+
 
 def _hour_row_applies_on_date(row: WorkingHourSpec, local_date: date) -> bool:
     if row.effective_from is not None and local_date < row.effective_from:
@@ -144,36 +147,117 @@ def filter_gaps_min_duration(
     return [g for g in gaps if (g.end - g.start) >= min_len]
 
 
+def gap_fits_service_net_placement(
+    gap: TimeInterval,
+    *,
+    duration_minutes: int,
+    buffer_before_minutes: int,
+    buffer_after_minutes: int,
+) -> bool:
+    """True when at least one NET service placement fits inside the gap (no grid step)."""
+    if duration_minutes <= 0:
+        raise ValueError("duration_minutes must be positive")
+    min_occupied = buffer_before_minutes + duration_minutes + buffer_after_minutes
+    if (gap.end - gap.start) < timedelta(minutes=min_occupied):
+        return False
+    buf_before = timedelta(minutes=buffer_before_minutes)
+    buf_after = timedelta(minutes=buffer_after_minutes)
+    service_len = timedelta(minutes=duration_minutes)
+    min_start = gap.start + buf_before
+    max_start = gap.end - buf_after - service_len
+    return max_start >= min_start
+
+
+def _ceil_local_datetime_to_step(
+    dt: datetime,
+    tz: ZoneInfo,
+    step_minutes: int,
+) -> datetime:
+    if step_minutes <= 0:
+        raise ValueError("step_minutes must be positive")
+    local = dt.astimezone(tz)
+    day_start = datetime.combine(local.date(), time.min, tzinfo=tz)
+    elapsed = local - day_start
+    total_seconds = int(elapsed.total_seconds())
+    if local.microsecond:
+        total_seconds += 1
+    step_seconds = step_minutes * 60
+    remainder = total_seconds % step_seconds
+    if remainder == 0 and local.second == 0 and local.microsecond == 0:
+        aligned_local = local.replace(second=0, microsecond=0)
+    else:
+        add_seconds = step_seconds - remainder
+        aligned_local = day_start + timedelta(seconds=total_seconds + add_seconds)
+    return aligned_local.astimezone(ZoneInfo("UTC"))
+
+
 def net_service_slots_from_free_gaps(
     gaps: list[TimeInterval],
     *,
     duration_minutes: int,
     buffer_before_minutes: int,
     buffer_after_minutes: int,
+    slot_step_minutes: int = DEFAULT_SERVICE_SLOT_STEP_MINUTES,
+    tz: ZoneInfo | None = None,
 ) -> list[ServiceAvailabilitySlot]:
     """
-    Map raw free gaps to NET service windows for a service's buffers and duration.
+    Map raw free gaps to discrete NET service start times.
 
-    Bookings are already subtracted using stored occupied bounds; placement requires
-    buffer_before + duration + buffer_after to fit inside each gap.
+    Bookings are already subtracted using stored occupied bounds; each start must
+    fit buffer_before + duration + buffer_after inside the gap. Starts advance on a
+    fixed minute grid (salon timezone when ``tz`` is set, otherwise UTC).
     """
     if duration_minutes <= 0:
         raise ValueError("duration_minutes must be positive")
+    if slot_step_minutes <= 0:
+        raise ValueError("slot_step_minutes must be positive")
+    grid_tz = tz if tz is not None else ZoneInfo("UTC")
     min_occupied = buffer_before_minutes + duration_minutes + buffer_after_minutes
     eligible = filter_gaps_min_duration(gaps, min_occupied)
     slots: list[ServiceAvailabilitySlot] = []
     buf_before = timedelta(minutes=buffer_before_minutes)
     buf_after = timedelta(minutes=buffer_after_minutes)
     service_len = timedelta(minutes=duration_minutes)
+    step = timedelta(minutes=slot_step_minutes)
     for gap in eligible:
-        service_start = gap.start + buf_before
-        service_end = gap.end - buf_after
-        if service_end - service_start < service_len:
+        min_start = gap.start + buf_before
+        max_start = gap.end - buf_after - service_len
+        if max_start < min_start:
             continue
-        slots.append(
-            ServiceAvailabilitySlot(service_start=service_start, service_end=service_end)
-        )
+        cursor = _ceil_local_datetime_to_step(min_start, grid_tz, slot_step_minutes)
+        while cursor <= max_start:
+            slots.append(
+                ServiceAvailabilitySlot(
+                    service_start=cursor,
+                    service_end=cursor + service_len,
+                )
+            )
+            cursor += step
     return slots
+
+
+def first_bookable_net_start_on_or_after(
+    gap: TimeInterval,
+    *,
+    duration_minutes: int,
+    buffer_before_minutes: int,
+    buffer_after_minutes: int,
+    not_before: datetime,
+    tz: ZoneInfo,
+    slot_step_minutes: int = DEFAULT_SERVICE_SLOT_STEP_MINUTES,
+) -> datetime | None:
+    """Earliest discrete NET start in ``gap`` at or after ``not_before`` (Availability Core grid)."""
+    for slot in net_service_slots_from_free_gaps(
+        [gap],
+        duration_minutes=duration_minutes,
+        buffer_before_minutes=buffer_before_minutes,
+        buffer_after_minutes=buffer_after_minutes,
+        slot_step_minutes=slot_step_minutes,
+        tz=tz,
+    ):
+        if slot.service_start >= not_before:
+            return slot.service_start
+    return None
 
 
 def salon_local_date_range_to_utc_bounds(
