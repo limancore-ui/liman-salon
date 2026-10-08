@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
@@ -15,6 +15,7 @@ import {
 import { fetchAdminCustomers } from '../api/customers'
 import { fetchAdminServices, fetchAdminStaffForService } from '../api/services'
 import { fetchAdminStaff } from '../api/staff'
+import { fetchAdminSmartGaps } from '../api/smartGaps'
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
 import type { AdminBookingCreateStatus, BookingListItem } from '../types/bookings'
@@ -36,6 +37,16 @@ import {
   salonLocalDateTimeToIso,
 } from '../utils/adminBookingTime'
 import { parseAdminBookingsFilterParams } from '../utils/adminBookingsFilterParams'
+import {
+  bumpSmartGapRequestId,
+  deriveSmartGapListPhase,
+  filterSmartGapsForService,
+  formatSmartGapIntervalLabel,
+  serviceStartFromSmartGap,
+  shouldApplySmartGapResponse,
+  smartGapListStatusMessage,
+} from '../utils/createBookingSmartGaps'
+import type { SmartGapOut } from '../types/smartGaps'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
@@ -119,6 +130,12 @@ export function AdminBookingsPage() {
   const [createStatus, setCreateStatus] = useState<AdminBookingCreateStatus>('confirmed')
   const [createSubmitting, setCreateSubmitting] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [createGapSearchDate, setCreateGapSearchDate] = useState('')
+  const [createSmartGapsRaw, setCreateSmartGapsRaw] = useState<SmartGapOut[] | null>(null)
+  const [createSmartGapsLoading, setCreateSmartGapsLoading] = useState(false)
+  const [createSmartGapsError, setCreateSmartGapsError] = useState<string | null>(null)
+  const [createSmartGapsSearched, setCreateSmartGapsSearched] = useState(false)
+  const createSmartGapsRequestIdRef = useRef(0)
 
   const manage = canManageBookings(session?.salon.role)
   const salonTimeZone = session?.salon.timezone
@@ -145,6 +162,11 @@ export function AdminBookingsPage() {
     setCreateStartLocal('')
     setCreateStatus('confirmed')
     setCreateError(null)
+    setCreateGapSearchDate('')
+    setCreateSmartGapsRaw(null)
+    setCreateSmartGapsLoading(false)
+    setCreateSmartGapsError(null)
+    setCreateSmartGapsSearched(false)
   }, [])
 
   const startCreate = useCallback(() => {
@@ -159,7 +181,14 @@ export function AdminBookingsPage() {
     setCreateStaffId('')
     setCreateStartLocal('')
     setCreateStatus('confirmed')
-  }, [clearAction])
+    setCreateGapSearchDate(
+      isoToSalonLocalDatetimeLocal(new Date().toISOString(), salonTimeZoneForInput).slice(0, 10),
+    )
+    setCreateSmartGapsRaw(null)
+    setCreateSmartGapsLoading(false)
+    setCreateSmartGapsError(null)
+    setCreateSmartGapsSearched(false)
+  }, [clearAction, salonTimeZoneForInput])
 
   const load = useCallback(async () => {
     if (!session) {
@@ -333,6 +362,107 @@ export function AdminBookingsPage() {
         : (createStaffList[0]?.id ?? ''),
     )
   }, [createOpen, createServiceId, createStaffList])
+
+  useEffect(() => {
+    if (!createOpen) {
+      return
+    }
+    createSmartGapsRequestIdRef.current = bumpSmartGapRequestId(createSmartGapsRequestIdRef.current)
+    setCreateSmartGapsLoading(false)
+    setCreateSmartGapsRaw(null)
+    setCreateSmartGapsError(null)
+    setCreateSmartGapsSearched(false)
+  }, [createOpen, createServiceId, createStaffId, createGapSearchDate])
+
+  const createSmartGapsVisible = useMemo(
+    () => filterSmartGapsForService(createSmartGapsRaw ?? [], createServiceId),
+    [createSmartGapsRaw, createServiceId],
+  )
+
+  const createSmartGapListPhase = deriveSmartGapListPhase({
+    loading: createSmartGapsLoading,
+    error: createSmartGapsError,
+    searched: createSmartGapsSearched,
+    visibleGapCount: createSmartGapsVisible.length,
+  })
+
+  const createSmartGapListMessage = smartGapListStatusMessage(
+    createSmartGapListPhase,
+    createSmartGapsError,
+  )
+
+  const searchCreateSmartGaps = useCallback(async () => {
+    if (!session || !createOpen || createSmartGapsLoading) {
+      return
+    }
+    if (!createServiceId) {
+      setCreateSmartGapsError('Select a service first.')
+      return
+    }
+    if (!createStaffId) {
+      setCreateSmartGapsError('Select a staff member first.')
+      return
+    }
+    if (!createGapSearchDate) {
+      setCreateSmartGapsError('Choose a day to search.')
+      return
+    }
+
+    const requestId = bumpSmartGapRequestId(createSmartGapsRequestIdRef.current)
+    createSmartGapsRequestIdRef.current = requestId
+
+    setCreateSmartGapsLoading(true)
+    setCreateSmartGapsError(null)
+    setCreateSmartGapsRaw(null)
+    setCreateSmartGapsSearched(false)
+    try {
+      const response = await fetchAdminSmartGaps(session.token, session.salon.salon_id, {
+        staff_id: createStaffId,
+        start_date: createGapSearchDate,
+        end_date: createGapSearchDate,
+      })
+      if (!shouldApplySmartGapResponse(requestId, createSmartGapsRequestIdRef.current)) {
+        return
+      }
+      setCreateSmartGapsRaw(response.gaps)
+      setCreateSmartGapsSearched(true)
+    } catch (err: unknown) {
+      if (isUnauthorizedError(err)) {
+        clearAuthAndRedirect()
+        return
+      }
+      if (!shouldApplySmartGapResponse(requestId, createSmartGapsRequestIdRef.current)) {
+        return
+      }
+      if (err instanceof ApiError) {
+        setCreateSmartGapsError(err.message)
+      } else {
+        setCreateSmartGapsError('Could not load smart gaps.')
+      }
+      setCreateSmartGapsRaw(null)
+      setCreateSmartGapsSearched(true)
+    } finally {
+      if (shouldApplySmartGapResponse(requestId, createSmartGapsRequestIdRef.current)) {
+        setCreateSmartGapsLoading(false)
+      }
+    }
+  }, [
+    session,
+    createOpen,
+    createSmartGapsLoading,
+    createServiceId,
+    createStaffId,
+    createGapSearchDate,
+    clearAuthAndRedirect,
+  ])
+
+  const selectCreateSmartGap = useCallback(
+    (gap: SmartGapOut) => {
+      setCreateStartLocal(serviceStartFromSmartGap(gap.start, salonTimeZoneForInput))
+      setCreateError(null)
+    },
+    [salonTimeZoneForInput],
+  )
 
   const searchCreateCustomers = useCallback(async () => {
     if (!session || !createOpen) {
@@ -771,6 +901,79 @@ export function AdminBookingsPage() {
                   ))}
                 </select>
               </label>
+              <div className="admin-bookings__smart-gaps">
+                <h3 className="admin-bookings__smart-gaps-title">Smart Gap (optional)</h3>
+                <p className="admin-bookings__smart-gaps-hint">
+                  Find free intervals for the selected staff and service, then pick a gap to
+                  fill service start. Booking is still created with the form below.
+                </p>
+                <div className="admin-bookings__smart-gaps-row">
+                  <label className="admin-bookings__filter">
+                    <span>Gap search day</span>
+                    <input
+                      type="date"
+                      value={createGapSearchDate}
+                      onChange={(event) => setCreateGapSearchDate(event.target.value)}
+                      disabled={createSubmitting || createSmartGapsLoading}
+                    />
+                  </label>
+                  <label className="admin-bookings__filter">
+                    <span>Search</span>
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--compact"
+                      onClick={() => void searchCreateSmartGaps()}
+                      disabled={
+                        createSubmitting ||
+                        createSmartGapsLoading ||
+                        !createServiceId ||
+                        !createStaffId ||
+                        !createGapSearchDate
+                      }
+                    >
+                      Find smart gaps
+                    </button>
+                  </label>
+                </div>
+                {createSmartGapListMessage ? (
+                  <p
+                    className={
+                      createSmartGapListPhase === 'error'
+                        ? 'admin-bookings__state admin-bookings__state--error'
+                        : 'admin-bookings__state'
+                    }
+                    role={
+                      createSmartGapListPhase === 'loading'
+                        ? 'status'
+                        : createSmartGapListPhase === 'error'
+                          ? 'alert'
+                          : undefined
+                    }
+                  >
+                    {createSmartGapListMessage}
+                  </p>
+                ) : null}
+                {createSmartGapListPhase === 'ready' ? (
+                  <ul className="admin-bookings__smart-gaps-list">
+                    {createSmartGapsVisible.map((gap) => (
+                      <li
+                        key={`${gap.start}|${gap.end}`}
+                        className="admin-bookings__smart-gap-item"
+                      >
+                        <span>{formatSmartGapIntervalLabel(gap, salonTimeZone)}</span>
+                        <button
+                          type="button"
+                          className="btn btn--secondary btn--compact"
+                          onClick={() => selectCreateSmartGap(gap)}
+                          disabled={createSubmitting}
+                        >
+                          Use gap start
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
               <label className="admin-bookings__filter">
                 <span>Service start</span>
                 <input
