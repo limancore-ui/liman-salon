@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.db.models.service import Service
-from app.services.availability.types import ServiceForAvailability, TimeInterval
+from app.services.availability.types import TimeInterval
 from app.services.smart_gap.service import SmartGapService
 
 UTC = timezone.utc
@@ -40,14 +40,16 @@ def _orm_service(
     duration: int,
     buf_before: int = 0,
     buf_after: int = 0,
+    name: str = "Test",
+    price_cents: int = 1000,
 ) -> Service:
     row = Service(
         salon_id=salon_id,
-        name="Test",
+        name=name,
         duration_minutes=duration,
         buffer_before_minutes=buf_before,
         buffer_after_minutes=buf_after,
-        price_cents=1000,
+        price_cents=price_cents,
         is_active=True,
         sort_order=0,
     )
@@ -63,7 +65,13 @@ def test_service_fits_gap_in_result() -> None:
     )
     availability.get_free_gaps.return_value = [gap]
     catalog.list_services.return_value = [
-        _orm_service(service_id=SERVICE_SHORT, salon_id=SALON_A, duration=60),
+        _orm_service(
+            service_id=SERVICE_SHORT,
+            salon_id=SALON_A,
+            duration=60,
+            name="Haircut",
+            price_cents=2500,
+        ),
     ]
     availability_repo.staff_eligible_for_service.return_value = True
 
@@ -80,7 +88,11 @@ def test_service_fits_gap_in_result() -> None:
     assert len(result.entries) == 1
     assert result.entries[0].gap == gap
     assert len(result.entries[0].suitable_services) == 1
-    assert result.entries[0].suitable_services[0].id == SERVICE_SHORT
+    suitable = result.entries[0].suitable_services[0]
+    assert suitable.service_id == SERVICE_SHORT
+    assert suitable.name == "Haircut"
+    assert suitable.duration_minutes == 60
+    assert suitable.price_cents == 2500
     availability.get_free_gaps.assert_called_once_with(
         salon_id=SALON_A,
         staff_id=STAFF_ID,

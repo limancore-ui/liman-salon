@@ -11,7 +11,7 @@ from app.services.availability.service import AvailabilityService
 from app.services.availability.types import ServiceForAvailability
 from app.services.service_catalog.service import ServiceCatalogService
 from app.services.smart_gap.matching import suitable_services_for_gap
-from app.services.smart_gap.types import SmartGapEntry, SmartGapResult
+from app.services.smart_gap.types import SmartGapEntry, SmartGapResult, SuitableService
 
 # Smallest positive duration accepted by Availability Core gap filtering.
 _PROBE_GAP_MINUTES = 1
@@ -24,6 +24,15 @@ def _service_to_availability(row: Service) -> ServiceForAvailability:
         duration_minutes=row.duration_minutes,
         buffer_before_minutes=row.buffer_before_minutes,
         buffer_after_minutes=row.buffer_after_minutes,
+    )
+
+
+def _service_to_suitable(row: Service) -> SuitableService:
+    return SuitableService(
+        service_id=row.id,
+        name=row.name,
+        duration_minutes=row.duration_minutes,
+        price_cents=row.price_cents,
     )
 
 
@@ -60,15 +69,20 @@ class SmartGapService:
             as_of=as_of,
         )
 
-        eligible_services = self._eligible_services_for_staff(
+        eligible = self._eligible_services_for_staff(
             salon_id=salon_id,
             staff_id=staff_id,
         )
+        for_matching = tuple(avail for avail, _ in eligible)
+        product_by_id = {avail.id: product for avail, product in eligible}
 
         entries = tuple(
             SmartGapEntry(
                 gap=gap,
-                suitable_services=suitable_services_for_gap(gap, eligible_services),
+                suitable_services=tuple(
+                    product_by_id[s.id]
+                    for s in suitable_services_for_gap(gap, for_matching)
+                ),
             )
             for gap in free_gaps
         )
@@ -83,12 +97,12 @@ class SmartGapService:
         *,
         salon_id: uuid.UUID,
         staff_id: uuid.UUID,
-    ) -> tuple[ServiceForAvailability, ...]:
+    ) -> tuple[tuple[ServiceForAvailability, SuitableService], ...]:
         rows = self._catalog.list_services(salon_id=salon_id, active_only=True)
-        out: list[ServiceForAvailability] = []
+        out: list[tuple[ServiceForAvailability, SuitableService]] = []
         for row in rows:
             if self._availability_repo.staff_eligible_for_service(
                 salon_id, row.id, staff_id
             ):
-                out.append(_service_to_availability(row))
+                out.append((_service_to_availability(row), _service_to_suitable(row)))
         return tuple(out)
