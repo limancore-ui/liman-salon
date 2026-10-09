@@ -4,6 +4,7 @@ import {
   attachAdminStaffToService,
   createAdminService,
   detachAdminStaffFromService,
+  fetchAdminStaffForService,
   patchAdminService,
 } from './services'
 
@@ -149,6 +150,26 @@ describe('patchAdminService', () => {
 
     expect(err).toBeInstanceOf(ApiError)
     expect(err).toMatchObject({ status: 403, code: 'forbidden' })
+  })
+})
+
+describe('fetchAdminStaffForService', () => {
+  it('GETs staff list for a service', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ id: staffId, display_name: 'Alex' }],
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const rows = await fetchAdminStaffForService(token, salonId, serviceId)
+
+    expect(rows).toHaveLength(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/salons/${salonId}/services/${serviceId}/staff`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    )
   })
 })
 

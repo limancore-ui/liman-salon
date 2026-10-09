@@ -1900,6 +1900,69 @@ body {
   gap: var(--space-sm);
 }
 
+.admin-services__staff-row td {
+  background: var(--color-surface-muted, #f9fafb);
+  border-top: none;
+  vertical-align: top;
+}
+
+.admin-services__staff-panel {
+  padding: var(--space-sm) 0 var(--space-md);
+}
+
+.admin-services__staff-title {
+  margin: 0 0 var(--space-sm);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.admin-services__staff-state {
+  margin: 0 0 var(--space-sm);
+  font-size: 0.875rem;
+  color: var(--color-muted);
+}
+
+.admin-services__staff-state--error {
+  color: var(--color-danger, #b42318);
+}
+
+.admin-services__staff-list {
+  margin: 0 0 var(--space-md);
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.admin-services__staff-list-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  max-width: 28rem;
+}
+
+.admin-services__staff-assign {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.admin-services__staff-assign-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  min-width: 12rem;
+}
+
+.admin-services__staff-assign-label select {
+  min-width: 12rem;
+}
+
 .admin-customers__header {
   margin-bottom: var(--space-lg);
 }

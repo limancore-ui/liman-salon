@@ -1,16 +1,21 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react'
 import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
 import {
+  attachAdminStaffToService,
   createAdminService,
+  detachAdminStaffFromService,
   fetchAdminServices,
+  fetchAdminStaffForService,
   patchAdminService,
 } from '../api/services'
+import { fetchAdminStaff } from '../api/staff'
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
 import { AdminEntityMediaAttach } from '../components/AdminEntityMediaAttach'
 import { useSalonMediaAttachmentIndex } from '../hooks/useSalonMediaAttachmentIndex'
 import type { ServiceListItem } from '../types/services'
+import type { StaffListItem } from '../types/staff'
 import { formatDuration, formatPrice } from '../utils/format'
 import {
   buildServiceUpdatePatch,
@@ -22,6 +27,14 @@ import {
   type ParsedServiceFormValues,
   type ServiceFormState,
 } from '../utils/adminServiceForm'
+import {
+  assignedStaffSummary,
+  mapAdminServiceStaffAssignError,
+  mapAdminServiceStaffLoadError,
+  serviceStaffActionPendingKey,
+  sortStaffList,
+  staffAvailableToAssign,
+} from '../utils/adminServiceStaffAssign'
 
 function canManageServices(role: string | undefined): boolean {
   return role === 'owner' || role === 'admin'
@@ -266,8 +279,32 @@ export function AdminServicesPage() {
   const [editError, setEditError] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [toggleErrors, setToggleErrors] = useState<Record<string, string>>({})
+  const [salonStaff, setSalonStaff] = useState<StaffListItem[]>([])
+  const [salonStaffLoading, setSalonStaffLoading] = useState(false)
+  const [salonStaffError, setSalonStaffError] = useState<string | null>(null)
+  const [expandedStaffServiceId, setExpandedStaffServiceId] = useState<string | null>(
+    null,
+  )
+  const [assignedByServiceId, setAssignedByServiceId] = useState<
+    Record<string, StaffListItem[]>
+  >({})
+  const [assignedLoadingServiceId, setAssignedLoadingServiceId] = useState<string | null>(
+    null,
+  )
+  const [assignedLoadErrors, setAssignedLoadErrors] = useState<Record<string, string>>(
+    {},
+  )
+  const [staffPendingKey, setStaffPendingKey] = useState<string | null>(null)
+  const [staffActionErrors, setStaffActionErrors] = useState<Record<string, string>>(
+    {},
+  )
+  const [attachStaffPick, setAttachStaffPick] = useState<Record<string, string>>({})
 
   const canWrite = canManageServices(session?.salon.role)
+  const staffPanelBusy =
+    staffPendingKey !== null ||
+    assignedLoadingServiceId !== null ||
+    salonStaffLoading
   const currencyCode = session?.salon.currency_code ?? 'USD'
   const mediaIndex = useSalonMediaAttachmentIndex(
     session?.token,
@@ -305,6 +342,192 @@ export function AdminServicesPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const loadSalonStaff = useCallback(async () => {
+    if (!session || !canWrite) {
+      return
+    }
+    setSalonStaffLoading(true)
+    setSalonStaffError(null)
+    try {
+      const rows = await fetchAdminStaff(session.token, session.salon.salon_id, {
+        active_only: true,
+      })
+      setSalonStaff(rows)
+    } catch (err) {
+      if (isUnauthorizedError(err)) {
+        clearAuthAndRedirect()
+        return
+      }
+      if (err instanceof ApiError) {
+        setSalonStaffError(err.message)
+      } else {
+        setSalonStaffError('Could not load salon staff.')
+      }
+      setSalonStaff([])
+    } finally {
+      setSalonStaffLoading(false)
+    }
+  }, [session, canWrite, clearAuthAndRedirect])
+
+  useEffect(() => {
+    void loadSalonStaff()
+  }, [loadSalonStaff])
+
+  const loadAssignedStaff = useCallback(
+    async (serviceId: string, force = false) => {
+      if (!session) {
+        return
+      }
+      if (!force && assignedByServiceId[serviceId] !== undefined) {
+        return
+      }
+      setAssignedLoadingServiceId(serviceId)
+      setAssignedLoadErrors((prev) => {
+        if (prev[serviceId] === undefined) {
+          return prev
+        }
+        const next = { ...prev }
+        delete next[serviceId]
+        return next
+      })
+      try {
+        const rows = await fetchAdminStaffForService(
+          session.token,
+          session.salon.salon_id,
+          serviceId,
+        )
+        setAssignedByServiceId((prev) => ({ ...prev, [serviceId]: rows }))
+      } catch (err) {
+        if (isUnauthorizedError(err)) {
+          clearAuthAndRedirect()
+          return
+        }
+        setAssignedLoadErrors((prev) => ({
+          ...prev,
+          [serviceId]: mapAdminServiceStaffLoadError(err),
+        }))
+      } finally {
+        setAssignedLoadingServiceId((current) =>
+          current === serviceId ? null : current,
+        )
+      }
+    },
+    [session, assignedByServiceId, clearAuthAndRedirect],
+  )
+
+  const toggleStaffPanel = useCallback(
+    (serviceId: string) => {
+      if (staffPendingKey !== null) {
+        return
+      }
+      setStaffActionErrors((prev) => {
+        if (prev[serviceId] === undefined) {
+          return prev
+        }
+        const next = { ...prev }
+        delete next[serviceId]
+        return next
+      })
+      if (expandedStaffServiceId === serviceId) {
+        setExpandedStaffServiceId(null)
+        return
+      }
+      setExpandedStaffServiceId(serviceId)
+      void loadAssignedStaff(serviceId)
+    },
+    [staffPendingKey, expandedStaffServiceId, loadAssignedStaff],
+  )
+
+  const handleAttachStaff = useCallback(
+    async (serviceId: string) => {
+      if (!session || !canWrite || staffPendingKey !== null) {
+        return
+      }
+      const staffId = attachStaffPick[serviceId]?.trim() ?? ''
+      if (staffId === '') {
+        return
+      }
+      const pendingKey = serviceStaffActionPendingKey(serviceId, staffId, 'attach')
+      setStaffPendingKey(pendingKey)
+      setStaffActionErrors((prev) => {
+        if (prev[serviceId] === undefined) {
+          return prev
+        }
+        const next = { ...prev }
+        delete next[serviceId]
+        return next
+      })
+      try {
+        await attachAdminStaffToService(
+          session.token,
+          session.salon.salon_id,
+          serviceId,
+          staffId,
+        )
+        await loadAssignedStaff(serviceId, true)
+        setAttachStaffPick((prev) => ({ ...prev, [serviceId]: '' }))
+      } catch (err) {
+        if (isUnauthorizedError(err)) {
+          clearAuthAndRedirect()
+          return
+        }
+        setStaffActionErrors((prev) => ({
+          ...prev,
+          [serviceId]: mapAdminServiceStaffAssignError(err),
+        }))
+      } finally {
+        setStaffPendingKey(null)
+      }
+    },
+    [
+      session,
+      canWrite,
+      staffPendingKey,
+      attachStaffPick,
+      loadAssignedStaff,
+      clearAuthAndRedirect,
+    ],
+  )
+
+  const handleDetachStaff = useCallback(
+    async (serviceId: string, staffId: string) => {
+      if (!session || !canWrite || staffPendingKey !== null) {
+        return
+      }
+      const pendingKey = serviceStaffActionPendingKey(serviceId, staffId, 'detach')
+      setStaffPendingKey(pendingKey)
+      setStaffActionErrors((prev) => {
+        if (prev[serviceId] === undefined) {
+          return prev
+        }
+        const next = { ...prev }
+        delete next[serviceId]
+        return next
+      })
+      try {
+        await detachAdminStaffFromService(
+          session.token,
+          session.salon.salon_id,
+          serviceId,
+          staffId,
+        )
+        await loadAssignedStaff(serviceId, true)
+      } catch (err) {
+        if (isUnauthorizedError(err)) {
+          clearAuthAndRedirect()
+          return
+        }
+        setStaffActionErrors((prev) => ({
+          ...prev,
+          [serviceId]: mapAdminServiceStaffAssignError(err),
+        }))
+      } finally {
+        setStaffPendingKey(null)
+      }
+    },
+    [session, canWrite, staffPendingKey, loadAssignedStaff, clearAuthAndRedirect],
+  )
 
   const clearCreate = useCallback(() => {
     setCreateOpen(false)
@@ -504,6 +727,7 @@ export function AdminServicesPage() {
 
   const editingRow =
     editingId !== null ? items.find((row) => row.id === editingId) : undefined
+  const tableColumnCount = canWrite ? 8 : 7
 
   return (
     <AdminLayout>
@@ -511,16 +735,27 @@ export function AdminServicesPage() {
         <header className="admin-services__header">
           <h1 className="admin-services__title">Services</h1>
           <p className="admin-services__lead">
-            Service catalog for your salon. Owners and admins can add services and set
-            cover images from the media library.
+            Service catalog for your salon. Owners and admins can add services, assign
+            staff who perform each service, and set cover images from the media library.
           </p>
-          {canWrite && !createOpen && editingId === null ? (
+          {canWrite && salonStaffError ? (
+          <p className="admin-services__state admin-services__state--error" role="alert">
+            {salonStaffError} Staff assignment may be unavailable until this is resolved.
+          </p>
+        ) : null}
+
+        {canWrite && !createOpen && editingId === null ? (
             <p className="admin-services__header-actions">
               <button
                 type="button"
                 className="btn btn--primary btn--compact"
                 onClick={startCreate}
-                disabled={createSubmitting || editSubmitting || togglingId !== null}
+                disabled={
+                  createSubmitting ||
+                  editSubmitting ||
+                  togglingId !== null ||
+                  staffPanelBusy
+                }
               >
                 Create service
               </button>
@@ -656,12 +891,28 @@ export function AdminServicesPage() {
                   <th scope="col">Price</th>
                   <th scope="col">Active</th>
                   <th scope="col">Cover</th>
+                  <th scope="col">Staff</th>
                   {canWrite ? <th scope="col">Actions</th> : null}
                 </tr>
               </thead>
               <tbody>
-                {items.map((row) => (
-                  <tr key={row.id}>
+                {items.map((row) => {
+                  const assigned = assignedByServiceId[row.id]
+                  const assignedLoading = assignedLoadingServiceId === row.id
+                  const panelOpen = expandedStaffServiceId === row.id
+                  const assignCandidates =
+                    canWrite && assigned !== undefined
+                      ? staffAvailableToAssign(salonStaff, assigned)
+                      : []
+                  const attachPick = attachStaffPick[row.id] ?? ''
+                  const attachPending =
+                    staffPendingKey !== null &&
+                    staffPendingKey.startsWith(`${row.id}:`) &&
+                    staffPendingKey.endsWith(':attach')
+
+                  return (
+                  <Fragment key={row.id}>
+                  <tr>
                     <td>
                       <span className="admin-services__name">{row.name}</span>
                     </td>
@@ -692,6 +943,24 @@ export function AdminServicesPage() {
                         />
                       ) : null}
                     </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn--secondary btn--compact"
+                        onClick={() => toggleStaffPanel(row.id)}
+                        disabled={
+                          staffPendingKey !== null &&
+                          staffPendingKey.startsWith(`${row.id}:`)
+                        }
+                        aria-expanded={panelOpen}
+                      >
+                        {panelOpen
+                          ? 'Hide staff'
+                          : assigned !== undefined
+                            ? assignedStaffSummary(assigned)
+                            : 'View staff'}
+                      </button>
+                    </td>
                     {canWrite ? (
                       <td>
                         <div className="admin-services__row-actions">
@@ -703,6 +972,7 @@ export function AdminServicesPage() {
                               createSubmitting ||
                               editSubmitting ||
                               togglingId !== null ||
+                              staffPanelBusy ||
                               (editingId !== null && editingId !== row.id)
                             }
                           >
@@ -715,7 +985,8 @@ export function AdminServicesPage() {
                             disabled={
                               createSubmitting ||
                               editSubmitting ||
-                              togglingId !== null
+                              togglingId !== null ||
+                              staffPanelBusy
                             }
                             aria-busy={togglingId === row.id}
                           >
@@ -737,7 +1008,133 @@ export function AdminServicesPage() {
                       </td>
                     ) : null}
                   </tr>
-                ))}
+                  {panelOpen ? (
+                    <tr className="admin-services__staff-row">
+                      <td colSpan={tableColumnCount}>
+                        <div className="admin-services__staff-panel">
+                          <h3 className="admin-services__staff-title">
+                            Staff for {row.name}
+                          </h3>
+                          {assignedLoading ? (
+                            <p className="admin-services__staff-state" role="status">
+                              Loading assigned staff…
+                            </p>
+                          ) : null}
+                          {!assignedLoading && assignedLoadErrors[row.id] ? (
+                            <p
+                              className="admin-services__staff-state admin-services__staff-state--error"
+                              role="alert"
+                            >
+                              {assignedLoadErrors[row.id]}
+                            </p>
+                          ) : null}
+                          {!assignedLoading &&
+                          !assignedLoadErrors[row.id] &&
+                          assigned !== undefined ? (
+                            <>
+                              {assigned.length === 0 ? (
+                                <p className="admin-services__staff-state">
+                                  No staff assigned yet.
+                                </p>
+                              ) : (
+                                <ul className="admin-services__staff-list">
+                                  {sortStaffList(assigned).map((staffRow) => {
+                                    const detachKey = serviceStaffActionPendingKey(
+                                      row.id,
+                                      staffRow.id,
+                                      'detach',
+                                    )
+                                    const detachBusy = staffPendingKey === detachKey
+                                    return (
+                                      <li
+                                        key={staffRow.id}
+                                        className="admin-services__staff-list-item"
+                                      >
+                                        <span>{staffRow.display_name}</span>
+                                        {canWrite ? (
+                                          <button
+                                            type="button"
+                                            className="btn btn--secondary btn--compact"
+                                            onClick={() =>
+                                              void handleDetachStaff(row.id, staffRow.id)
+                                            }
+                                            disabled={
+                                              staffPendingKey !== null && !detachBusy
+                                            }
+                                            aria-busy={detachBusy}
+                                          >
+                                            {detachBusy ? 'Removing…' : 'Remove'}
+                                          </button>
+                                        ) : null}
+                                      </li>
+                                    )
+                                  })}
+                                </ul>
+                              )}
+                              {canWrite ? (
+                                <div className="admin-services__staff-assign">
+                                  <label className="admin-services__staff-assign-label">
+                                    <span>Add staff</span>
+                                    <select
+                                      value={attachPick}
+                                      onChange={(event) =>
+                                        setAttachStaffPick((prev) => ({
+                                          ...prev,
+                                          [row.id]: event.target.value,
+                                        }))
+                                      }
+                                      disabled={
+                                        staffPendingKey !== null ||
+                                        salonStaffLoading ||
+                                        assignCandidates.length === 0
+                                      }
+                                    >
+                                      <option value="">
+                                        {salonStaffLoading
+                                          ? 'Loading staff…'
+                                          : assignCandidates.length === 0
+                                            ? 'No available staff'
+                                            : 'Select staff member'}
+                                      </option>
+                                      {assignCandidates.map((candidate) => (
+                                        <option key={candidate.id} value={candidate.id}>
+                                          {candidate.display_name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <button
+                                    type="button"
+                                    className="btn btn--primary btn--compact"
+                                    onClick={() => void handleAttachStaff(row.id)}
+                                    disabled={
+                                      attachPick === '' ||
+                                      staffPendingKey !== null ||
+                                      attachPending
+                                    }
+                                    aria-busy={attachPending}
+                                  >
+                                    {attachPending ? 'Assigning…' : 'Assign'}
+                                  </button>
+                                </div>
+                              ) : null}
+                            </>
+                          ) : null}
+                          {staffActionErrors[row.id] ? (
+                            <p
+                              className="admin-services__staff-state admin-services__staff-state--error"
+                              role="alert"
+                            >
+                              {staffActionErrors[row.id]}
+                            </p>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>
