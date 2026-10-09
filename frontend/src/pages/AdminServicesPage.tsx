@@ -28,6 +28,7 @@ import {
   type ServiceFormState,
 } from '../utils/adminServiceForm'
 import {
+  adminServicesTableColumnCount,
   assignedStaffSummary,
   mapAdminServiceStaffAssignError,
   mapAdminServiceStaffLoadError,
@@ -727,7 +728,7 @@ export function AdminServicesPage() {
 
   const editingRow =
     editingId !== null ? items.find((row) => row.id === editingId) : undefined
-  const tableColumnCount = canWrite ? 8 : 7
+  const tableColumnCount = adminServicesTableColumnCount(canWrite)
 
   return (
     <AdminLayout>
@@ -891,7 +892,6 @@ export function AdminServicesPage() {
                   <th scope="col">Price</th>
                   <th scope="col">Active</th>
                   <th scope="col">Cover</th>
-                  <th scope="col">Staff</th>
                   {canWrite ? <th scope="col">Actions</th> : null}
                 </tr>
               </thead>
@@ -942,28 +942,44 @@ export function AdminServicesPage() {
                           compact
                         />
                       ) : null}
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn--secondary btn--compact"
-                        onClick={() => toggleStaffPanel(row.id)}
-                        disabled={
-                          staffPendingKey !== null &&
-                          staffPendingKey.startsWith(`${row.id}:`)
-                        }
-                        aria-expanded={panelOpen}
-                      >
-                        {panelOpen
-                          ? 'Hide staff'
-                          : assigned !== undefined
-                            ? assignedStaffSummary(assigned)
-                            : 'View staff'}
-                      </button>
+                      {!canWrite ? (
+                        <button
+                          type="button"
+                          className="btn btn--secondary btn--compact admin-services__cover-staff"
+                          onClick={() => toggleStaffPanel(row.id)}
+                          disabled={
+                            staffPendingKey !== null &&
+                            staffPendingKey.startsWith(`${row.id}:`)
+                          }
+                          aria-expanded={panelOpen}
+                        >
+                          {panelOpen
+                            ? 'Hide staff'
+                            : assigned !== undefined
+                              ? assignedStaffSummary(assigned)
+                              : 'View staff'}
+                        </button>
+                      ) : null}
                     </td>
                     {canWrite ? (
                       <td>
                         <div className="admin-services__row-actions">
+                          <button
+                            type="button"
+                            className="btn btn--secondary btn--compact"
+                            onClick={() => toggleStaffPanel(row.id)}
+                            disabled={
+                              staffPendingKey !== null &&
+                              staffPendingKey.startsWith(`${row.id}:`)
+                            }
+                            aria-expanded={panelOpen}
+                          >
+                            {panelOpen
+                              ? 'Hide staff'
+                              : assigned !== undefined
+                                ? assignedStaffSummary(assigned)
+                                : 'View staff'}
+                          </button>
                           <button
                             type="button"
                             className="btn btn--secondary btn--compact"

@@ -94,3 +94,10 @@ export function mapAdminServiceStaffLoadError(err: unknown): string {
   }
   return 'Could not reach the server. Check your connection and try again.'
 }
+
+/** Staff-panel `colSpan` on AdminServicesPage (must equal rendered `<th>` count). */
+export function adminServicesTableColumnCount(canWrite: boolean): number {
+  // Name, Description, Duration, Price, Active, Cover (+ Actions when owner/admin).
+  const catalogColumns = 6
+  return catalogColumns + (canWrite ? 1 : 0)
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '../api/errors'
 import type { StaffListItem } from '../types/staff'
 import {
+  adminServicesTableColumnCount,
   assignedStaffSummary,
   serviceStaffActionPendingKey,
   staffAvailableToAssign,
@@ -22,6 +23,13 @@ function staff(id: string, display_name: string, sort_order = 0): StaffListItem 
     updated_at: '2026-01-01T00:00:00Z',
   }
 }
+
+describe('adminServicesTableColumnCount', () => {
+  it('matches owner/admin vs read-only table width', () => {
+    expect(adminServicesTableColumnCount(true)).toBe(7)
+    expect(adminServicesTableColumnCount(false)).toBe(6)
+  })
+})
 
 describe('serviceStaffActionPendingKey', () => {
   it('combines service, staff, and action', () => {
