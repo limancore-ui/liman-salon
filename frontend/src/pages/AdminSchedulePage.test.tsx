@@ -18,7 +18,7 @@ import { fetchAdminStaff } from '../api/staff'
 import { ApiError } from '../api/errors'
 import { useAuth } from '../auth/AuthContext'
 import { makeScheduleImpactPreviewResponse } from '../components/scheduleImpactPreviewFixtures'
-import type { WorkingHoursItem } from '../types/schedule'
+import type { BlockedPeriodItem, WorkingHoursItem } from '../types/schedule'
 
 vi.mock('../api/schedule', () => ({
   previewScheduleImpact: vi.fn(),
@@ -328,31 +328,244 @@ describe('AdminSchedulePage working hours delete preview', () => {
     expect(mockedDeleteWh).not.toHaveBeenCalled()
   })
 
-  it('leaves other flows unchanged: blocked-period delete still uses window.confirm and never previews', async () => {
-    mockedFetchBp.mockResolvedValue([
-      {
-        id: 'bp-1',
-        staff_id: null,
-        starts_at: '2026-02-01T10:00:00+00:00',
-        ends_at: '2026-02-01T12:00:00+00:00',
-        reason: 'Holiday',
-        block_type: 'holiday',
-        created_by_user_id: null,
-        created_at: '2026-01-01T00:00:00+00:00',
-        updated_at: '2026-01-01T00:00:00+00:00',
-      },
-    ])
-    vi.mocked(deleteBlockedPeriod).mockResolvedValue(undefined)
+  it('regression: working-hours delete never uses window.confirm; create/update are not triggered', async () => {
     await renderPage()
-
-    const bpSection = container.querySelector('[aria-labelledby="admin-schedule-bp-heading"]')!
-    await click(buttonByText(bpSection, 'Delete'))
+    await click(buttonByText(container, 'Delete'))
+    await settle()
+    await click(buttonByText(previewPanel()!, 'Delete working hours'))
     await settle()
 
-    expect(window.confirm).toHaveBeenCalledTimes(1)
-    expect(deleteBlockedPeriod).toHaveBeenCalledWith(TOKEN, SALON_ID, 'bp-1')
-    expect(mockedPreview).not.toHaveBeenCalled()
+    expect(window.confirm).not.toHaveBeenCalled()
+    expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(deleteBlockedPeriod)).not.toHaveBeenCalled()
     expect(vi.mocked(createWorkingHours)).not.toHaveBeenCalled()
     expect(vi.mocked(updateWorkingHours)).not.toHaveBeenCalled()
+  })
+})
+
+function makeBp(overrides: Partial<BlockedPeriodItem> = {}): BlockedPeriodItem {
+  return {
+    id: 'bp-1',
+    staff_id: null,
+    starts_at: '2026-02-01T10:00:00+00:00',
+    ends_at: '2026-02-01T12:00:00+00:00',
+    reason: 'Holiday',
+    block_type: 'holiday',
+    created_by_user_id: null,
+    created_at: '2026-01-01T00:00:00+00:00',
+    updated_at: '2026-01-01T00:00:00+00:00',
+    ...overrides,
+  }
+}
+
+describe('AdminSchedulePage blocked period delete preview', () => {
+  let container: HTMLDivElement
+  let root: Root
+  const mockedDeleteBp = vi.mocked(deleteBlockedPeriod)
+
+  async function settle() {
+    await act(async () => {
+      await flushPromises()
+      await flushPromises()
+    })
+  }
+
+  async function renderPage() {
+    await act(async () => {
+      root.render(<AdminSchedulePage />)
+      await flushPromises()
+      await flushPromises()
+    })
+  }
+
+  function buttonByText(scope: ParentNode, text: string): HTMLButtonElement | undefined {
+    return Array.from(scope.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === text,
+    ) as HTMLButtonElement | undefined
+  }
+
+  function bpSection(): HTMLElement {
+    return container.querySelector('[aria-labelledby="admin-schedule-bp-heading"]') as HTMLElement
+  }
+
+  function previewPanel(): HTMLElement | null {
+    return container.querySelector('.schedule-impact-preview')
+  }
+
+  async function click(el: HTMLElement | undefined | null) {
+    expect(el).toBeTruthy()
+    await act(async () => {
+      el?.click()
+      await flushPromises()
+    })
+  }
+
+  async function openBpPreview() {
+    await click(buttonByText(bpSection(), 'Delete'))
+    await settle()
+  }
+
+  beforeEach(() => {
+    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    vi.clearAllMocks()
+    mockedPreview.mockReset()
+    mockedFetchWh.mockReset()
+    mockedFetchBp.mockReset()
+    mockedDeleteBp.mockReset()
+    mockedFetchStaff.mockReset()
+    mockedFetchWh.mockResolvedValue([])
+    mockedFetchBp.mockResolvedValue([makeBp()])
+    mockedFetchStaff.mockResolvedValue([])
+    mockedDeleteBp.mockResolvedValue(undefined)
+    mockedPreview.mockResolvedValue(makeScheduleImpactPreviewResponse())
+    setAuth('owner')
+    vi.spyOn(window, 'confirm').mockImplementation(() => true)
+  })
+
+  afterEach(() => {
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+    vi.restoreAllMocks()
+  })
+
+  it('Delete click opens the preview with a blocked_period.delete change, does not call DELETE or window.confirm, and disables row Delete', async () => {
+    await renderPage()
+    await openBpPreview()
+
+    expect(previewPanel()).not.toBeNull()
+    expect(mockedPreview).toHaveBeenCalledTimes(1)
+    const [token, salonId, request] = mockedPreview.mock.calls[0]
+    expect(token).toBe(TOKEN)
+    expect(salonId).toBe(SALON_ID)
+    expect(request.change).toEqual({
+      kind: 'blocked_period.delete',
+      blocked_period_id: 'bp-1',
+    })
+    expect(mockedDeleteBp).not.toHaveBeenCalled()
+    expect(window.confirm).not.toHaveBeenCalled()
+    expect(buttonByText(bpSection(), 'Delete')?.disabled).toBe(true)
+  })
+
+  it('shows the preview even with zero impacts and requires explicit confirm to DELETE', async () => {
+    await renderPage()
+    await openBpPreview()
+
+    expect(previewPanel()?.textContent).toContain('No bookings would be affected')
+    expect(mockedDeleteBp).not.toHaveBeenCalled()
+
+    await click(buttonByText(previewPanel()!, 'Delete blocked period'))
+    await settle()
+    expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
+  })
+
+  it('confirm calls deleteBlockedPeriod with token, salon id and snapshot id only (no fingerprint)', async () => {
+    await renderPage()
+    await openBpPreview()
+    await click(buttonByText(previewPanel()!, 'Delete blocked period'))
+    await settle()
+
+    expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
+    expect(mockedDeleteBp.mock.calls[0]).toEqual([TOKEN, SALON_ID, 'bp-1'])
+    expect(JSON.stringify(mockedDeleteBp.mock.calls[0])).not.toContain('f'.repeat(64))
+    expect(mockedFetchBp.mock.calls.length).toBeGreaterThanOrEqual(2)
+    expect(previewPanel()).toBeNull()
+    expect(window.confirm).not.toHaveBeenCalled()
+  })
+
+  it('Cancel closes the preview, does not call DELETE, and re-enables row Delete', async () => {
+    await renderPage()
+    await openBpPreview()
+    await click(buttonByText(previewPanel()!, 'Cancel'))
+    await settle()
+
+    expect(previewPanel()).toBeNull()
+    expect(mockedDeleteBp).not.toHaveBeenCalled()
+    expect(buttonByText(bpSection(), 'Delete')?.disabled).toBe(false)
+  })
+
+  it('confirm stays disabled until acknowledgement when impacts require it', async () => {
+    mockedPreview.mockResolvedValue(impactfulResponse())
+    await renderPage()
+    await openBpPreview()
+
+    const confirmBtn = buttonByText(previewPanel()!, 'Delete blocked period')
+    expect(confirmBtn?.disabled).toBe(true)
+    await click(confirmBtn)
+    expect(mockedDeleteBp).not.toHaveBeenCalled()
+
+    const checkbox = previewPanel()!.querySelector('input[type="checkbox"]') as HTMLInputElement
+    await click(checkbox)
+    expect(buttonByText(previewPanel()!, 'Delete blocked period')?.disabled).toBe(false)
+
+    await click(buttonByText(previewPanel()!, 'Delete blocked period'))
+    await settle()
+    expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
+    expect(mockedDeleteBp.mock.calls[0]).toEqual([TOKEN, SALON_ID, 'bp-1'])
+  })
+
+  it('confirm uses the frozen snapshot, not live rows that change while the preview is open', async () => {
+    await renderPage()
+    await openBpPreview()
+    expect(previewPanel()).not.toBeNull()
+
+    // Live list changes underneath the open preview: re-applying filters reloads other rows.
+    mockedFetchBp.mockResolvedValue([makeBp({ id: 'bp-2', reason: 'Replacement row' })])
+    await click(buttonByText(bpSection(), 'Apply'))
+    await settle()
+    expect(bpSection().textContent).toContain('Replacement row')
+
+    await click(buttonByText(previewPanel()!, 'Delete blocked period'))
+    await settle()
+
+    expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
+    expect(mockedDeleteBp.mock.calls[0]).toEqual([TOKEN, SALON_ID, 'bp-1'])
+    expect(mockedPreview).toHaveBeenCalledTimes(1)
+  })
+
+  it('when previewScheduleImpact rejects: preview is called, DELETE is not, error shows in panel, Cancel closes without delete', async () => {
+    mockedPreview.mockRejectedValue(new ApiError(502, 'Preview unavailable'))
+    await renderPage()
+    await openBpPreview()
+
+    expect(mockedPreview).toHaveBeenCalledTimes(1)
+    expect(mockedDeleteBp).not.toHaveBeenCalled()
+    expect(previewPanel()).not.toBeNull()
+    expect(previewPanel()?.querySelector('[role="alert"]')?.textContent).toContain(
+      'Preview unavailable',
+    )
+
+    await click(buttonByText(previewPanel()!, 'Cancel'))
+    await settle()
+
+    expect(previewPanel()).toBeNull()
+    expect(mockedDeleteBp).not.toHaveBeenCalled()
+  })
+
+  it('shows an error and closes the preview when DELETE fails', async () => {
+    mockedDeleteBp.mockRejectedValue(new ApiError(500, 'Server exploded'))
+    await renderPage()
+    await openBpPreview()
+    await click(buttonByText(previewPanel()!, 'Delete blocked period'))
+    await settle()
+
+    expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
+    expect(previewPanel()).toBeNull()
+    expect(bpSection().querySelector('[role="alert"]')?.textContent).toContain('Server exploded')
+  })
+
+  it('does not offer delete or preview to roles that cannot manage the schedule', async () => {
+    setAuth('staff')
+    await renderPage()
+
+    expect(buttonByText(bpSection(), 'Delete')).toBeUndefined()
+    expect(previewPanel()).toBeNull()
+    expect(mockedPreview).not.toHaveBeenCalled()
+    expect(mockedDeleteBp).not.toHaveBeenCalled()
+    expect(window.confirm).not.toHaveBeenCalled()
   })
 })
