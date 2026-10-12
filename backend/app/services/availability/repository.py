@@ -19,6 +19,11 @@ from app.services.availability.types import (
     ServiceForAvailability,
     WorkingHourSpec,
 )
+from app.services.schedule.types_impact import (
+    ScheduleOverlay,
+    WorkingHourUpdateOverlay,
+    _UNSET,
+)
 
 
 class AvailabilityRepository:
@@ -86,7 +91,10 @@ class AvailabilityRepository:
         salon_id: uuid.UUID,
         service_id: uuid.UUID,
         staff_id: uuid.UUID,
+        overlay: ScheduleOverlay | None = None,
     ) -> bool:
+        if overlay is not None and (staff_id, service_id) in overlay.staff_service_detaches:
+            return False
         found = self._session.scalar(
             select(Staff.id)
             .join(
@@ -119,6 +127,7 @@ class AvailabilityRepository:
         self,
         salon_id: uuid.UUID,
         staff_id: uuid.UUID,
+        overlay: ScheduleOverlay | None = None,
     ) -> tuple[list[WorkingHourSpec], list[WorkingHourSpec]]:
         stmt = select(WorkingHour).where(
             WorkingHour.salon_id == salon_id,
@@ -127,19 +136,28 @@ class AvailabilityRepository:
         rows = self._session.scalars(stmt).all()
         salon_defaults: list[WorkingHourSpec] = []
         staff_specific: list[WorkingHourSpec] = []
+        updates_by_id: dict[uuid.UUID, WorkingHourUpdateOverlay] = {}
+        if overlay is not None:
+            updates_by_id = {u.working_hours_id: u for u in overlay.working_hours_updates}
         for row in rows:
-            spec = WorkingHourSpec(
-                day_of_week=row.day_of_week,
-                start_time=row.start_time,
-                end_time=row.end_time,
-                staff_id=row.staff_id,
-                effective_from=row.effective_from,
-                effective_to=row.effective_to,
-            )
-            if row.staff_id is None:
+            if overlay is not None and row.id in overlay.working_hours_deletes:
+                continue
+            spec = _working_hour_row_to_spec(row)
+            if row.id in updates_by_id:
+                spec = _apply_working_hour_update(row, updates_by_id[row.id])
+            if spec.staff_id is None:
                 salon_defaults.append(spec)
-            else:
+            elif spec.staff_id == staff_id:
                 staff_specific.append(spec)
+        if overlay is not None:
+            for create in overlay.working_hours_creates:
+                if create.staff_id is not None and create.staff_id != staff_id:
+                    continue
+                spec = create.to_spec()
+                if spec.staff_id is None:
+                    salon_defaults.append(spec)
+                else:
+                    staff_specific.append(spec)
         return salon_defaults, staff_specific
 
     def load_blocked_periods(
@@ -148,6 +166,7 @@ class AvailabilityRepository:
         staff_id: uuid.UUID,
         range_start_utc: datetime,
         range_end_utc: datetime,
+        overlay: ScheduleOverlay | None = None,
     ) -> list[BusyInterval]:
         stmt = select(BlockedPeriod).where(
             BlockedPeriod.salon_id == salon_id,
@@ -156,7 +175,36 @@ class AvailabilityRepository:
             BlockedPeriod.ends_at > range_start_utc,
         )
         rows = self._session.scalars(stmt).all()
-        return [BusyInterval(start=r.starts_at, end=r.ends_at) for r in rows]
+        updates_by_id = {}
+        if overlay is not None:
+            updates_by_id = {u.blocked_period_id: u for u in overlay.blocked_period_updates}
+        blocks: list[BusyInterval] = []
+        for row in rows:
+            if overlay is not None and row.id in overlay.blocked_period_deletes:
+                continue
+            starts_at = row.starts_at
+            ends_at = row.ends_at
+            block_staff_id = row.staff_id
+            if row.id in updates_by_id:
+                upd = updates_by_id[row.id]
+                if upd.set_staff_id:
+                    block_staff_id = upd.staff_id  # type: ignore[assignment]
+                if upd.starts_at is not _UNSET and upd.starts_at is not None:
+                    starts_at = upd.starts_at  # type: ignore[assignment]
+                if upd.ends_at is not _UNSET and upd.ends_at is not None:
+                    ends_at = upd.ends_at  # type: ignore[assignment]
+            if block_staff_id is not None and block_staff_id != staff_id:
+                continue
+            if starts_at < range_end_utc and ends_at > range_start_utc:
+                blocks.append(BusyInterval(start=starts_at, end=ends_at))
+        if overlay is not None:
+            for create in overlay.blocked_period_creates:
+                if create.staff_id is not None and create.staff_id != staff_id:
+                    continue
+                interval = create.to_busy_interval()
+                if interval.start < range_end_utc and interval.end > range_start_utc:
+                    blocks.append(interval)
+        return blocks
 
     def load_bookings_for_availability(
         self,
@@ -196,3 +244,45 @@ class AvailabilityRepository:
             )
             for r in rows
         ]
+
+
+def _working_hour_row_to_spec(row: WorkingHour) -> WorkingHourSpec:
+    return WorkingHourSpec(
+        day_of_week=row.day_of_week,
+        start_time=row.start_time,
+        end_time=row.end_time,
+        staff_id=row.staff_id,
+        effective_from=row.effective_from,
+        effective_to=row.effective_to,
+    )
+
+
+def _apply_working_hour_update(
+    row: WorkingHour, upd: WorkingHourUpdateOverlay
+) -> WorkingHourSpec:
+    staff_id = row.staff_id
+    if upd.set_staff_id:
+        staff_id = upd.staff_id  # type: ignore[assignment]
+    day_of_week = (
+        upd.day_of_week if upd.day_of_week is not _UNSET else row.day_of_week  # type: ignore[assignment]
+    )
+    start_time = (
+        upd.start_time if upd.start_time is not _UNSET else row.start_time  # type: ignore[assignment]
+    )
+    end_time = (
+        upd.end_time if upd.end_time is not _UNSET else row.end_time  # type: ignore[assignment]
+    )
+    effective_from = row.effective_from
+    effective_to = row.effective_to
+    if upd.set_effective_from:
+        effective_from = upd.effective_from  # type: ignore[assignment]
+    if upd.set_effective_to:
+        effective_to = upd.effective_to  # type: ignore[assignment]
+    return WorkingHourSpec(
+        day_of_week=day_of_week,
+        start_time=start_time,
+        end_time=end_time,
+        staff_id=staff_id,
+        effective_from=effective_from,
+        effective_to=effective_to,
+    )

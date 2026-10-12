@@ -56,7 +56,7 @@ def test_free_period_full_working_day() -> None:
     assert len(gaps) == 1
     assert gaps[0].start == datetime(2025, 6, 2, 9, 0, tzinfo=UTC)
     assert gaps[0].end == datetime(2025, 6, 2, 17, 0, tzinfo=UTC)
-    repo.load_working_hours.assert_called_once_with(SALON_ID, STAFF_ID)
+    repo.load_working_hours.assert_called_once_with(SALON_ID, STAFF_ID, overlay=None)
 
 
 def test_blocked_period_reduces_gaps() -> None:

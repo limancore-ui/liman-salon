@@ -6,7 +6,18 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Response
 
-from app.api.deps import ScheduleServiceDep
+from app.api.deps import AsOfDep, ScheduleImpactServiceDep, ScheduleServiceDep, SessionDep
+from app.api.schemas.schedule_impact import (
+    ImpactHorizonSummary,
+    ScheduleImpactBookingRow,
+    ScheduleImpactChangeSummary,
+    ScheduleImpactCommitPolicy,
+    ScheduleImpactCounts,
+    ScheduleImpactPagination,
+    ScheduleImpactPreviewRequest,
+    ScheduleImpactPreviewResponse,
+)
+from app.api.schemas.schedule_impact_mapping import map_impact_change_request
 from app.api.schemas.schedule import (
     BlockedPeriodCreateRequest,
     BlockedPeriodResponse,
@@ -38,6 +49,56 @@ def _assert_path_salon(context: SalonContext, salon_id: uuid.UUID) -> None:
         raise RuntimeError("salon_id path mismatch with SalonContext")
 
 
+def _impact_preview_response(result) -> ScheduleImpactPreviewResponse:
+    total = len(result.all_impacts)
+    by_reason: dict[str, int] = {}
+    for row in result.all_impacts:
+        for reason in row.reasons:
+            by_reason[reason] = by_reason.get(reason, 0) + 1
+    returned = len(result.impacts)
+    offset = result.impact_offset
+    return ScheduleImpactPreviewResponse(
+        as_of=result.as_of,
+        change_summary=ScheduleImpactChangeSummary(
+            kind=result.change_kind,
+            affected_staff_ids=list(result.affected_staff_ids),
+            horizon=ImpactHorizonSummary(
+                starts_at_from=result.starts_at_from,
+                starts_at_to=result.starts_at_to,
+                days=result.horizon_days,
+            ),
+        ),
+        impacts=[
+            ScheduleImpactBookingRow(
+                booking_id=row.booking_id,
+                status=row.status,
+                is_in_progress=row.is_in_progress,
+                starts_at=row.starts_at,
+                ends_at=row.ends_at,
+                staff_id=row.staff_id,
+                service_id=row.service_id,
+                customer_name=row.customer_name,
+                service_name=row.service_name,
+                reasons=list(row.reasons),
+            )
+            for row in result.impacts
+        ],
+        counts=ScheduleImpactCounts(total_impacted=total, by_reason=by_reason),
+        pagination=ScheduleImpactPagination(
+            offset=offset,
+            limit=result.impact_limit,
+            returned=returned,
+            total_impacted=total,
+            has_more=total > offset + returned,
+        ),
+        commit_policy=ScheduleImpactCommitPolicy(
+            allow_commit_with_impacts=True,
+            requires_acknowledgement=total > 0,
+        ),
+        impact_fingerprint=result.impact_fingerprint,
+    )
+
+
 def _working_hours_update_data(body: WorkingHoursUpdateRequest) -> WorkingHoursUpdateData:
     fields = body.model_fields_set
     return WorkingHoursUpdateData(
@@ -64,6 +125,30 @@ def _blocked_period_update_data(body: BlockedPeriodUpdateRequest) -> BlockedPeri
         set_staff_id="staff_id" in fields,
         set_reason="reason" in fields,
     )
+
+
+@router.post("/impact-preview", response_model=ScheduleImpactPreviewResponse)
+def preview_schedule_impact(
+    salon_id: uuid.UUID,
+    body: ScheduleImpactPreviewRequest,
+    context: WriteSalonContext,
+    impact_service: ScheduleImpactServiceDep,
+    as_of: AsOfDep,
+    session: SessionDep,
+) -> ScheduleImpactPreviewResponse:
+    _assert_path_salon(context, salon_id)
+    change = map_impact_change_request(body.change)
+    result = impact_service.preview_impact(
+        salon_id=context.salon_id,
+        change=change,
+        as_of=as_of,
+        horizon_days=body.horizon_days,
+        impact_offset=body.impact_offset,
+        impact_limit=body.impact_limit,
+    )
+    # Preview must not persist reads or accidental session dirties at request commit.
+    session.rollback()
+    return _impact_preview_response(result)
 
 
 @router.get("/working-hours", response_model=list[WorkingHoursResponse])
