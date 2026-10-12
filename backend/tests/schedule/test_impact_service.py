@@ -29,7 +29,9 @@ from app.services.schedule.repository import ScheduleRepository
 from app.services.schedule.types_impact import (
     BlockedPeriodCreateOverlay,
     ScheduleOverlay,
+    ScheduleRef,
     WorkingHourCreateOverlay,
+    staff_service_link_content_hash,
 )
 from app.services.service_catalog.repository import ServiceCatalogRepository
 from app.services.staff.repository import StaffRepository
@@ -67,6 +69,101 @@ def test_operational_impact_filters_builds_without_name_error() -> None:
         starts_at_to=as_of + timedelta(days=90),
     )
     assert len(filters) == 4
+
+
+def test_operational_impact_horizon_predicate_requires_starts_at_from_as_of() -> None:
+    from sqlalchemy import select
+    from sqlalchemy.dialects import postgresql
+
+    from app.db.models.booking import Booking
+
+    as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
+    starts_at_to = as_of + timedelta(days=90)
+    filters = BookingRepository._operational_impact_filters(
+        salon_id=SALON_ID,
+        staff_ids=(STAFF_ID,),
+        as_of=as_of,
+        starts_at_to=starts_at_to,
+    )
+    sql = str(
+        select(Booking.id)
+        .where(*filters)
+        .compile(dialect=postgresql.dialect())
+    )
+    compact = sql.replace(" ", "")
+    assert "starts_at>=" in compact
+    assert "ends_at>" in compact
+
+
+def test_fingerprint_changes_when_staff_service_schedule_ref_changes() -> None:
+    as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
+    change = StaffServiceDetachChange(staff_id=STAFF_ID, service_id=SERVICE_ID)
+    link_id = uuid.UUID("99999999-9999-4999-8999-999999999999")
+    created_a = datetime(2026, 6, 1, 8, 0, tzinfo=UTC)
+    created_b = datetime(2026, 6, 2, 8, 0, tzinfo=UTC)
+    ref_a = ScheduleRef(
+        kind="staff_service",
+        id=link_id,
+        updated_at=None,
+        content_hash=staff_service_link_content_hash(
+            staff_id=STAFF_ID,
+            service_id=SERVICE_ID,
+            created_at=created_a,
+        ),
+    )
+    ref_b = ScheduleRef(
+        kind="staff_service",
+        id=link_id,
+        updated_at=None,
+        content_hash=staff_service_link_content_hash(
+            staff_id=STAFF_ID,
+            service_id=SERVICE_ID,
+            created_at=created_b,
+        ),
+    )
+    kwargs = dict(
+        salon_id=SALON_ID,
+        as_of=as_of,
+        horizon_days=90,
+        starts_at_from=as_of,
+        starts_at_to=as_of + timedelta(days=90),
+        change=change,
+        impacts=[],
+        candidates=[],
+    )
+    fp_a = compute_impact_fingerprint_v1(**kwargs, schedule_refs=(ref_a,))
+    fp_b = compute_impact_fingerprint_v1(**kwargs, schedule_refs=(ref_b,))
+    assert fp_a != fp_b
+
+
+def test_build_overlay_detach_appends_staff_service_schedule_ref() -> None:
+    link_id = uuid.UUID("88888888-8888-4888-8888-888888888888")
+    link = SimpleNamespace(
+        id=link_id,
+        staff_id=STAFF_ID,
+        service_id=SERVICE_ID,
+        created_at=datetime(2026, 6, 1, 8, 0, tzinfo=UTC),
+    )
+    session = MagicMock()
+    schedule_repo = ScheduleRepository(session)
+    staff_repo = StaffRepository(session)
+    staff_repo.get_staff_by_id = MagicMock(return_value=MagicMock())
+    catalog_repo = ServiceCatalogRepository(session)
+    catalog_repo.get_service_by_id = MagicMock(return_value=MagicMock())
+    catalog_repo.get_staff_service_link = MagicMock(return_value=link)
+
+    result = build_overlay_from_change(
+        salon_id=SALON_ID,
+        change=StaffServiceDetachChange(staff_id=STAFF_ID, service_id=SERVICE_ID),
+        schedule_repo=schedule_repo,
+        staff_repo=staff_repo,
+        catalog_repo=catalog_repo,
+    )
+    assert len(result.schedule_refs) == 1
+    ref = result.schedule_refs[0]
+    assert ref.kind == "staff_service"
+    assert ref.id == link_id
+    assert ref.content_hash is not None
 
 
 def test_fingerprint_stable_and_independent_of_pagination_offset() -> None:

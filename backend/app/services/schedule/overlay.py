@@ -6,6 +6,7 @@ from datetime import date, datetime, time
 from typing import Literal
 
 from app.db.models.blocked_period import BlockedPeriod
+from app.db.models.staff_service import StaffService
 from app.db.models.working_hour import WorkingHour
 from app.services.schedule.errors import ScheduleNotFoundError, ScheduleValidationError
 from app.services.schedule.repository import ScheduleRepository
@@ -18,6 +19,7 @@ from app.services.schedule.types_impact import (
     WorkingHourCreateOverlay,
     WorkingHourUpdateOverlay,
     _UNSET,
+    staff_service_link_content_hash,
 )
 from app.services.service_catalog.repository import ServiceCatalogRepository
 from app.services.staff.repository import StaffRepository
@@ -286,6 +288,7 @@ def build_overlay_from_change(
         )
         if link is None:
             raise ScheduleNotFoundError("staff service link not found")
+        schedule_refs.append(_staff_service_ref(link))
         affected.add(change.staff_id)
         overlay = ScheduleOverlay(
             staff_service_detaches=frozenset({(change.staff_id, change.service_id)})
@@ -332,6 +335,23 @@ def _bp_ref(row: BlockedPeriod) -> ScheduleRef:
         id=row.id,
         updated_at=row.updated_at,
         content_hash=None,
+    )
+
+
+def _staff_service_ref(link: StaffService) -> ScheduleRef:
+    updated_at = getattr(link, "updated_at", None)
+    content_hash = None
+    if updated_at is None:
+        content_hash = staff_service_link_content_hash(
+            staff_id=link.staff_id,
+            service_id=link.service_id,
+            created_at=link.created_at,
+        )
+    return ScheduleRef(
+        kind="staff_service",
+        id=link.id,
+        updated_at=updated_at,
+        content_hash=content_hash,
     )
 
 

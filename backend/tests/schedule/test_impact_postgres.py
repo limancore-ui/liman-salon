@@ -176,6 +176,35 @@ def test_detach_reports_staff_no_longer_performs_service(
     assert booking.status == "confirmed"
 
 
+def test_past_confirmed_booking_excluded_from_impact_set(
+    db_session: Session,
+) -> None:
+    salon, staff, service, wh = _seed_salon(db_session)
+    as_of = datetime(2026, 8, 6, 12, 0, tzinfo=UTC)
+    booking_start = datetime(2026, 8, 6, 10, 0, tzinfo=UTC)
+    customer_id = _customer(db_session, salon.id)
+    BookingService(db_session).create_booking(
+        salon_id=salon.id,
+        customer_id=customer_id,
+        staff_id=staff.id,
+        service_id=service.id,
+        requested_service_start=booking_start,
+        source="admin",
+        status="confirmed",
+        as_of=datetime(2026, 8, 6, 8, 0, tzinfo=UTC),
+    )
+    result = ScheduleImpactService(db_session).preview_impact(
+        salon_id=salon.id,
+        change=WorkingHoursUpdateChange(
+            working_hours_id=wh.id,
+            end_time=time(9, 0),
+        ),
+        as_of=as_of,
+        horizon_days=1,
+    )
+    assert result.all_impacts == ()
+
+
 def test_in_progress_booking_included_when_ends_after_as_of(
     db_session: Session,
 ) -> None:

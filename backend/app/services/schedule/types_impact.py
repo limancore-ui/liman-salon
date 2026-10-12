@@ -111,7 +111,7 @@ class ScheduleOverlay:
 
 @dataclass(frozen=True, slots=True)
 class ScheduleRef:
-    kind: Literal["working_hours", "blocked_period"]
+    kind: Literal["working_hours", "blocked_period", "staff_service"]
     id: uuid.UUID | None
     updated_at: datetime | None
     content_hash: str | None
@@ -128,3 +128,18 @@ def _date_str(value: date | None) -> str | None:
 def _content_hash(payload: dict[str, object]) -> str:
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def staff_service_link_content_hash(
+    *,
+    staff_id: uuid.UUID,
+    service_id: uuid.UUID,
+    created_at: datetime,
+) -> str:
+    return _content_hash(
+        {
+            "staff_id": _uuid_str(staff_id),
+            "service_id": _uuid_str(service_id),
+            "created_at": created_at.isoformat(),
+        }
+    )

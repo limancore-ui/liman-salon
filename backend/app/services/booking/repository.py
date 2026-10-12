@@ -343,7 +343,10 @@ class BookingRepository:
             ),
         )
         horizon_predicate = or_(
-            Booking.starts_at < starts_at_to,
+            and_(
+                Booking.starts_at >= as_of,
+                Booking.starts_at < starts_at_to,
+            ),
             and_(Booking.status == "in_progress", Booking.ends_at > as_of),
         )
         return [
