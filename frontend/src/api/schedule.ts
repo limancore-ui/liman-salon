@@ -5,6 +5,8 @@ import type {
   BlockedPeriodUpdateBody,
   ListBlockedPeriodsParams,
   ListWorkingHoursParams,
+  ScheduleImpactPreviewRequestBody,
+  ScheduleImpactPreviewResponse,
   WorkingHoursCreateBody,
   WorkingHoursItem,
   WorkingHoursUpdateBody,
@@ -208,4 +210,23 @@ export async function deleteBlockedPeriod(
   if (!response.ok) {
     throw await readApiError(response)
   }
+}
+
+export async function previewScheduleImpact(
+  token: string,
+  salonId: string,
+  body: ScheduleImpactPreviewRequestBody,
+): Promise<ScheduleImpactPreviewResponse> {
+  const response = await fetch(`${scheduleBase(salonId)}/impact-preview`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as ScheduleImpactPreviewResponse
 }
