@@ -15,7 +15,14 @@ import {
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
 import type { StaffListItem } from '../types/staff'
-import type { BlockType, BlockedPeriodItem, WorkingHoursItem } from '../types/schedule'
+import { ScheduleImpactPreviewPanel } from '../components/ScheduleImpactPreviewPanel'
+import type {
+  BlockType,
+  BlockedPeriodItem,
+  WorkingHoursDeleteImpactChange,
+  WorkingHoursItem,
+} from '../types/schedule'
+import { buildWorkingHoursDeleteImpactChange } from '../utils/scheduleImpactChange'
 import {
   blockedFormFromRow,
   datetimeLocalToIso,
@@ -181,6 +188,10 @@ export function AdminSchedulePage() {
   )
   const [whEditingId, setWhEditingId] = useState<string | null>(null)
   const [whEditForm, setWhEditForm] = useState<WorkingHoursFormState>(emptyWorkingHoursForm())
+  const [pendingWhDelete, setPendingWhDelete] = useState<{
+    pendingDeleteWhId: string
+    change: Readonly<WorkingHoursDeleteImpactChange>
+  } | null>(null)
 
   const [bpFilterStaffId, setBpFilterStaffId] = useState('')
   const [bpFilterStartsFrom, setBpFilterStartsFrom] = useState('')
@@ -397,19 +408,32 @@ export function AdminSchedulePage() {
     }
   }
 
-  async function handleDeleteWorkingHours(row: WorkingHoursItem) {
-    if (!session || !manage) {
+  /** Opens the schedule impact preview; the DELETE only runs after the preview is confirmed. */
+  function handleDeleteWorkingHours(row: WorkingHoursItem) {
+    if (!session || !manage || whSaving) {
       return
     }
-    const ok = window.confirm('Delete this working hours window?')
-    if (!ok) {
+    setWhActionError(null)
+    // Immutable snapshot taken at open time; confirm uses this, never the live row.
+    const change = Object.freeze(buildWorkingHoursDeleteImpactChange(row.id))
+    setPendingWhDelete({ pendingDeleteWhId: change.working_hours_id, change })
+  }
+
+  function handleCancelDeleteWorkingHoursPreview() {
+    setPendingWhDelete(null)
+  }
+
+  async function handleConfirmDeleteWorkingHours() {
+    if (!session || !manage || pendingWhDelete === null) {
       return
     }
+    const workingHoursId = pendingWhDelete.change.working_hours_id
+    setPendingWhDelete(null)
     setWhSaving(true)
     setWhActionError(null)
     try {
-      await deleteWorkingHours(session.token, session.salon.salon_id, row.id)
-      if (whEditingId === row.id) {
+      await deleteWorkingHours(session.token, session.salon.salon_id, workingHoursId)
+      if (whEditingId === workingHoursId) {
         cancelWhEdit()
       }
       await loadWorkingHours()
@@ -608,6 +632,18 @@ export function AdminSchedulePage() {
             </p>
           ) : null}
 
+          {pendingWhDelete !== null && manage && session ? (
+            <ScheduleImpactPreviewPanel
+              key={pendingWhDelete.pendingDeleteWhId}
+              token={session.token}
+              salonId={session.salon.salon_id}
+              change={pendingWhDelete.change}
+              confirmLabel="Delete working hours"
+              onCancel={handleCancelDeleteWorkingHoursPreview}
+              onConfirm={() => void handleConfirmDeleteWorkingHours()}
+            />
+          ) : null}
+
           {whEditingId !== null && manage ? (
             <form
               className="admin-schedule__form admin-schedule__form--edit"
@@ -721,8 +757,8 @@ export function AdminSchedulePage() {
                               <button
                                 type="button"
                                 className="btn btn--secondary btn--compact"
-                                onClick={() => void handleDeleteWorkingHours(row)}
-                                disabled={whSaving}
+                                onClick={() => handleDeleteWorkingHours(row)}
+                                disabled={whSaving || pendingWhDelete !== null}
                               >
                                 Delete
                               </button>
