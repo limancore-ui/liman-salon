@@ -193,7 +193,7 @@ def test_in_progress_booking_included_when_ends_after_as_of(
         status="confirmed",
         as_of=datetime(2026, 8, 6, 8, 0, tzinfo=UTC),
     )
-    BookingService(db_session).start_visit(
+    BookingService(db_session).admin_start_visit(
         salon_id=salon.id,
         booking_id=created.booking_id,
         as_of=as_of - timedelta(minutes=5),
@@ -213,8 +213,10 @@ def test_in_progress_booking_included_when_ends_after_as_of(
 def test_expired_pending_hold_not_in_impact_set(db_session: Session) -> None:
     salon, staff, service, _wh = _seed_salon(db_session)
     as_of = datetime(2026, 8, 6, 12, 0, tzinfo=UTC)
-    booking_start = datetime(2026, 8, 7, 10, 0, tzinfo=UTC)
+    # Seeded salon hours are Thursday (day_of_week=3) only.
+    booking_start = datetime(2026, 8, 13, 10, 0, tzinfo=UTC)
     customer_id = _customer(db_session, salon.id)
+    create_as_of = datetime(2026, 8, 6, 8, 0, tzinfo=UTC)
     BookingService(db_session).create_booking(
         salon_id=salon.id,
         customer_id=customer_id,
@@ -223,7 +225,8 @@ def test_expired_pending_hold_not_in_impact_set(db_session: Session) -> None:
         requested_service_start=booking_start,
         source="public",
         status="pending",
-        as_of=datetime(2026, 8, 6, 8, 0, tzinfo=UTC),
+        as_of=create_as_of,
+        expires_at=create_as_of + timedelta(hours=1),
     )
     booking = db_session.scalar(select(Booking).where(Booking.salon_id == salon.id))
     assert booking is not None
