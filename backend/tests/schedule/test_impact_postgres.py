@@ -197,7 +197,7 @@ def test_past_confirmed_booking_excluded_from_impact_set(
         salon_id=salon.id,
         change=WorkingHoursUpdateChange(
             working_hours_id=wh.id,
-            end_time=time(9, 0),
+            end_time=time(15, 0),
         ),
         as_of=as_of,
         horizon_days=1,
