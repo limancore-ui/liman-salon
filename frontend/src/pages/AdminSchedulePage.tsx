@@ -15,11 +15,21 @@ import {
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
 import type { StaffListItem } from '../types/staff'
-import type {
-  BlockType,
-  BlockedPeriodItem,
-  WorkingHoursItem,
-} from '../types/schedule'
+import type { BlockType, BlockedPeriodItem, WorkingHoursItem } from '../types/schedule'
+import {
+  blockedFormFromRow,
+  datetimeLocalToIso,
+  emptyBlockedForm,
+  emptyWorkingHoursForm,
+  formToCreateBody,
+  formToUpdateBody,
+  formatTimeOfDay,
+  workingHoursFormFromRow,
+  workingHoursFormToCreateBody,
+  workingHoursFormToUpdateBody,
+  type BlockedPeriodFormState,
+  type WorkingHoursFormState,
+} from '../utils/scheduleFormBodies'
 
 const DAY_NAMES = [
   'Monday',
@@ -44,12 +54,6 @@ function canManageSchedule(role: string | undefined): boolean {
   return role === 'owner' || role === 'admin'
 }
 
-/** Backend wall-clock TIME (`HH:mm` or `HH:mm:ss`) → display `HH:mm`, no timezone conversion. */
-function formatTimeOfDay(timeStr: string): string {
-  const [hours = '00', minutes = '00'] = timeStr.split(':')
-  return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`
-}
-
 function formatDateOnly(isoDate: string): string {
   const [y, m, d] = isoDate.split('-').map(Number)
   const date = new Date(y, m - 1, d)
@@ -64,16 +68,6 @@ function formatDateTime(iso: string): string {
   })
 }
 
-function datetimeLocalToIso(value: string): string {
-  return new Date(value).toISOString()
-}
-
-function isoToDatetimeLocal(iso: string): string {
-  const date = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
 function staffLabel(
   staffId: string | null,
   staffById: Map<string, StaffListItem>,
@@ -82,66 +76,6 @@ function staffLabel(
     return 'Salon (all staff)'
   }
   return staffById.get(staffId)?.display_name ?? staffId
-}
-
-type BlockedPeriodFormState = {
-  staffId: string
-  startsAtLocal: string
-  endsAtLocal: string
-  reason: string
-  blockType: BlockType
-}
-
-const emptyBlockedForm = (): BlockedPeriodFormState => ({
-  staffId: '',
-  startsAtLocal: '',
-  endsAtLocal: '',
-  reason: '',
-  blockType: 'manual',
-})
-
-function blockedFormFromRow(row: BlockedPeriodItem): BlockedPeriodFormState {
-  return {
-    staffId: row.staff_id ?? '',
-    startsAtLocal: isoToDatetimeLocal(row.starts_at),
-    endsAtLocal: isoToDatetimeLocal(row.ends_at),
-    reason: row.reason ?? '',
-    blockType: (row.block_type as BlockType) || 'manual',
-  }
-}
-
-function formToCreateBody(form: BlockedPeriodFormState) {
-  return {
-    staff_id: form.staffId === '' ? null : form.staffId,
-    starts_at: datetimeLocalToIso(form.startsAtLocal),
-    ends_at: datetimeLocalToIso(form.endsAtLocal),
-    reason: form.reason.trim() === '' ? null : form.reason.trim(),
-    block_type: form.blockType,
-  }
-}
-
-function formToUpdateBody(form: BlockedPeriodFormState) {
-  return {
-    staff_id: form.staffId === '' ? null : form.staffId,
-    starts_at: datetimeLocalToIso(form.startsAtLocal),
-    ends_at: datetimeLocalToIso(form.endsAtLocal),
-    reason: form.reason.trim() === '' ? null : form.reason.trim(),
-    block_type: form.blockType,
-  }
-}
-
-/** Backend TIME → `<input type="time">` value (HH:mm), no timezone conversion. */
-function apiTimeToTimeInput(timeStr: string): string {
-  const [hours = '00', minutes = '00'] = timeStr.split(':')
-  return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`
-}
-
-/** `<input type="time">` value → API wall-clock time string. */
-function timeInputToApi(timeInput: string): string {
-  if (timeInput.length === 5) {
-    return `${timeInput}:00`
-  }
-  return timeInput
 }
 
 function scopeStaffIdFromSelector(scopeStaffId: string): string | null {
@@ -156,60 +90,6 @@ function mapWorkingHoursActionError(err: unknown, fallback: string): string {
     return err.message
   }
   return fallback
-}
-
-type WorkingHoursFormState = {
-  dayOfWeek: number
-  startTime: string
-  endTime: string
-  effectiveFrom: string
-  effectiveTo: string
-}
-
-const emptyWorkingHoursForm = (): WorkingHoursFormState => ({
-  dayOfWeek: 0,
-  startTime: '',
-  endTime: '',
-  effectiveFrom: '',
-  effectiveTo: '',
-})
-
-function workingHoursFormFromRow(row: WorkingHoursItem): WorkingHoursFormState {
-  return {
-    dayOfWeek: row.day_of_week,
-    startTime: apiTimeToTimeInput(row.start_time),
-    endTime: apiTimeToTimeInput(row.end_time),
-    effectiveFrom: row.effective_from ?? '',
-    effectiveTo: row.effective_to ?? '',
-  }
-}
-
-function workingHoursFormToCreateBody(
-  form: WorkingHoursFormState,
-  staffId: string | null,
-) {
-  return {
-    staff_id: staffId,
-    day_of_week: form.dayOfWeek,
-    start_time: timeInputToApi(form.startTime),
-    end_time: timeInputToApi(form.endTime),
-    effective_from: form.effectiveFrom === '' ? null : form.effectiveFrom,
-    effective_to: form.effectiveTo === '' ? null : form.effectiveTo,
-  }
-}
-
-function workingHoursFormToUpdateBody(
-  form: WorkingHoursFormState,
-  staffId: string | null,
-) {
-  return {
-    staff_id: staffId,
-    day_of_week: form.dayOfWeek,
-    start_time: timeInputToApi(form.startTime),
-    end_time: timeInputToApi(form.endTime),
-    effective_from: form.effectiveFrom === '' ? null : form.effectiveFrom,
-    effective_to: form.effectiveTo === '' ? null : form.effectiveTo,
-  }
 }
 
 function WorkingHoursFormFields({
