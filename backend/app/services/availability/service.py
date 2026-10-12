@@ -24,6 +24,7 @@ from app.services.availability.types import (
     StaffServiceAvailability,
     TimeInterval,
 )
+from app.services.schedule.types_impact import ScheduleOverlay
 
 
 def _filter_bookable_service_starts(
@@ -61,6 +62,7 @@ class AvailabilityService:
         service_duration_minutes: int,
         as_of: datetime,
         exclude_booking_id: uuid.UUID | None = None,
+        overlay: ScheduleOverlay | None = None,
     ) -> list[TimeInterval]:
         if as_of.tzinfo is None:
             raise ValueError("as_of must be timezone-aware (UTC recommended)")
@@ -81,14 +83,20 @@ class AvailabilityService:
             start_date, end_date, tz
         )
 
-        salon_defaults, staff_specific = self._repo.load_working_hours(salon_id, staff_id)
+        salon_defaults, staff_specific = self._repo.load_working_hours(
+            salon_id, staff_id, overlay=overlay
+        )
         working = build_working_intervals_for_range(
             start_date, end_date, salon_defaults, staff_specific, tz
         )
         working = clip_intervals_to_range(working, range_start_utc, range_end_utc)
 
         blocks = self._repo.load_blocked_periods(
-            salon_id, staff_id, range_start_utc, range_end_utc
+            salon_id,
+            staff_id,
+            range_start_utc,
+            range_end_utc,
+            overlay=overlay,
         )
         bookings = self._repo.load_bookings_for_availability(
             salon_id,
@@ -182,6 +190,7 @@ class AvailabilityService:
         occupied_end: datetime,
         as_of: datetime,
         exclude_booking_id: uuid.UUID | None = None,
+        overlay: ScheduleOverlay | None = None,
     ) -> bool:
         """
         True when [occupied_start, occupied_end) lies entirely inside one free gap.
@@ -212,6 +221,7 @@ class AvailabilityService:
             service_duration_minutes=span_minutes,
             as_of=as_of,
             exclude_booking_id=exclude_booking_id,
+            overlay=overlay,
         )
         for gap in gaps:
             if gap.start <= occupied_start and gap.end >= occupied_end:

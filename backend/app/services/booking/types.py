@@ -138,6 +138,22 @@ class BookingUpcomingRow:
 
 
 @dataclass(frozen=True, slots=True)
+class OperationalBookingForImpact:
+    """Future operational booking candidate for schedule impact preview."""
+
+    id: UUID
+    status: str
+    starts_at: datetime
+    ends_at: datetime
+    staff_id: UUID
+    service_id: UUID
+    expires_at: datetime | None
+    updated_at: datetime
+    customer_name: str
+    service_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class BookingListRow:
     """Admin list view row with joined display names (tenant-scoped)."""
 

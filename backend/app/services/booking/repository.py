@@ -3,11 +3,15 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import and_, func, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.db.models.booking import Booking
-from app.services.booking.types import BookingListRow, BookingUpcomingRow
+from app.services.booking.types import (
+    BookingListRow,
+    BookingUpcomingRow,
+    OperationalBookingForImpact,
+)
 from app.db.models.customer import Customer
 from app.db.models.salon import Salon
 from app.db.models.service import Service
@@ -319,6 +323,96 @@ class BookingRepository:
         ]
 
     _ATTENTION_OPERATIONAL_STATUSES = ("pending", "confirmed", "in_progress")
+
+    @staticmethod
+    def _operational_impact_filters(
+        *,
+        salon_id: uuid.UUID,
+        staff_ids: tuple[uuid.UUID, ...],
+        as_of: datetime,
+        starts_at_to: datetime,
+    ) -> list:
+        if not staff_ids:
+            return [Booking.id.is_(None)]
+        blocking_predicate = or_(
+            Booking.status.in_(("confirmed", "in_progress")),
+            and_(
+                Booking.status == "pending",
+                Booking.expires_at.isnot(None),
+                Booking.expires_at > as_of,
+            ),
+        )
+        horizon_predicate = or_(
+            Booking.starts_at < starts_at_to,
+            and_(Booking.status == "in_progress", Booking.ends_at > as_of),
+        )
+        return [
+            Booking.salon_id == salon_id,
+            Booking.staff_id.in_(staff_ids),
+            blocking_predicate,
+            horizon_predicate,
+        ]
+
+    def list_operational_bookings_for_impact(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        staff_ids: tuple[uuid.UUID, ...],
+        as_of: datetime,
+        starts_at_to: datetime,
+    ) -> list[OperationalBookingForImpact]:
+        filters = self._operational_impact_filters(
+            salon_id=salon_id,
+            staff_ids=staff_ids,
+            as_of=as_of,
+            starts_at_to=starts_at_to,
+        )
+        stmt = (
+            select(
+                Booking.id,
+                Booking.status,
+                Booking.starts_at,
+                Booking.ends_at,
+                Booking.staff_id,
+                Booking.service_id,
+                Booking.expires_at,
+                Booking.updated_at,
+                Customer.full_name,
+                Service.name,
+            )
+            .join(
+                Customer,
+                and_(
+                    Booking.salon_id == Customer.salon_id,
+                    Booking.customer_id == Customer.id,
+                ),
+            )
+            .join(
+                Service,
+                and_(
+                    Booking.salon_id == Service.salon_id,
+                    Booking.service_id == Service.id,
+                ),
+            )
+            .where(*filters)
+            .order_by(Booking.starts_at.asc(), Booking.id.asc())
+        )
+        rows = self._session.execute(stmt).all()
+        return [
+            OperationalBookingForImpact(
+                id=row.id,
+                status=row.status,
+                starts_at=row.starts_at,
+                ends_at=row.ends_at,
+                staff_id=row.staff_id,
+                service_id=row.service_id,
+                expires_at=row.expires_at,
+                updated_at=row.updated_at,
+                customer_name=row.full_name,
+                service_name=row.name,
+            )
+            for row in rows
+        ]
 
     def list_attention_bookings_starts_in_range(
         self,

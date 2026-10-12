@@ -16,6 +16,7 @@ from app.services.booking.service import BookingService
 from app.services.public_booking.orchestrator import PublicBookingOrchestrator
 from app.services.public_booking.service import PublicBookingService
 from app.services.schedule.service import ScheduleService
+from app.services.schedule.impact import ScheduleImpactService
 from app.services.salon_settings.service import SalonSettingsService
 from app.services.service_catalog.service import ServiceCatalogService
 from app.services.customer.service import CustomerService
@@ -162,6 +163,15 @@ def get_schedule_service(session: SessionDep) -> ScheduleService:
 
 
 ScheduleServiceDep = Annotated[ScheduleService, Depends(get_schedule_service)]
+
+
+def get_schedule_impact_service(session: SessionDep) -> ScheduleImpactService:
+    return ScheduleImpactService(session)
+
+
+ScheduleImpactServiceDep = Annotated[
+    ScheduleImpactService, Depends(get_schedule_impact_service)
+]
 
 
 def get_media_service(session: SessionDep) -> MediaService:
