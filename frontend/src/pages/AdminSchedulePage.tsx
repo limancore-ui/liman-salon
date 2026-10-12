@@ -18,11 +18,15 @@ import type { StaffListItem } from '../types/staff'
 import { ScheduleImpactPreviewPanel } from '../components/ScheduleImpactPreviewPanel'
 import type {
   BlockType,
+  BlockedPeriodDeleteImpactChange,
   BlockedPeriodItem,
   WorkingHoursDeleteImpactChange,
   WorkingHoursItem,
 } from '../types/schedule'
-import { buildWorkingHoursDeleteImpactChange } from '../utils/scheduleImpactChange'
+import {
+  buildBlockedPeriodDeleteImpactChange,
+  buildWorkingHoursDeleteImpactChange,
+} from '../utils/scheduleImpactChange'
 import {
   blockedFormFromRow,
   datetimeLocalToIso,
@@ -209,6 +213,10 @@ export function AdminSchedulePage() {
   const [bpError, setBpError] = useState<string | null>(null)
   const [bpActionError, setBpActionError] = useState<string | null>(null)
   const [bpSaving, setBpSaving] = useState(false)
+  const [pendingBpDelete, setPendingBpDelete] = useState<{
+    pendingDeleteBpId: string
+    change: Readonly<BlockedPeriodDeleteImpactChange>
+  } | null>(null)
 
   const [createForm, setCreateForm] = useState<BlockedPeriodFormState>(emptyBlockedForm)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -538,19 +546,32 @@ export function AdminSchedulePage() {
     }
   }
 
-  async function handleDeleteBlocked(row: BlockedPeriodItem) {
-    if (!session || !manage) {
+  /** Opens the schedule impact preview; the DELETE only runs after the preview is confirmed. */
+  function handleDeleteBlocked(row: BlockedPeriodItem) {
+    if (!session || !manage || bpSaving) {
       return
     }
-    const ok = window.confirm('Delete this blocked period?')
-    if (!ok) {
+    setBpActionError(null)
+    // Immutable snapshot taken at open time; confirm uses this, never the live row.
+    const change = Object.freeze(buildBlockedPeriodDeleteImpactChange(row.id))
+    setPendingBpDelete({ pendingDeleteBpId: change.blocked_period_id, change })
+  }
+
+  function handleCancelDeleteBlockedPreview() {
+    setPendingBpDelete(null)
+  }
+
+  async function handleConfirmDeleteBlocked() {
+    if (!session || !manage || pendingBpDelete === null) {
       return
     }
+    const blockedPeriodId = pendingBpDelete.change.blocked_period_id
+    setPendingBpDelete(null)
     setBpSaving(true)
     setBpActionError(null)
     try {
-      await deleteBlockedPeriod(session.token, session.salon.salon_id, row.id)
-      if (editingId === row.id) {
+      await deleteBlockedPeriod(session.token, session.salon.salon_id, blockedPeriodId)
+      if (editingId === blockedPeriodId) {
         cancelEdit()
       }
       await loadBlockedPeriods()
@@ -922,6 +943,18 @@ export function AdminSchedulePage() {
             </p>
           ) : null}
 
+          {pendingBpDelete !== null && manage && session ? (
+            <ScheduleImpactPreviewPanel
+              key={pendingBpDelete.pendingDeleteBpId}
+              token={session.token}
+              salonId={session.salon.salon_id}
+              change={pendingBpDelete.change}
+              confirmLabel="Delete blocked period"
+              onCancel={handleCancelDeleteBlockedPreview}
+              onConfirm={() => void handleConfirmDeleteBlocked()}
+            />
+          ) : null}
+
           {editingId !== null && manage ? (
             <form
               className="admin-schedule__form admin-schedule__form--edit"
@@ -1066,8 +1099,8 @@ export function AdminSchedulePage() {
                           <button
                             type="button"
                             className="btn btn--secondary btn--compact"
-                            onClick={() => void handleDeleteBlocked(row)}
-                            disabled={bpSaving}
+                            onClick={() => handleDeleteBlocked(row)}
+                            disabled={bpSaving || pendingBpDelete !== null}
                           >
                             Delete
                           </button>
