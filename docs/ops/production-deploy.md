@@ -90,15 +90,18 @@ Backend CI on `main` runs install, `alembic upgrade head`, and `pytest` in [`bac
 
 ```bash
 cd <REPO_PATH>
+# Full stack (bundled Postgres, api, web, job-scheduler):
 docker compose config
+# Jobs only (external Postgres):
+docker compose -f docker-compose.jobs.yml config
 ```
 
-Verify:
+Verify (compose parse — what each file enforces before containers start):
 
-- `JWT_SECRET_KEY` and `BOOKING_MANAGE_TOKEN_PEPPER` are set (required by compose for `api` / `job-scheduler`). When `ENVIRONMENT` is **`production`** or **`staging`**, the API rejects development defaults and requires each value to be at least 32 characters ([`backend/app/core/config.py`](../../backend/app/core/config.py)).
-- `POSTGRES_PASSWORD` is set if using the bundled `postgres` service.
+- **Full stack** ([`docker-compose.yml`](../../docker-compose.yml)): `docker compose config` fails unless `JWT_SECRET_KEY` and `BOOKING_MANAGE_TOKEN_PEPPER` are set for `api` and `job-scheduler`, and `POSTGRES_PASSWORD` is set when using the bundled `postgres` service. `ENVIRONMENT` defaults to **`production`** in that file.
+- **Jobs only** ([`docker-compose.jobs.yml`](../../docker-compose.jobs.yml)): `docker compose -f docker-compose.jobs.yml config` only requires `DATABASE_URL`; that file does not declare `JWT_SECRET_KEY` or `BOOKING_MANAGE_TOKEN_PEPPER`. When `ENVIRONMENT` is **`production`** or **`staging`** (for example via `.env`), the scheduler process still validates those secrets at **runtime** on startup — no development defaults, each at least 32 characters — per [`backend/app/core/config.py`](../../backend/app/core/config.py). The same rules apply to the API when it runs under the full stack file.
 - `DATABASE_URL` points at the intended database (internal `postgres:5432` or external URL).
-- `WEB_PORT` matches how operators reach nginx (see [`.env.example`](../../.env.example)).
+- On the full stack, `WEB_PORT` matches how operators reach nginx (see [`.env.example`](../../.env.example)).
 
 Do **not** commit or paste real secrets into tickets or chat.
 
