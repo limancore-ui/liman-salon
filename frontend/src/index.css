@@ -892,6 +892,29 @@ body {
   border-bottom: 1px solid var(--color-border);
 }
 
+.admin-shell__header-leading,
+.admin-shell__header-trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.admin-shell__menu-toggle {
+  flex-shrink: 0;
+}
+
+.admin-shell__nav-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  padding: 0;
+  border: none;
+  background: rgb(26 26 26 / 40%);
+  cursor: pointer;
+}
+
 .admin-shell__user {
   display: flex;
   flex-direction: column;
@@ -1034,6 +1057,45 @@ body {
 .admin-shell__content {
   flex: 1;
   padding: var(--space-lg);
+}
+
+@media (max-width: 47.99rem) {
+  .admin-shell__menu-toggle {
+    display: inline-flex;
+  }
+
+  .admin-shell__sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+    flex: none;
+    width: min(14rem, 85vw);
+    height: 100dvh;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+
+  .admin-shell--nav-open .admin-shell__sidebar {
+    transform: translateX(0);
+  }
+
+  .admin-shell--nav-open .admin-shell__nav-backdrop {
+    display: block;
+  }
+
+  .admin-shell--nav-open .admin-shell__header {
+    position: relative;
+    z-index: 45;
+  }
+}
+
+@media (min-width: 48rem) {
+  .admin-shell__menu-toggle,
+  .admin-shell__nav-backdrop {
+    display: none;
+  }
 }
 
 .admin-dashboard__header {
