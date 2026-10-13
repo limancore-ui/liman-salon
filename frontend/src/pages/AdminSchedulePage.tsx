@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
 import { fetchAdminStaff } from '../api/staff'
@@ -20,13 +20,17 @@ import type {
   BlockType,
   BlockedPeriodDeleteImpactChange,
   BlockedPeriodItem,
+  WorkingHoursCreateBody,
+  WorkingHoursCreateImpactChange,
   WorkingHoursDeleteImpactChange,
   WorkingHoursItem,
 } from '../types/schedule'
 import {
   buildBlockedPeriodDeleteImpactChange,
+  buildWorkingHoursCreateImpactChange,
   buildWorkingHoursDeleteImpactChange,
 } from '../utils/scheduleImpactChange'
+import { validateWorkingHoursForm } from '../utils/scheduleFormValidation'
 import {
   blockedFormFromRow,
   datetimeLocalToIso,
@@ -107,10 +111,12 @@ function WorkingHoursFormFields({
   form,
   onChange,
   idPrefix,
+  disabled = false,
 }: {
   form: WorkingHoursFormState
   onChange: (next: WorkingHoursFormState) => void
   idPrefix: string
+  disabled?: boolean
 }) {
   return (
     <>
@@ -118,6 +124,7 @@ function WorkingHoursFormFields({
         <span>Day</span>
         <select
           id={`${idPrefix}-day`}
+          disabled={disabled}
           value={form.dayOfWeek}
           onChange={(event) =>
             onChange({ ...form, dayOfWeek: Number(event.target.value) })
@@ -136,6 +143,7 @@ function WorkingHoursFormFields({
           id={`${idPrefix}-start`}
           type="time"
           required
+          disabled={disabled}
           value={form.startTime}
           onChange={(event) => onChange({ ...form, startTime: event.target.value })}
         />
@@ -146,6 +154,7 @@ function WorkingHoursFormFields({
           id={`${idPrefix}-end`}
           type="time"
           required
+          disabled={disabled}
           value={form.endTime}
           onChange={(event) => onChange({ ...form, endTime: event.target.value })}
         />
@@ -155,6 +164,7 @@ function WorkingHoursFormFields({
         <input
           id={`${idPrefix}-effective-from`}
           type="date"
+          disabled={disabled}
           value={form.effectiveFrom}
           onChange={(event) =>
             onChange({ ...form, effectiveFrom: event.target.value })
@@ -166,6 +176,7 @@ function WorkingHoursFormFields({
         <input
           id={`${idPrefix}-effective-to`}
           type="date"
+          disabled={disabled}
           value={form.effectiveTo}
           onChange={(event) => onChange({ ...form, effectiveTo: event.target.value })}
         />
@@ -196,6 +207,16 @@ export function AdminSchedulePage() {
     pendingDeleteWhId: string
     change: Readonly<WorkingHoursDeleteImpactChange>
   } | null>(null)
+  // Immutable create snapshot taken when the preview opens; preview and create both use it,
+  // so neither ever reads the live form, scope selector or session afterwards.
+  const [pendingWhCreate, setPendingWhCreate] = useState<{
+    snapshotId: number
+    salonId: string
+    staffId: string | null
+    body: Readonly<WorkingHoursCreateBody>
+    change: Readonly<WorkingHoursCreateImpactChange>
+  } | null>(null)
+  const whCreateSnapshotSeq = useRef(0)
 
   const [bpFilterStaffId, setBpFilterStaffId] = useState('')
   const [bpFilterStartsFrom, setBpFilterStartsFrom] = useState('')
@@ -350,20 +371,60 @@ export function AdminSchedulePage() {
     return closed
   }, [hoursByDay])
 
-  async function handleCreateWorkingHours(event: FormEvent<HTMLFormElement>) {
+  /**
+   * Submit of the create form: runs the client pre-check, then opens the schedule impact
+   * preview from a frozen snapshot. The POST only runs after the preview is confirmed.
+   */
+  function handleCreateWorkingHours(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!session || !manage) {
+    if (
+      !session ||
+      !manage ||
+      whSaving ||
+      pendingWhCreate !== null ||
+      pendingWhDelete !== null
+    ) {
+      return
+    }
+    const validationError = validateWorkingHoursForm(whCreateForm)
+    if (validationError !== null) {
+      setWhActionError(validationError)
+      return
+    }
+    setWhActionError(null)
+    const staffId = scopeStaffIdFromSelector(whScopeStaffId)
+    // Body and change are derived from the same frozen body, taken once at open time.
+    const body = Object.freeze(workingHoursFormToCreateBody(whCreateForm, staffId))
+    const change = Object.freeze(buildWorkingHoursCreateImpactChange(body))
+    whCreateSnapshotSeq.current += 1
+    setPendingWhCreate({
+      snapshotId: whCreateSnapshotSeq.current,
+      salonId: session.salon.salon_id,
+      staffId,
+      body,
+      change,
+    })
+  }
+
+  function handleCancelCreateWorkingHoursPreview() {
+    setPendingWhCreate(null)
+  }
+
+  async function handleConfirmCreateWorkingHours() {
+    if (!session || !manage || pendingWhCreate === null) {
+      return
+    }
+    const snapshot = pendingWhCreate
+    setPendingWhCreate(null)
+    if (session.salon.salon_id !== snapshot.salonId) {
+      setWhActionError('The salon changed while the preview was open. Please try again.')
       return
     }
     setWhSaving(true)
     setWhActionError(null)
-    const staffId = scopeStaffIdFromSelector(whScopeStaffId)
     try {
-      await createWorkingHours(
-        session.token,
-        session.salon.salon_id,
-        workingHoursFormToCreateBody(whCreateForm, staffId),
-      )
+      // Snapshot body only: never the live form, scope selector or preview fingerprint.
+      await createWorkingHours(session.token, snapshot.salonId, snapshot.body)
       setWhCreateForm(emptyWorkingHoursForm())
       await loadWorkingHours()
     } catch (err) {
@@ -418,7 +479,7 @@ export function AdminSchedulePage() {
 
   /** Opens the schedule impact preview; the DELETE only runs after the preview is confirmed. */
   function handleDeleteWorkingHours(row: WorkingHoursItem) {
-    if (!session || !manage || whSaving) {
+    if (!session || !manage || whSaving || pendingWhCreate !== null) {
       return
     }
     setWhActionError(null)
@@ -612,7 +673,7 @@ export function AdminSchedulePage() {
               <select
                 value={whScopeStaffId}
                 onChange={(event) => setWhScopeStaffId(event.target.value)}
-                disabled={staffLoading}
+                disabled={staffLoading || pendingWhCreate !== null}
               >
                 <option value={WH_SCOPE_SALON}>Salon default</option>
                 {staffList.map((staff) => (
@@ -628,6 +689,7 @@ export function AdminSchedulePage() {
             <form
               className="admin-schedule__form admin-schedule__form--create"
               onSubmit={handleCreateWorkingHours}
+              noValidate
             >
               <h3 className="admin-schedule__form-title">Add working hours</h3>
               <div className="admin-schedule__form-grid">
@@ -635,12 +697,13 @@ export function AdminSchedulePage() {
                   idPrefix="wh-create"
                   form={whCreateForm}
                   onChange={setWhCreateForm}
+                  disabled={pendingWhCreate !== null}
                 />
               </div>
               <button
                 type="submit"
                 className="btn btn--primary btn--compact"
-                disabled={whSaving}
+                disabled={whSaving || pendingWhCreate !== null || pendingWhDelete !== null}
               >
                 Create
               </button>
@@ -651,6 +714,18 @@ export function AdminSchedulePage() {
             <p className="admin-schedule__state admin-schedule__state--error" role="alert">
               {whActionError}
             </p>
+          ) : null}
+
+          {pendingWhCreate !== null && manage && session ? (
+            <ScheduleImpactPreviewPanel
+              key={pendingWhCreate.snapshotId}
+              token={session.token}
+              salonId={pendingWhCreate.salonId}
+              change={pendingWhCreate.change}
+              confirmLabel="Create working hours"
+              onCancel={handleCancelCreateWorkingHoursPreview}
+              onConfirm={() => void handleConfirmCreateWorkingHours()}
+            />
           ) : null}
 
           {pendingWhDelete !== null && manage && session ? (
@@ -676,13 +751,14 @@ export function AdminSchedulePage() {
                   idPrefix="wh-edit"
                   form={whEditForm}
                   onChange={setWhEditForm}
+                  disabled={pendingWhCreate !== null}
                 />
               </div>
               <div className="admin-schedule__form-actions">
                 <button
                   type="submit"
                   className="btn btn--primary btn--compact"
-                  disabled={whSaving}
+                  disabled={whSaving || pendingWhCreate !== null}
                 >
                   Save
                 </button>
@@ -690,7 +766,7 @@ export function AdminSchedulePage() {
                   type="button"
                   className="btn btn--secondary btn--compact"
                   onClick={cancelWhEdit}
-                  disabled={whSaving}
+                  disabled={whSaving || pendingWhCreate !== null}
                 >
                   Cancel
                 </button>
@@ -771,7 +847,7 @@ export function AdminSchedulePage() {
                                 type="button"
                                 className="btn btn--secondary btn--compact"
                                 onClick={() => startWhEdit(row)}
-                                disabled={whSaving}
+                                disabled={whSaving || pendingWhCreate !== null}
                               >
                                 Edit
                               </button>
@@ -779,7 +855,9 @@ export function AdminSchedulePage() {
                                 type="button"
                                 className="btn btn--secondary btn--compact"
                                 onClick={() => handleDeleteWorkingHours(row)}
-                                disabled={whSaving || pendingWhDelete !== null}
+                                disabled={
+                                  whSaving || pendingWhDelete !== null || pendingWhCreate !== null
+                                }
                               >
                                 Delete
                               </button>
