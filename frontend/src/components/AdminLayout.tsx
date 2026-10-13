@@ -1,4 +1,9 @@
-import { useState, type ChangeEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { membershipLabel } from '../auth/workspace'
@@ -16,6 +21,15 @@ const NAV_ITEMS = [
   { label: 'Settings', to: '/admin/settings' },
 ] as const
 
+const MOBILE_NAV_MEDIA_QUERY = '(max-width: 47.99rem)'
+
+function readNarrowViewport(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false
+  }
+  return window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches
+}
+
 type AdminLayoutProps = {
   children: ReactNode
 }
@@ -27,6 +41,22 @@ function canAccessSalonSettings(role: string | undefined): boolean {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const { session, logout, switchWorkspace } = useAuth()
   const [switchingSalon, setSwitchingSalon] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [isNarrowViewport, setIsNarrowViewport] = useState(readNarrowViewport)
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') {
+      return
+    }
+    const mediaQuery = window.matchMedia(MOBILE_NAV_MEDIA_QUERY)
+    const syncNarrowViewport = () => {
+      setIsNarrowViewport(mediaQuery.matches)
+    }
+    mediaQuery.addEventListener('change', syncNarrowViewport)
+    return () => {
+      mediaQuery.removeEventListener('change', syncNarrowViewport)
+    }
+  }, [])
   const salon = session?.salon
   const user = session?.user
   const salons = session?.salons ?? []
@@ -48,9 +78,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     (item) => item.to !== '/admin/settings' || canAccessSalonSettings(salon?.role),
   )
 
+  function closeMobileNav() {
+    setMobileNavOpen(false)
+  }
+
+  function toggleMobileNav() {
+    setMobileNavOpen((open) => !open)
+  }
+
+  const shellClassName = mobileNavOpen
+    ? 'admin-shell admin-shell--nav-open'
+    : 'admin-shell'
+  const sidebarInert = isNarrowViewport && !mobileNavOpen
+
   return (
-    <div className="admin-shell">
-      <aside className="admin-shell__sidebar" aria-label="Admin navigation">
+    <div className={shellClassName}>
+      <button
+        type="button"
+        className="admin-shell__nav-backdrop"
+        aria-label="Close navigation menu"
+        tabIndex={mobileNavOpen ? 0 : -1}
+        onClick={closeMobileNav}
+      />
+      <aside
+        id="admin-shell-sidebar"
+        className="admin-shell__sidebar"
+        aria-label="Admin navigation"
+        inert={sidebarInert ? true : undefined}
+      >
         <div className="admin-shell__brand">
           {showWorkspaceSwitcher ? (
             <label className="admin-shell__workspace-switch">
@@ -88,6 +143,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   className={({ isActive }) =>
                     `admin-nav__link${isActive ? ' admin-nav__link--active' : ''}`
                   }
+                  onClick={closeMobileNav}
                 >
                   {item.label}
                 </NavLink>
@@ -98,18 +154,31 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </aside>
       <div className="admin-shell__main">
         <header className="admin-shell__header">
-          <div className="admin-shell__user">
-            <span className="admin-shell__email">{user?.email}</span>
-            <span className="admin-shell__role">{salon?.role}</span>
+          <div className="admin-shell__header-leading">
+            <button
+              type="button"
+              className="admin-shell__menu-toggle btn btn--secondary btn--compact"
+              aria-expanded={mobileNavOpen}
+              aria-controls="admin-shell-sidebar"
+              onClick={toggleMobileNav}
+            >
+              {mobileNavOpen ? 'Close menu' : 'Open menu'}
+            </button>
+            <div className="admin-shell__user">
+              <span className="admin-shell__email">{user?.email}</span>
+              <span className="admin-shell__role">{salon?.role}</span>
+            </div>
           </div>
-          <AdminNotificationBell />
-          <button
-            type="button"
-            className="btn btn--secondary btn--compact"
-            onClick={logout}
-          >
-            Log out
-          </button>
+          <div className="admin-shell__header-trailing">
+            <AdminNotificationBell />
+            <button
+              type="button"
+              className="btn btn--secondary btn--compact"
+              onClick={logout}
+            >
+              Log out
+            </button>
+          </div>
         </header>
         <div className="admin-shell__content">{children}</div>
       </div>
