@@ -1,8 +1,13 @@
-import { ApiError } from './errors'
-import type { ListStaffParams, StaffListItem } from '../types/staff'
+import { ApiError, formatApiErrorDetail } from './errors'
+import type {
+  ListStaffParams,
+  StaffCreateBody,
+  StaffListItem,
+  StaffUpdateBody,
+} from '../types/staff'
 
 type ApiErrorBody = {
-  detail?: string
+  detail?: unknown
   code?: string
 }
 
@@ -11,8 +16,9 @@ async function readApiError(response: Response): Promise<ApiError> {
   let code: string | undefined
   try {
     const body = (await response.json()) as ApiErrorBody
-    if (typeof body.detail === 'string') {
-      detail = body.detail
+    const formatted = formatApiErrorDetail(body.detail)
+    if (formatted !== undefined) {
+      detail = formatted
     }
     if (typeof body.code === 'string') {
       code = body.code
@@ -51,4 +57,50 @@ export async function fetchAdminStaff(
     throw await readApiError(response)
   }
   return (await response.json()) as StaffListItem[]
+}
+
+function staffCollectionUrl(salonId: string): string {
+  return `/api/v1/salons/${encodeURIComponent(salonId)}/staff`
+}
+
+export async function createAdminStaff(
+  token: string,
+  salonId: string,
+  body: StaffCreateBody,
+): Promise<StaffListItem> {
+  const response = await fetch(staffCollectionUrl(salonId), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as StaffListItem
+}
+
+export async function patchAdminStaff(
+  token: string,
+  salonId: string,
+  staffId: string,
+  body: StaffUpdateBody,
+): Promise<StaffListItem> {
+  const response = await fetch(
+    `${staffCollectionUrl(salonId)}/${encodeURIComponent(staffId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as StaffListItem
 }
