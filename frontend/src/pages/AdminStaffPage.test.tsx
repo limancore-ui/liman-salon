@@ -237,6 +237,10 @@ describe('AdminStaffPage CRUD', () => {
 
     await click(buttonByText(container, 'Deactivate'))
     await settle()
+    expect(mockedPatch).toHaveBeenCalledTimes(1)
+
+    await click(buttonByText(container, 'Confirm deactivation'))
+    await settle()
 
     expect(mockedPatch).toHaveBeenLastCalledWith(TOKEN, SALON_ID, 'staff-1', {
       is_active: false,
@@ -263,8 +267,11 @@ describe('AdminStaffPage CRUD', () => {
 
     await click(buttonByText(container, 'Deactivate'))
     await settle()
+    await click(buttonByText(container, 'Confirm deactivation'))
+    await settle()
 
     expect(container.textContent).toContain('You do not have permission to update staff.')
+    expect(buttonByText(container, 'Make unbookable')).toBeTruthy()
   })
 
   it('shows loading state while list loads', async () => {
@@ -349,5 +356,135 @@ describe('AdminStaffPage CRUD', () => {
     expect(buttonByText(container, 'Add staff')).toBeUndefined()
     expect(buttonByText(container, 'Edit')).toBeUndefined()
     expect(container.textContent).toContain('Alex')
+  })
+})
+
+describe('AdminStaffPage deactivation confirmation', () => {
+  let container: HTMLDivElement
+  let root: Root
+
+  async function settle() {
+    await act(async () => {
+      await flushPromises()
+      await flushPromises()
+    })
+  }
+
+  async function renderPage() {
+    await act(async () => {
+      root.render(<AdminStaffPage />)
+      await flushPromises()
+      await flushPromises()
+    })
+  }
+
+  function buttonByText(scope: ParentNode, text: string | RegExp): HTMLButtonElement | undefined {
+    return Array.from(scope.querySelectorAll('button')).find((b) => {
+      const label = b.textContent?.trim() ?? ''
+      return typeof text === 'string' ? label === text : text.test(label)
+    }) as HTMLButtonElement | undefined
+  }
+
+  async function click(el: HTMLElement | undefined | null) {
+    expect(el).toBeTruthy()
+    await act(async () => {
+      el?.click()
+      await flushPromises()
+    })
+  }
+
+  beforeEach(() => {
+    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    vi.clearAllMocks()
+    setAuth('owner')
+    mockedFetch.mockResolvedValue([makeStaff()])
+  })
+
+  afterEach(() => {
+    act(() => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('does not PATCH immediately when Deactivate is clicked', async () => {
+    await renderPage()
+    await settle()
+
+    await click(buttonByText(container, 'Deactivate'))
+    await settle()
+
+    expect(mockedPatch).not.toHaveBeenCalled()
+    expect(container.textContent).toContain('Deactivate Alex?')
+  })
+
+  it('does not PATCH when Cancel is clicked', async () => {
+    await renderPage()
+    await settle()
+
+    await click(buttonByText(container, 'Deactivate'))
+    await settle()
+    await click(buttonByText(container, 'Cancel'))
+    await settle()
+
+    expect(mockedPatch).not.toHaveBeenCalled()
+    expect(buttonByText(container, 'Deactivate')).toBeTruthy()
+    expect(container.textContent).not.toContain('Deactivate Alex?')
+  })
+
+  it('PATCHes is_active false only after Confirm deactivation', async () => {
+    mockedPatch.mockResolvedValue(makeStaff({ is_active: false }))
+    mockedFetch
+      .mockResolvedValueOnce([makeStaff()])
+      .mockResolvedValueOnce([makeStaff({ is_active: false })])
+
+    await renderPage()
+    await settle()
+
+    await click(buttonByText(container, 'Deactivate'))
+    await settle()
+    await click(buttonByText(container, 'Confirm deactivation'))
+    await settle()
+
+    expect(mockedPatch).toHaveBeenCalledTimes(1)
+    expect(mockedPatch).toHaveBeenCalledWith(TOKEN, SALON_ID, 'staff-1', {
+      is_active: false,
+    })
+  })
+
+  it('shows staff display name in the confirmation prompt', async () => {
+    mockedFetch.mockResolvedValue([
+      makeStaff({ id: 'staff-2', display_name: 'Jordan Lee' }),
+    ])
+
+    await renderPage()
+    await settle()
+
+    await click(buttonByText(container, 'Deactivate'))
+    await settle()
+
+    expect(container.textContent).toContain('Deactivate Jordan Lee?')
+  })
+
+  it('shows API errors after confirm and keeps the page usable', async () => {
+    mockedPatch.mockRejectedValue(new ApiError(403, 'Forbidden'))
+
+    await renderPage()
+    await settle()
+
+    await click(buttonByText(container, 'Deactivate'))
+    await settle()
+    await click(buttonByText(container, 'Confirm deactivation'))
+    await settle()
+
+    expect(container.textContent).toContain('You do not have permission to update staff.')
+    expect(buttonByText(container, 'Edit')).toBeTruthy()
+    expect(buttonByText(container, 'Make unbookable')).toBeTruthy()
+    expect(mockedPatch).toHaveBeenCalledWith(TOKEN, SALON_ID, 'staff-1', {
+      is_active: false,
+    })
   })
 })

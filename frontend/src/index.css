@@ -1626,6 +1626,18 @@ body {
   color: var(--color-danger, #b42318);
 }
 
+.admin-staff__deactivate-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 12rem;
+}
+
+.admin-staff__deactivate-confirm-text {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
 .admin-media__header {
   margin-bottom: var(--space-lg);
 }
