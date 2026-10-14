@@ -1089,6 +1089,50 @@ body {
     position: relative;
     z-index: 45;
   }
+
+  .admin-notifications {
+    min-width: 0;
+  }
+
+  .admin-notifications__panel {
+    position: fixed;
+    top: var(--admin-notifications-panel-inset-top, 5.25rem);
+    right: var(--space-md);
+    left: var(--space-md);
+    width: auto;
+    max-width: calc(100vw - 2 * var(--space-md));
+    max-height: calc(
+      100dvh - var(--admin-notifications-panel-inset-top, 5.25rem) - var(--space-md)
+    );
+    z-index: 40;
+    overflow-x: hidden;
+  }
+
+  .admin-notifications__panel-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .admin-notifications__title {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .admin-notifications__panel-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
+  }
+
+  .admin-notifications__item-main {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .admin-notifications__item-meta,
+  .admin-notifications__item-time {
+    overflow-wrap: anywhere;
+  }
 }
 
 @media (min-width: 48rem) {
