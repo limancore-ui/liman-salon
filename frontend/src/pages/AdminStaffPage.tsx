@@ -165,6 +165,7 @@ export function AdminStaffPage() {
   const [editForm, setEditForm] = useState<StaffFormState>(emptyStaffForm)
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [deactivateConfirmId, setDeactivateConfirmId] = useState<string | null>(null)
   const [togglingActiveId, setTogglingActiveId] = useState<string | null>(null)
   const [togglingBookableId, setTogglingBookableId] = useState<string | null>(null)
   const [toggleActiveErrors, setToggleActiveErrors] = useState<Record<string, string>>({})
@@ -177,7 +178,8 @@ export function AdminStaffPage() {
     createSubmitting ||
     editSubmitting ||
     togglingActiveId !== null ||
-    togglingBookableId !== null
+    togglingBookableId !== null ||
+    deactivateConfirmId !== null
 
   const mediaIndex = useSalonMediaAttachmentIndex(
     session?.token,
@@ -359,12 +361,13 @@ export function AdminStaffPage() {
     ],
   )
 
-  const handleToggleActive = useCallback(
+  const performActiveToggle = useCallback(
     async (row: StaffListItem) => {
-      if (!session || !canWrite || togglingActiveId !== null || formBusy) {
+      if (!session || !canWrite || togglingActiveId !== null) {
         return
       }
 
+      setDeactivateConfirmId((current) => (current === row.id ? null : current))
       setTogglingActiveId(row.id)
       setToggleActiveErrors((prev) => {
         if (prev[row.id] === undefined) {
@@ -396,8 +399,34 @@ export function AdminStaffPage() {
         setTogglingActiveId(null)
       }
     },
-    [session, canWrite, togglingActiveId, formBusy, load, clearAuthAndRedirect],
+    [session, canWrite, togglingActiveId, load, clearAuthAndRedirect],
   )
+
+  const handleActiveToggleClick = useCallback(
+    (row: StaffListItem) => {
+      if (!session || !canWrite || formBusy) {
+        return
+      }
+      if (row.is_active) {
+        setDeactivateConfirmId(row.id)
+        setToggleActiveErrors((prev) => {
+          if (prev[row.id] === undefined) {
+            return prev
+          }
+          const next = { ...prev }
+          delete next[row.id]
+          return next
+        })
+        return
+      }
+      void performActiveToggle(row)
+    },
+    [session, canWrite, formBusy, performActiveToggle],
+  )
+
+  const cancelDeactivateConfirm = useCallback(() => {
+    setDeactivateConfirmId(null)
+  }, [])
 
   const handleToggleBookable = useCallback(
     async (row: StaffListItem) => {
@@ -645,19 +674,55 @@ export function AdminStaffPage() {
                           >
                             Edit
                           </button>
-                          <button
-                            type="button"
-                            className="btn btn--secondary btn--compact"
-                            onClick={() => void handleToggleActive(row)}
-                            disabled={formBusy || editingId === row.id}
-                            aria-busy={togglingActiveId === row.id}
-                          >
-                            {togglingActiveId === row.id
-                              ? row.is_active
-                                ? 'Deactivating…'
-                                : 'Activating…'
-                              : staffActiveToggleLabel(row.is_active)}
-                          </button>
+                          {deactivateConfirmId === row.id && row.is_active ? (
+                            <div
+                              className="admin-staff__deactivate-confirm"
+                              role="group"
+                              aria-labelledby={`staff-deactivate-confirm-${row.id}`}
+                            >
+                              <p
+                                id={`staff-deactivate-confirm-${row.id}`}
+                                className="admin-staff__deactivate-confirm-text"
+                              >
+                                Deactivate {row.display_name}?
+                              </p>
+                              <div className="admin-staff__row-actions">
+                                <button
+                                  type="button"
+                                  className="btn btn--secondary btn--compact"
+                                  onClick={cancelDeactivateConfirm}
+                                  disabled={togglingActiveId === row.id}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn--primary btn--compact"
+                                  onClick={() => void performActiveToggle(row)}
+                                  disabled={togglingActiveId === row.id}
+                                  aria-busy={togglingActiveId === row.id}
+                                >
+                                  {togglingActiveId === row.id
+                                    ? 'Deactivating…'
+                                    : 'Confirm deactivation'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn btn--secondary btn--compact"
+                              onClick={() => handleActiveToggleClick(row)}
+                              disabled={formBusy || editingId === row.id}
+                              aria-busy={
+                                togglingActiveId === row.id && !row.is_active
+                              }
+                            >
+                              {togglingActiveId === row.id && !row.is_active
+                                ? 'Activating…'
+                                : staffActiveToggleLabel(row.is_active)}
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="btn btn--secondary btn--compact"
