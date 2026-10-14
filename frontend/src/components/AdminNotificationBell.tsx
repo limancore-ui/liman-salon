@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useAdminNotifications } from '../hooks/useAdminNotifications'
@@ -11,7 +11,12 @@ import {
 } from '../utils/adminNotificationSound'
 import { formatBookingDateTime } from '../utils/adminSalonFormat'
 
-export function AdminNotificationBell() {
+type AdminNotificationBellProps = {
+  /** When true (mobile nav drawer open), notification panel is closed. */
+  mobileNavOpen?: boolean
+}
+
+export function AdminNotificationBell({ mobileNavOpen = false }: AdminNotificationBellProps) {
   const { session, clearAuthAndRedirect } = useAuth()
   const token = session?.token ?? null
   const salonId = session?.salon?.salon_id ?? null
@@ -71,6 +76,44 @@ export function AdminNotificationBell() {
       return next
     })
   }
+
+  useLayoutEffect(() => {
+    if (!open) {
+      document.documentElement.style.removeProperty(
+        '--admin-notifications-panel-inset-top',
+      )
+      return
+    }
+    const panelGapPx = 8
+    const syncPanelInsetTop = () => {
+      const header = document.querySelector<HTMLElement>('.admin-shell__header')
+      const top = header
+        ? header.getBoundingClientRect().bottom + panelGapPx
+        : null
+      if (top != null) {
+        document.documentElement.style.setProperty(
+          '--admin-notifications-panel-inset-top',
+          `${top}px`,
+        )
+      }
+    }
+    syncPanelInsetTop()
+    window.addEventListener('resize', syncPanelInsetTop)
+    window.addEventListener('scroll', syncPanelInsetTop, { passive: true })
+    return () => {
+      window.removeEventListener('resize', syncPanelInsetTop)
+      window.removeEventListener('scroll', syncPanelInsetTop)
+      document.documentElement.style.removeProperty(
+        '--admin-notifications-panel-inset-top',
+      )
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (mobileNavOpen) {
+      setOpen(false)
+    }
+  }, [mobileNavOpen, setOpen])
 
   useEffect(() => {
     if (!open) {

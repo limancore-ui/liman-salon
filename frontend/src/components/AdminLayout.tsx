@@ -170,7 +170,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </div>
           </div>
           <div className="admin-shell__header-trailing">
-            <AdminNotificationBell />
+            <AdminNotificationBell mobileNavOpen={mobileNavOpen} />
             <button
               type="button"
               className="btn btn--secondary btn--compact"
