@@ -7,6 +7,7 @@ export type BookingListItem = {
   price_cents: number
   customer_name: string
   customer_phone: string | null
+  staff_id: string
   staff_name: string
   service_name: string
   source: string

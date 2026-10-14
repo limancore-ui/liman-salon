@@ -90,6 +90,7 @@ class BookingListItemResponse(BaseModel):
     price_cents: int
     customer_name: str
     customer_phone: str | None
+    staff_id: UUID
     staff_name: str
     service_name: str
     source: str

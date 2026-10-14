@@ -52,6 +52,7 @@ def _to_list_item(row: BookingListRow) -> BookingListItemResponse:
         price_cents=row.price_cents,
         customer_name=row.customer_name,
         customer_phone=row.customer_phone,
+        staff_id=row.staff_id,
         staff_name=row.staff_name,
         service_name=row.service_name,
         source=row.source,

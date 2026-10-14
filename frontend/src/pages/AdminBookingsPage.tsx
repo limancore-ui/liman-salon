@@ -37,6 +37,7 @@ import {
   salonLocalDateTimeToIso,
 } from '../utils/adminBookingTime'
 import { parseAdminBookingsFilterParams } from '../utils/adminBookingsFilterParams'
+import { initialRescheduleStaffId } from '../utils/adminBookingRescheduleStaff'
 import {
   bumpSmartGapRequestId,
   deriveSmartGapListPhase,
@@ -79,18 +80,6 @@ function isActionableBookingStatus(status: string): boolean {
 
 function hasVisitLifecycleActions(status: string): boolean {
   return status === 'confirmed' || status === 'in_progress'
-}
-
-function resolveStaffIdForBooking(
-  staffList: StaffListItem[],
-  staffName: string,
-): string {
-  const match = staffList.find((row) => row.display_name === staffName)
-  if (match) {
-    return match.id
-  }
-  const bookable = staffList.find((row) => row.is_bookable && row.is_active)
-  return bookable?.id ?? staffList[0]?.id ?? ''
 }
 
 export function AdminBookingsPage() {
@@ -516,7 +505,7 @@ export function AdminBookingsPage() {
       setActionError(null)
       setActionBooking(row)
       setActionMode('reschedule')
-      setRescheduleStaffId(resolveStaffIdForBooking(staffList, row.staff_name))
+      setRescheduleStaffId(initialRescheduleStaffId(staffList, row))
       setRescheduleStartLocal(isoToSalonLocalDatetimeLocal(row.starts_at, salonTimeZoneForInput))
     },
     [clearCreate, staffList, salonTimeZoneForInput],
@@ -1106,7 +1095,9 @@ export function AdminBookingsPage() {
                 >
                   {staffList.length === 0 ? (
                     <option value="">No bookable staff</option>
-                  ) : null}
+                  ) : (
+                    <option value="">Select staff</option>
+                  )}
                   {staffList.map((staff) => (
                     <option key={staff.id} value={staff.id}>
                       {staff.display_name}

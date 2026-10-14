@@ -34,6 +34,7 @@ def _list_row() -> BookingListRow:
         price_cents=5000,
         customer_name="Jane Doe",
         customer_phone="+77001234567",
+        staff_id=STAFF_ID,
         staff_name="Alex",
         service_name="Cut",
         source="admin",
@@ -94,6 +95,7 @@ def test_list_bookings_owner_admin(role: str) -> None:
         assert len(body) == 1
         assert body[0]["id"] == str(BOOKING_ID)
         assert body[0]["customer_name"] == "Jane Doe"
+        assert body[0]["staff_id"] == str(STAFF_ID)
         assert body[0]["starts_at"].endswith("+00:00") or body[0]["starts_at"].endswith("Z")
         mock_booking.list_bookings.assert_called_once()
         assert mock_booking.list_bookings.call_args.kwargs["salon_id"] == SALON_A
