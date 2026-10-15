@@ -29,6 +29,7 @@ from app.api.schemas.schedule import (
     BlockedPeriodResponse,
     BlockedPeriodUpdateRequest,
     WorkingHoursCreateRequest,
+    WorkingHoursDeleteRequest,
     WorkingHoursResponse,
     WorkingHoursUpdateRequest,
 )
@@ -37,7 +38,7 @@ from app.auth.principals import SalonContext
 from app.services.schedule.errors import ImpactAckRequiredError, ImpactStaleError
 from app.services.schedule.impact import normalize_working_hours_create_preview_as_of
 from app.services.schedule.lock import acquire_schedule_lock_exclusive
-from app.services.schedule.overlay import WorkingHoursCreateChange
+from app.services.schedule.overlay import WorkingHoursCreateChange, WorkingHoursDeleteChange
 from app.services.schedule.service import (
     BlockedPeriodCreateData,
     BlockedPeriodUpdateData,
@@ -261,14 +262,33 @@ def update_working_hours(
 def delete_working_hours(
     salon_id: uuid.UUID,
     working_hours_id: uuid.UUID,
+    body: WorkingHoursDeleteRequest,
     context: WriteSalonContext,
     schedule_service: ScheduleServiceDep,
+    impact_service: ScheduleImpactServiceDep,
+    session: SessionDep,
+    clock: ClockDep,
 ) -> Response:
     _assert_path_salon(context, salon_id)
+    # Same freshness policy as working_hours.create. One clock read, before the lock.
+    normalized_as_of = normalize_working_hours_create_preview_as_of(body.as_of, now=clock())
+    acquire_schedule_lock_exclusive(session, context.salon_id)
+    preview = impact_service.preview_impact(
+        salon_id=context.salon_id,
+        change=WorkingHoursDeleteChange(working_hours_id=working_hours_id),
+        as_of=normalized_as_of,
+        horizon_days=body.horizon_days,
+    )
+    if preview.impact_fingerprint != body.impact_fingerprint:
+        raise ImpactStaleError("impact fingerprint is stale")
+    if preview.all_impacts and not body.acknowledge_impacts:
+        raise ImpactAckRequiredError("impact acknowledgement required")
     schedule_service.delete_working_hour(
         salon_id=context.salon_id,
         working_hours_id=working_hours_id,
     )
+    # Commit before the empty 204 is started. Do not touch the session after this.
+    session.commit()
     return Response(status_code=204)
 
 

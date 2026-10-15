@@ -503,7 +503,9 @@ export function AdminSchedulePage() {
     setPendingWhDelete(null)
   }
 
-  async function handleConfirmDeleteWorkingHours() {
+  async function handleConfirmDeleteWorkingHours(
+    payload: ScheduleImpactPreviewConfirmPayload,
+  ) {
     if (!session || !manage || pendingWhDelete === null) {
       return
     }
@@ -512,7 +514,12 @@ export function AdminSchedulePage() {
     setWhSaving(true)
     setWhActionError(null)
     try {
-      await deleteWorkingHours(session.token, session.salon.salon_id, workingHoursId)
+      await deleteWorkingHours(session.token, session.salon.salon_id, workingHoursId, {
+        impact_fingerprint: payload.fingerprint,
+        as_of: payload.response.as_of,
+        horizon_days: payload.response.change_summary.horizon.days,
+        acknowledge_impacts: payload.acknowledgementChecked,
+      })
       if (whEditingId === workingHoursId) {
         cancelWhEdit()
       }
@@ -747,7 +754,7 @@ export function AdminSchedulePage() {
               change={pendingWhDelete.change}
               confirmLabel="Delete working hours"
               onCancel={handleCancelDeleteWorkingHoursPreview}
-              onConfirm={() => void handleConfirmDeleteWorkingHours()}
+              onConfirm={(payload) => void handleConfirmDeleteWorkingHours(payload)}
             />
           ) : null}
 

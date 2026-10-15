@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from './errors'
-import { createWorkingHours, previewScheduleImpact } from './schedule'
+import { createWorkingHours, deleteWorkingHours, previewScheduleImpact } from './schedule'
 
 const salonId = 'salon-a'
 const token = 'test-token'
@@ -150,5 +150,38 @@ describe('createWorkingHours', () => {
     expect(sent).not.toHaveProperty('impact_offset')
     expect(sent).not.toHaveProperty('impact_limit')
     expect(sent).not.toHaveProperty('kind')
+  })
+})
+
+describe('deleteWorkingHours', () => {
+  it('sends the canonical preview gate as a DELETE JSON body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const body = {
+      impact_fingerprint: 'a'.repeat(64),
+      as_of: '2026-03-15T08:30:00+00:00',
+      horizon_days: 30,
+      acknowledge_impacts: true,
+    }
+
+    await deleteWorkingHours(token, salonId, workingHoursId, body)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/salons/${salonId}/schedule/working-hours/${workingHoursId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    const sent = JSON.parse(String(fetchMock.mock.calls[0][1].body)) as Record<string, unknown>
+    expect(sent).not.toHaveProperty('kind')
+    expect(sent).not.toHaveProperty('impact_offset')
+    expect(sent).not.toHaveProperty('impact_limit')
+    expect(sent).not.toHaveProperty('working_hours_id')
   })
 })

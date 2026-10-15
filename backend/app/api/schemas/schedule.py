@@ -62,6 +62,27 @@ class WorkingHoursCreateRequest(WorkingHoursCreateFields):
         return value
 
 
+class WorkingHoursDeleteRequest(BaseModel):
+    """working_hours.delete body: the impact commit gate for an existing row."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    impact_fingerprint: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    as_of: datetime
+    horizon_days: int = Field(ge=1, le=MAX_HORIZON_DAYS)
+    acknowledge_impacts: bool
+
+    @field_validator("as_of", mode="before")
+    @classmethod
+    def parse_as_of(cls, value: object) -> object:
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError as exc:
+                raise ScheduleValidationError("as_of must be timezone-aware") from exc
+        return value
+
+
 class WorkingHoursUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

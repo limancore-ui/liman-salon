@@ -8,6 +8,7 @@ import type {
   ScheduleImpactPreviewRequestBody,
   ScheduleImpactPreviewResponse,
   WorkingHoursCreateBody,
+  WorkingHoursDeleteBody,
   WorkingHoursItem,
   WorkingHoursUpdateBody,
 } from '../types/schedule'
@@ -125,12 +126,17 @@ export async function deleteWorkingHours(
   token: string,
   salonId: string,
   workingHoursId: string,
+  body: WorkingHoursDeleteBody,
 ): Promise<void> {
   const response = await fetch(
     `${scheduleBase(salonId)}/working-hours/${encodeURIComponent(workingHoursId)}`,
     {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     },
   )
   if (!response.ok) {
