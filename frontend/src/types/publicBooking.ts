@@ -64,6 +64,9 @@ export type ManageBookingSnapshot = {
   hold_expires_at: string
   status?: string
   cancelled_at?: string
+  /** From GET /manage when loaded; drives action buttons. */
+  can_cancel?: boolean
+  can_reschedule?: boolean
 }
 
 export type CustomerFormState = {

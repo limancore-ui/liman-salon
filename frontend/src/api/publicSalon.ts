@@ -29,6 +29,22 @@ import type {
 } from '../types/publicCatalog'
 import { resolvePublicMediaUrl } from '../utils/publicMedia'
 
+/** Matches backend `PublicBookingManageResponse`. */
+export type PublicBookingManageResponse = {
+  booking_id: string
+  status: string
+  service_id: string
+  service_name: string
+  staff_id: string
+  staff_display_name: string
+  service_start: string
+  service_end: string
+  hold_expires_at: string | null
+  can_cancel: boolean
+  can_reschedule: boolean
+  timezone: string
+}
+
 type ApiErrorBody = {
   detail?: string
   code?: string
@@ -292,6 +308,30 @@ export async function cancelPublicBookingBySlug(
     throw new ApiError(0, 'network error')
   }
   return parseJsonResponse<PublicBookingCancelResponse>(response)
+}
+
+export async function getPublicBookingManageBySlug(
+  slug: string,
+  bookingId: string,
+  token: string,
+  signal?: AbortSignal,
+): Promise<PublicBookingManageResponse> {
+  let response: Response
+  try {
+    response = await fetch(
+      `/api/v1/public/salons/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/manage`,
+      {
+        headers: { 'X-Booking-Manage-Token': token },
+        signal,
+      },
+    )
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err
+    }
+    throw new ApiError(0, 'network error')
+  }
+  return parseJsonResponse<PublicBookingManageResponse>(response)
 }
 
 export async function reschedulePublicBookingBySlug(
