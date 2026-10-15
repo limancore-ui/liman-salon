@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 import uuid
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 
 import pytest
 from sqlalchemy import delete, text
@@ -198,6 +198,7 @@ def test_reschedule_under_shared_gate_commits() -> None:
             ),
         )
         token = generate_manage_token()
+        hold_seconds = get_settings().public_booking_hold_seconds
         created = BookingService(session).create_booking(
             salon_id=salon.id,
             customer_id=customer.customer_id,
@@ -207,6 +208,7 @@ def test_reschedule_under_shared_gate_commits() -> None:
             source="public",
             status="pending",
             as_of=as_of,
+            expires_at=as_of + timedelta(seconds=hold_seconds),
             manage_token_hash=hash_manage_token(
                 token,
                 pepper=get_settings().booking_manage_token_pepper,
