@@ -154,6 +154,24 @@ class OperationalBookingForImpact:
 
 
 @dataclass(frozen=True, slots=True)
+class PublicBookingManageResult:
+    """Read-only public manage view (no PII)."""
+
+    booking_id: UUID
+    status: str
+    service_id: UUID
+    service_name: str
+    staff_id: UUID
+    staff_display_name: str
+    service_start: datetime
+    service_end: datetime
+    hold_expires_at: datetime | None
+    can_cancel: bool
+    can_reschedule: bool
+    timezone: str
+
+
+@dataclass(frozen=True, slots=True)
 class BookingListRow:
     """Admin list view row with joined display names (tenant-scoped)."""
 

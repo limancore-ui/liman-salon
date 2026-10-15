@@ -27,6 +27,7 @@ from app.services.booking.types import (
     ConfirmBookingResult,
     CreateBookingResult,
     NoShowVisitResult,
+    PublicBookingManageResult,
     RescheduleBookingResult,
     ServiceSnapshot,
     StartVisitResult,
@@ -407,6 +408,89 @@ class BookingService:
             raise BookingNotFoundError("booking not found")
 
         return self._cancel_booking_loaded(booking, as_of=as_of, reason=reason)
+
+    @staticmethod
+    def _effective_status_for_manage_read(
+        booking: Booking,
+        *,
+        as_of: datetime,
+    ) -> str:
+        """Pending hold past expires_at is reported as expired without DB writes."""
+        if booking.status != "pending":
+            return booking.status
+        if booking.expires_at is None:
+            return booking.status
+        if booking.expires_at <= as_of:
+            return "expired"
+        return booking.status
+
+    @staticmethod
+    def _manage_actions_allowed(effective_status: str) -> tuple[bool, bool]:
+        allowed = effective_status in ("pending", "confirmed")
+        return allowed, allowed
+
+    def _net_service_times_for_booking(
+        self,
+        booking: Booking,
+        *,
+        salon_id: uuid.UUID,
+    ) -> tuple[datetime, datetime]:
+        service = self._repo.get_service(salon_id, booking.service_id)
+        buffer_before = service.buffer_before_minutes if service is not None else 0
+        service_start = booking.starts_at + timedelta(minutes=buffer_before)
+        service_end = service_start + timedelta(minutes=booking.duration_minutes)
+        return service_start, service_end
+
+    def get_public_booking_for_manage(
+        self,
+        *,
+        salon_id: uuid.UUID,
+        booking_id: uuid.UUID,
+        token: str | None,
+        salon_timezone: str,
+        as_of: datetime,
+    ) -> PublicBookingManageResult:
+        if as_of.tzinfo is None:
+            raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
+        if token is None or not token.strip():
+            raise BookingNotFoundError("booking not found")
+
+        booking = self._repo.get_booking(salon_id, booking_id)
+        if booking is None:
+            raise BookingNotFoundError("booking not found")
+
+        pepper = get_settings().booking_manage_token_pepper
+        if not verify_manage_token(token, booking.manage_token_hash, pepper=pepper):
+            raise BookingNotFoundError("booking not found")
+
+        effective_status = self._effective_status_for_manage_read(booking, as_of=as_of)
+        can_cancel, can_reschedule = self._manage_actions_allowed(effective_status)
+
+        service = self._repo.get_service(salon_id, booking.service_id)
+        staff = self._repo.get_staff(salon_id, booking.staff_id)
+        service_name = service.name if service is not None else ""
+        staff_display_name = staff.display_name if staff is not None else ""
+
+        service_start, service_end = self._net_service_times_for_booking(
+            booking,
+            salon_id=salon_id,
+        )
+        hold_expires_at = booking.expires_at if booking.status == "pending" else None
+
+        return PublicBookingManageResult(
+            booking_id=booking.id,
+            status=effective_status,
+            service_id=booking.service_id,
+            service_name=service_name,
+            staff_id=booking.staff_id,
+            staff_display_name=staff_display_name,
+            service_start=service_start,
+            service_end=service_end,
+            hold_expires_at=hold_expires_at,
+            can_cancel=can_cancel,
+            can_reschedule=can_reschedule,
+            timezone=salon_timezone,
+        )
 
     def admin_cancel_booking(
         self,
