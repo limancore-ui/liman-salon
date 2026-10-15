@@ -4,14 +4,17 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Final
 
 from sqlalchemy.orm import Session
 
 from app.services.availability.service import AvailabilityService
 from app.services.booking.repository import BookingRepository
-from app.services.schedule.errors import ScheduleValidationError
+from app.services.schedule.errors import (
+    ImpactPreviewExpiredError,
+    ScheduleValidationError,
+)
 from app.services.schedule.overlay import (
     BlockedPeriodCreateChange,
     BlockedPeriodDeleteChange,
@@ -32,6 +35,11 @@ DEFAULT_HORIZON_DAYS = 90
 MAX_HORIZON_DAYS = 365
 DEFAULT_IMPACT_LIMIT = 50
 MAX_IMPACT_LIMIT = 100
+
+# working_hours.create commit gate. Independent of access-token expiry and
+# public booking hold duration.
+WORKING_HOURS_CREATE_PREVIEW_MAX_AGE_SECONDS: Final[int] = 900
+WORKING_HOURS_CREATE_PREVIEW_MAX_FUTURE_SKEW_SECONDS: Final[int] = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,3 +376,26 @@ def _optional_date(value: object) -> str | None:
     if value is None:
         return None
     return value.isoformat()  # type: ignore[union-attr]
+
+
+def normalize_working_hours_create_preview_as_of(
+    as_of: datetime, *, now: datetime
+) -> datetime:
+    """Validate echoed preview time and return it in UTC.
+
+    ``now`` is the single clock reading for this decision. Expiration uses
+    ``age > MAX_AGE``. Future skew uses ``as_of > now + MAX_SKEW``.
+    """
+    if as_of.tzinfo is None or as_of.tzinfo.utcoffset(as_of) is None:
+        raise ScheduleValidationError("as_of must be timezone-aware")
+    if now.tzinfo is None or now.tzinfo.utcoffset(now) is None:
+        raise ScheduleValidationError("as_of must be timezone-aware")
+    normalized = as_of.astimezone(timezone.utc)
+    now_utc = now.astimezone(timezone.utc)
+    max_skew = timedelta(seconds=WORKING_HOURS_CREATE_PREVIEW_MAX_FUTURE_SKEW_SECONDS)
+    if normalized > now_utc + max_skew:
+        raise ScheduleValidationError("as_of is too far in the future")
+    max_age = timedelta(seconds=WORKING_HOURS_CREATE_PREVIEW_MAX_AGE_SECONDS)
+    if now_utc - normalized > max_age:
+        raise ImpactPreviewExpiredError("impact preview expired")
+    return normalized

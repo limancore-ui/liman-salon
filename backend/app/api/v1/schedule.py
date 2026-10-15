@@ -6,7 +6,13 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Response
 
-from app.api.deps import AsOfDep, ScheduleImpactServiceDep, ScheduleServiceDep, SessionDep
+from app.api.deps import (
+    AsOfDep,
+    ClockDep,
+    ScheduleImpactServiceDep,
+    ScheduleServiceDep,
+    SessionDep,
+)
 from app.api.schemas.schedule_impact import (
     ImpactHorizonSummary,
     ScheduleImpactBookingRow,
@@ -28,6 +34,10 @@ from app.api.schemas.schedule import (
 )
 from app.auth.deps import require_roles
 from app.auth.principals import SalonContext
+from app.services.schedule.errors import ImpactAckRequiredError, ImpactStaleError
+from app.services.schedule.impact import normalize_working_hours_create_preview_as_of
+from app.services.schedule.lock import acquire_schedule_lock_exclusive
+from app.services.schedule.overlay import WorkingHoursCreateChange
 from app.services.schedule.service import (
     BlockedPeriodCreateData,
     BlockedPeriodUpdateData,
@@ -172,8 +182,31 @@ def create_working_hours(
     body: WorkingHoursCreateRequest,
     context: WriteSalonContext,
     schedule_service: ScheduleServiceDep,
+    impact_service: ScheduleImpactServiceDep,
+    session: SessionDep,
+    clock: ClockDep,
 ) -> WorkingHoursResponse:
     _assert_path_salon(context, salon_id)
+    # One clock read for both future-skew and preview-age checks, before the lock.
+    normalized_as_of = normalize_working_hours_create_preview_as_of(body.as_of, now=clock())
+    acquire_schedule_lock_exclusive(session, context.salon_id)
+    preview = impact_service.preview_impact(
+        salon_id=context.salon_id,
+        change=WorkingHoursCreateChange(
+            staff_id=body.staff_id,
+            day_of_week=body.day_of_week,
+            start_time=body.start_time,
+            end_time=body.end_time,
+            effective_from=body.effective_from,
+            effective_to=body.effective_to,
+        ),
+        as_of=normalized_as_of,
+        horizon_days=body.horizon_days,
+    )
+    if preview.impact_fingerprint != body.impact_fingerprint:
+        raise ImpactStaleError("impact fingerprint is stale")
+    if preview.all_impacts and not body.acknowledge_impacts:
+        raise ImpactAckRequiredError("impact acknowledgement required")
     row = schedule_service.create_working_hour(
         salon_id=context.salon_id,
         data=WorkingHoursCreateData(
@@ -185,7 +218,11 @@ def create_working_hours(
             effective_to=body.effective_to,
         ),
     )
-    return WorkingHoursResponse.model_validate(row)
+    # Build the response while the flushed row is still loaded, then commit
+    # before returning so HTTP 201 is not started on an uncommitted transaction.
+    response = WorkingHoursResponse.model_validate(row)
+    session.commit()
+    return response
 
 
 @router.get("/working-hours/{working_hours_id}", response_model=WorkingHoursResponse)

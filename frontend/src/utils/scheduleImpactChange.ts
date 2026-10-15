@@ -5,7 +5,7 @@ import type {
   BlockedPeriodDeleteImpactChange,
   BlockedPeriodUpdateImpactChange,
   StaffServiceDetachImpactChange,
-  WorkingHoursCreateBody,
+  WorkingHoursCreateProposal,
   WorkingHoursCreateImpactChange,
   WorkingHoursDeleteImpactChange,
   WorkingHoursUpdateBody,
@@ -20,7 +20,7 @@ import {
 } from './scheduleFormBodies'
 
 export function buildWorkingHoursCreateImpactChange(
-  body: WorkingHoursCreateBody,
+  body: WorkingHoursCreateProposal,
 ): WorkingHoursCreateImpactChange {
   return { kind: 'working_hours.create', ...body }
 }

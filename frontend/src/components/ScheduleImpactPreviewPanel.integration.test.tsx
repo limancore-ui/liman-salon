@@ -142,6 +142,7 @@ describe('ScheduleImpactPreviewPanel integration', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1)
     const payload = onConfirm.mock.calls[0]?.[0]
     expect(payload?.fingerprint).toHaveLength(64)
+    expect(payload?.acknowledgementChecked).toBe(true)
     expect(payload?.impacts).toHaveLength(1)
     expect(payload?.response.counts.total_impacted).toBe(1)
     expect(payload?.change).toEqual({

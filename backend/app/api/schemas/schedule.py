@@ -6,8 +6,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.services.schedule.errors import ScheduleValidationError
+from app.services.schedule.impact import MAX_HORIZON_DAYS
 
-class WorkingHoursCreateRequest(BaseModel):
+
+class WorkingHoursCreateFields(BaseModel):
+    """Proposal fields shared by working-hours create and its impact preview."""
+
     model_config = ConfigDict(extra="forbid")
 
     staff_id: UUID | None = None
@@ -36,6 +41,25 @@ class WorkingHoursCreateRequest(BaseModel):
         ):
             raise ValueError("effective_to must be on or after effective_from")
         return effective_to
+
+
+class WorkingHoursCreateRequest(WorkingHoursCreateFields):
+    """working_hours.create body, including the impact commit gate."""
+
+    impact_fingerprint: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    as_of: datetime
+    horizon_days: int = Field(ge=1, le=MAX_HORIZON_DAYS)
+    acknowledge_impacts: bool
+
+    @field_validator("as_of", mode="before")
+    @classmethod
+    def parse_as_of(cls, value: object) -> object:
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError as exc:
+                raise ScheduleValidationError("as_of must be timezone-aware") from exc
+        return value
 
 
 class WorkingHoursUpdateRequest(BaseModel):
