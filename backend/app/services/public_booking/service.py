@@ -13,6 +13,7 @@ from app.services.booking.manage_token import generate_manage_token, hash_manage
 from app.services.booking.service import BookingService
 from app.services.admin_notifications.service import AdminNotificationService
 from app.services.public_booking.types import PublicBookingResult
+from app.services.schedule.lock import acquire_schedule_lock_shared
 
 
 class PublicBookingService:
@@ -55,6 +56,8 @@ class PublicBookingService:
         if service is None:
             raise ServiceNotFoundError("service not found")
 
+        acquire_schedule_lock_shared(self._session, salon_id)
+
         if service.is_active:
             if not self._availability.is_service_slot_available(
                 salon_id=salon_id,
@@ -83,6 +86,7 @@ class PublicBookingService:
             expires_at=hold_expires_at,
             customer_notes=customer_notes,
             manage_token_hash=manage_token_hash,
+            schedule_gate_shared_held=True,
         )
 
         if self._admin_notifications is not None:

@@ -20,6 +20,7 @@ from app.services.salon_settings import resolve_public_booking_hold_seconds
 from app.services.booking.repository import BookingRepository
 from app.services.notifications.service import NotificationService
 from app.services.bonus.service import BonusLedgerService
+from app.services.schedule.lock import acquire_schedule_lock_shared
 from app.services.booking.types import (
     BookingListRow,
     CancelBookingResult,
@@ -122,6 +123,7 @@ class BookingService:
         internal_notes: str | None = None,
         created_by_user_id: uuid.UUID | None = None,
         manage_token_hash: str | None = None,
+        schedule_gate_shared_held: bool = False,
     ) -> CreateBookingResult:
         if as_of.tzinfo is None:
             raise BookingValidationError("as_of must be timezone-aware (UTC recommended)")
@@ -153,6 +155,7 @@ class BookingService:
             internal_notes=internal_notes,
             created_by_user_id=created_by_user_id,
             manage_token_hash=manage_token_hash,
+            schedule_gate_shared_held=schedule_gate_shared_held,
         )
 
     def _create_booking_in_transaction(
@@ -171,6 +174,7 @@ class BookingService:
         internal_notes: str | None,
         created_by_user_id: uuid.UUID | None,
         manage_token_hash: str | None,
+        schedule_gate_shared_held: bool = False,
     ) -> CreateBookingResult:
         currency = self._repo.get_salon_currency(salon_id)
         if currency is None:
@@ -212,6 +216,9 @@ class BookingService:
             buffer_before_minutes=snapshot.buffer_before_minutes,
             buffer_after_minutes=snapshot.buffer_after_minutes,
         )
+
+        if not schedule_gate_shared_held:
+            acquire_schedule_lock_shared(self._session, salon_id)
 
         self._repo.expire_stale_pending_holds(
             salon_id=salon_id,
@@ -603,6 +610,8 @@ class BookingService:
             buffer_before_minutes=service.buffer_before_minutes,
             buffer_after_minutes=service.buffer_after_minutes,
         )
+
+        acquire_schedule_lock_shared(self._session, salon_id)
 
         self._repo.expire_stale_pending_holds(
             salon_id=salon_id,

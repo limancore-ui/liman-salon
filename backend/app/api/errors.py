@@ -16,6 +16,7 @@ from app.auth.errors import (
     UnauthorizedError,
 )
 from app.services.schedule.errors import (
+    ScheduleBusyError,
     ScheduleError,
     ScheduleNotFoundError,
     ScheduleValidationError,
@@ -145,6 +146,14 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(ScheduleBusyError)
+    async def schedule_busy(_request: Request, exc: ScheduleBusyError) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            headers={"Retry-After": "2"},
+            content=ErrorBody(detail=str(exc), code="schedule_busy").model_dump(),
         )
 
     @app.exception_handler(ScheduleError)
