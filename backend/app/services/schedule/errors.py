@@ -11,3 +11,7 @@ class ScheduleValidationError(ScheduleError):
 
 class ScheduleNotFoundError(ScheduleError):
     """Schedule row or related tenant-scoped entity not found."""
+
+
+class ScheduleBusyError(ScheduleError):
+    """Schedule gate lock could not be acquired (contention or timeout)."""
