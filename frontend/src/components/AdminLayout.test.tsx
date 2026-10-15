@@ -115,6 +115,207 @@ describe('AdminLayout', () => {
     window.matchMedia = originalMatchMedia
   })
 
+  it('keeps Log out inside the profile menu instead of the header', async () => {
+    installMatchMedia(false)
+    const logout = vi.fn()
+    mockedUseAuth.mockReturnValue({
+      session: {
+        token: 'tok',
+        user: {
+          user_id: 'u1',
+          email: 'owner@example.com',
+          full_name: 'Owner',
+        },
+        salon: {
+          user_id: 'u1',
+          salon_id: 'salon-1',
+          role: 'owner',
+          email: 'owner@example.com',
+          salon_name: 'Liman',
+          salon_slug: 'liman',
+        },
+        salons: [
+          {
+            salon_id: 'salon-1',
+            salon_name: 'Liman',
+            salon_slug: 'liman',
+            role: 'owner',
+          },
+        ],
+      },
+      logout,
+      switchWorkspace: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+
+    const container = document.createElement('div')
+    const root: Root = createRoot(container)
+    await act(async () => {
+      root.render(
+        <MemoryRouter>
+          <AdminLayout>
+            <p>Page content</p>
+          </AdminLayout>
+        </MemoryRouter>,
+      )
+    })
+
+    const header = container.querySelector('.admin-shell__header') as HTMLElement
+    expect(header.textContent).not.toContain('Log out')
+    const trigger = container.querySelector(
+      '.admin-profile__trigger',
+    ) as HTMLButtonElement
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    expect(trigger.textContent).toContain('owner@example.com')
+
+    await act(async () => {
+      trigger.click()
+    })
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    const logoutItem = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Log out',
+    ) as HTMLButtonElement
+    expect(logoutItem.closest('.admin-profile__menu')).not.toBeNull()
+    expect(header.querySelector('.admin-shell__header-trailing')?.textContent).not.toContain(
+      'Log out',
+    )
+
+    await act(async () => {
+      logoutItem.click()
+    })
+    expect(logout).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('closes the profile menu on Escape and returns focus to the user button', async () => {
+    installMatchMedia(false)
+    mockSession('owner')
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root: Root = createRoot(container)
+    await act(async () => {
+      root.render(
+        <MemoryRouter>
+          <AdminLayout>
+            <p>Page content</p>
+          </AdminLayout>
+        </MemoryRouter>,
+      )
+    })
+
+    const trigger = container.querySelector(
+      '.admin-profile__trigger',
+    ) as HTMLButtonElement
+    expect(trigger.tagName).toBe('BUTTON')
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu')
+
+    await act(async () => {
+      trigger.focus()
+      trigger.click()
+    })
+    const logoutItem = container.querySelector(
+      '.admin-profile__item',
+    ) as HTMLButtonElement
+    expect(logoutItem.textContent).toBe('Log out')
+
+    await act(async () => {
+      logoutItem.focus()
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      )
+    })
+
+    expect(container.querySelector('.admin-profile__menu')).toBeNull()
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(trigger)
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('closes the profile menu on an outside press and keeps it open on an inside press', async () => {
+    installMatchMedia(false)
+    mockSession('owner')
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root: Root = createRoot(container)
+    await act(async () => {
+      root.render(
+        <MemoryRouter>
+          <AdminLayout>
+            <p>Page content</p>
+          </AdminLayout>
+        </MemoryRouter>,
+      )
+    })
+
+    const trigger = container.querySelector(
+      '.admin-profile__trigger',
+    ) as HTMLButtonElement
+    await act(async () => {
+      trigger.click()
+    })
+    const menu = container.querySelector('.admin-profile__menu') as HTMLElement
+
+    await act(async () => {
+      menu.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    })
+    expect(container.querySelector('.admin-profile__menu')).not.toBeNull()
+
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    })
+    expect(container.querySelector('.admin-profile__menu')).toBeNull()
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  it('closes the profile menu when the mobile navigation opens', async () => {
+    installMatchMedia(true)
+    mockSession('owner')
+    const container = document.createElement('div')
+    const root: Root = createRoot(container)
+    await act(async () => {
+      root.render(
+        <MemoryRouter>
+          <AdminLayout>
+            <p>Page content</p>
+          </AdminLayout>
+        </MemoryRouter>,
+      )
+    })
+
+    const trigger = container.querySelector(
+      '.admin-profile__trigger',
+    ) as HTMLButtonElement
+    await act(async () => {
+      trigger.click()
+    })
+    expect(container.querySelector('.admin-profile__menu')).not.toBeNull()
+
+    const toggle = container.querySelector(
+      '.admin-shell__menu-toggle',
+    ) as HTMLButtonElement
+    await act(async () => {
+      toggle.click()
+    })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('.admin-profile__menu')).toBeNull()
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
   it('renders mobile menu button closed by default with accessible name', () => {
     installMatchMedia(false)
     mockSession('staff')
