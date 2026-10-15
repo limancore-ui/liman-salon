@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from './errors'
-import { previewScheduleImpact } from './schedule'
+import { createWorkingHours, previewScheduleImpact } from './schedule'
 
 const salonId = 'salon-a'
 const token = 'test-token'
@@ -95,5 +95,60 @@ describe('previewScheduleImpact', () => {
       message: 'Forbidden',
       code: 'forbidden',
     })
+  })
+})
+
+describe('createWorkingHours', () => {
+  it('POSTs the frozen proposal together with the canonical preview gate', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 'wh-new',
+        staff_id: null,
+        day_of_week: 1,
+        start_time: '09:00:00',
+        end_time: '17:00:00',
+        effective_from: null,
+        effective_to: null,
+        created_at: '2026-01-01T12:00:00+00:00',
+        updated_at: '2026-01-01T12:00:00+00:00',
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const body = {
+      staff_id: null,
+      day_of_week: 1,
+      start_time: '09:00:00',
+      end_time: '17:00:00',
+      effective_from: null,
+      effective_to: null,
+      impact_fingerprint: 'a'.repeat(64),
+      as_of: '2026-03-15T08:30:00+00:00',
+      horizon_days: 30,
+      acknowledge_impacts: true,
+    }
+
+    await createWorkingHours(token, salonId, body)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/salons/${salonId}/schedule/working-hours`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    const sent = JSON.parse(String(fetchMock.mock.calls[0][1].body)) as Record<string, unknown>
+    expect(sent.impact_fingerprint).toBe('a'.repeat(64))
+    expect(sent.as_of).toBe('2026-03-15T08:30:00+00:00')
+    expect(sent.horizon_days).toBe(30)
+    expect(sent.acknowledge_impacts).toBe(true)
+    expect(sent).not.toHaveProperty('impact_offset')
+    expect(sent).not.toHaveProperty('impact_limit')
+    expect(sent).not.toHaveProperty('kind')
   })
 })

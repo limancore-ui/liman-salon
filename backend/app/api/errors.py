@@ -16,6 +16,9 @@ from app.auth.errors import (
     UnauthorizedError,
 )
 from app.services.schedule.errors import (
+    ImpactAckRequiredError,
+    ImpactPreviewExpiredError,
+    ImpactStaleError,
     ScheduleBusyError,
     ScheduleError,
     ScheduleNotFoundError,
@@ -154,6 +157,33 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=503,
             headers={"Retry-After": "2"},
             content=ErrorBody(detail=str(exc), code="schedule_busy").model_dump(),
+        )
+
+    @app.exception_handler(ImpactPreviewExpiredError)
+    async def impact_preview_expired(
+        _request: Request, exc: ImpactPreviewExpiredError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content=ErrorBody(
+                detail=str(exc), code="impact_preview_expired"
+            ).model_dump(),
+        )
+
+    @app.exception_handler(ImpactStaleError)
+    async def impact_stale(_request: Request, exc: ImpactStaleError) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content=ErrorBody(detail=str(exc), code="impact_stale").model_dump(),
+        )
+
+    @app.exception_handler(ImpactAckRequiredError)
+    async def impact_ack_required(
+        _request: Request, exc: ImpactAckRequiredError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content=ErrorBody(detail=str(exc), code="impact_ack_required").model_dump(),
         )
 
     @app.exception_handler(ScheduleError)

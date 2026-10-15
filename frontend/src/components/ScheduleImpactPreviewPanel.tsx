@@ -23,9 +23,11 @@ function formatStatusLabel(status: string): string {
 
 export type ScheduleImpactPreviewConfirmPayload = {
   impacts: ScheduleImpactBookingRow[]
+  /** First-page preview. Load-more does not replace this response. */
   response: ScheduleImpactPreviewResponse
   fingerprint: string
   change: ScheduleImpactChange
+  acknowledgementChecked: boolean
 }
 
 export type ScheduleImpactPreviewPanelProps = {
@@ -302,6 +304,7 @@ export function ScheduleImpactPreviewPanel({
       response: preview.canonicalResponse,
       fingerprint: preview.fingerprint,
       change,
+      acknowledgementChecked: preview.acknowledgementChecked,
     })
   }
 

@@ -3,7 +3,7 @@ import type {
   BlockedPeriodCreateBody,
   BlockedPeriodItem,
   BlockedPeriodUpdateBody,
-  WorkingHoursCreateBody,
+  WorkingHoursCreateProposal,
   WorkingHoursItem,
   WorkingHoursUpdateBody,
 } from '../types/schedule'
@@ -113,7 +113,7 @@ export function workingHoursFormFromRow(row: WorkingHoursItem): WorkingHoursForm
 export function workingHoursFormToCreateBody(
   form: WorkingHoursFormState,
   staffId: string | null,
-): WorkingHoursCreateBody {
+): WorkingHoursCreateProposal {
   return {
     staff_id: staffId,
     day_of_week: form.dayOfWeek,

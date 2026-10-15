@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.schemas.schedule import (
     BlockedPeriodCreateRequest,
     BlockedPeriodUpdateRequest,
-    WorkingHoursCreateRequest,
+    WorkingHoursCreateFields,
     WorkingHoursUpdateRequest,
 )
 from app.services.schedule.impact import (
@@ -20,7 +20,7 @@ from app.services.schedule.impact import (
 )
 
 
-class WorkingHoursCreateImpactChange(WorkingHoursCreateRequest):
+class WorkingHoursCreateImpactChange(WorkingHoursCreateFields):
     kind: Literal["working_hours.create"]
 
 

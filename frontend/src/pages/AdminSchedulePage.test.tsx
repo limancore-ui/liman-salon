@@ -806,7 +806,21 @@ describe('AdminSchedulePage working hours create preview', () => {
     expect(mockedCreateWh).toHaveBeenCalledTimes(1)
   })
 
-  it('confirm calls createWorkingHours with token, snapshot salon id and snapshot body only (no fingerprint)', async () => {
+  it('confirm calls createWorkingHours with the frozen proposal and canonical preview gate', async () => {
+    const preview = makeScheduleImpactPreviewResponse({
+      as_of: '2026-03-15T08:30:00+00:00',
+      impact_fingerprint: 'a'.repeat(64),
+      change_summary: {
+        kind: 'working_hours.create',
+        affected_staff_ids: [],
+        horizon: {
+          starts_at_from: '2026-03-15T08:30:00+00:00',
+          starts_at_to: '2026-04-14T08:30:00+00:00',
+          days: 30,
+        },
+      },
+    })
+    mockedPreview.mockResolvedValue(preview)
     await renderPage()
     await openCreatePreview()
     const calls = mockedFetchWh.mock.calls.length
@@ -824,12 +838,16 @@ describe('AdminSchedulePage working hours create preview', () => {
         end_time: '17:00:00',
         effective_from: null,
         effective_to: null,
+        impact_fingerprint: 'a'.repeat(64),
+        as_of: '2026-03-15T08:30:00+00:00',
+        horizon_days: 30,
+        acknowledge_impacts: false,
       },
     ])
-    const serialized = JSON.stringify(mockedCreateWh.mock.calls[0])
-    expect(serialized).not.toContain('f'.repeat(64))
-    expect(serialized).not.toContain('fingerprint')
-    expect(Object.keys(mockedCreateWh.mock.calls[0][2])).not.toContain('kind')
+    const body = mockedCreateWh.mock.calls[0][2]
+    expect(Object.keys(body)).not.toContain('kind')
+    expect(Object.keys(body)).not.toContain('impact_offset')
+    expect(Object.keys(body)).not.toContain('impact_limit')
     expect(mockedFetchWh.mock.calls.length).toBeGreaterThan(calls)
     expect(whPanel()).toBeNull()
     expect(input('wh-create-start').value).toBe('')
@@ -859,21 +877,24 @@ describe('AdminSchedulePage working hours create preview', () => {
 
     expect(mockedPreview).toHaveBeenCalledTimes(1)
     expect(mockedCreateWh).toHaveBeenCalledTimes(1)
+    const { kind, ...previewedBody } = previewedChange as Record<string, unknown>
+    expect(kind).toBe('working_hours.create')
     expect(mockedCreateWh.mock.calls[0]).toEqual([
       TOKEN,
       SALON_ID,
       {
-        staff_id: null,
-        day_of_week: 0,
-        start_time: '09:00:00',
-        end_time: '17:00:00',
-        effective_from: null,
-        effective_to: null,
+        ...previewedBody,
+        impact_fingerprint: 'f'.repeat(64),
+        as_of: '2026-01-01T12:00:00+00:00',
+        horizon_days: 90,
+        acknowledge_impacts: false,
       },
     ])
-    const { kind, ...previewedBody } = previewedChange as Record<string, unknown>
-    expect(kind).toBe('working_hours.create')
-    expect(mockedCreateWh.mock.calls[0][2]).toEqual(previewedBody)
+    expect(mockedCreateWh.mock.calls[0][2]).toMatchObject({
+      staff_id: null,
+      start_time: '09:00:00',
+      end_time: '17:00:00',
+    })
   })
 
   it('confirm does not call create when the salon changed while the preview was open', async () => {
@@ -942,6 +963,83 @@ describe('AdminSchedulePage working hours create preview', () => {
     await click(buttonByText(whPanel()!, 'Create working hours'))
     await settle()
     expect(mockedCreateWh).toHaveBeenCalledTimes(1)
+    expect(mockedCreateWh.mock.calls[0][2]).toMatchObject({
+      acknowledge_impacts: true,
+      impact_fingerprint: 'f'.repeat(64),
+      as_of: '2026-01-01T12:00:00+00:00',
+      horizon_days: 90,
+      start_time: '09:00:00',
+    })
+  })
+
+  it('load more does not replace the canonical fingerprint used for confirmation', async () => {
+    const canonical = makeScheduleImpactPreviewResponse({
+      as_of: '2026-03-15T08:30:00+00:00',
+      impact_fingerprint: 'a'.repeat(64),
+      change_summary: {
+        kind: 'working_hours.create',
+        affected_staff_ids: [],
+        horizon: {
+          starts_at_from: '2026-03-15T08:30:00+00:00',
+          starts_at_to: '2026-04-14T08:30:00+00:00',
+          days: 30,
+        },
+      },
+      counts: { total_impacted: 2, by_reason: {} },
+      commit_policy: { allow_commit_with_impacts: true, requires_acknowledgement: true },
+      impacts: [impactRow()],
+      pagination: {
+        offset: 0,
+        limit: 1,
+        returned: 1,
+        total_impacted: 2,
+        has_more: true,
+      },
+    })
+    const pageTwo = makeScheduleImpactPreviewResponse({
+      as_of: '2026-06-01T00:00:00+00:00',
+      impact_fingerprint: 'b'.repeat(64),
+      change_summary: {
+        kind: 'working_hours.create',
+        affected_staff_ids: ['staff-x'],
+        horizon: {
+          starts_at_from: '2026-06-01T00:00:00+00:00',
+          starts_at_to: '2026-06-08T00:00:00+00:00',
+          days: 7,
+        },
+      },
+      counts: { total_impacted: 2, by_reason: {} },
+      impacts: [{ ...impactRow(), booking_id: 'b-2', customer_name: 'Bob' }],
+      pagination: {
+        offset: 1,
+        limit: 1,
+        returned: 1,
+        total_impacted: 2,
+        has_more: false,
+      },
+    })
+    mockedPreview.mockResolvedValueOnce(canonical).mockResolvedValueOnce(pageTwo)
+    await renderPage()
+    await openCreatePreview()
+    await click(whPanel()!.querySelector('input[type="checkbox"]') as HTMLInputElement)
+    await click(buttonByText(whPanel()!, 'Load more bookings'))
+    await settle()
+    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await settle()
+
+    expect(mockedCreateWh).toHaveBeenCalledTimes(1)
+    expect(mockedCreateWh.mock.calls[0][2]).toEqual({
+      staff_id: null,
+      day_of_week: 0,
+      start_time: '09:00:00',
+      end_time: '17:00:00',
+      effective_from: null,
+      effective_to: null,
+      impact_fingerprint: 'a'.repeat(64),
+      as_of: '2026-03-15T08:30:00+00:00',
+      horizon_days: 30,
+      acknowledge_impacts: true,
+    })
   })
 
   it('preview 401 shows a panel error, does not redirect and does not create; Cancel closes', async () => {

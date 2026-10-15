@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_schedule_service
+from app.api.deps import get_clock, get_db, get_schedule_impact_service, get_schedule_service
 from app.auth.deps import get_auth_repository
 from app.core.security import create_access_token
 from app.main import create_app
@@ -26,6 +26,19 @@ STAFF_ID = uuid.UUID("dddddddd-dddd-4ddd-8ddd-dddddddddddd")
 WH_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
 BP_ID = uuid.UUID("22222222-2222-4222-8222-222222222222")
 NOW = datetime.now(timezone.utc)
+GATE_NOW = datetime(2026, 9, 24, 12, 0, tzinfo=timezone.utc)
+GATE_FINGERPRINT = "a" * 64
+
+
+def _gate_fields(**overrides: object) -> dict[str, object]:
+    fields: dict[str, object] = {
+        "impact_fingerprint": GATE_FINGERPRINT,
+        "as_of": GATE_NOW.isoformat(),
+        "horizon_days": 90,
+        "acknowledge_impacts": False,
+    }
+    fields.update(overrides)
+    return fields
 
 
 def _working_hour_row(**kwargs: object) -> SimpleNamespace:
@@ -88,8 +101,31 @@ def _auth_app(
         is_active=True,
     )
     mock_schedule = MagicMock(spec=ScheduleService)
+    mock_impact = MagicMock()
+    mock_impact.preview_impact.return_value = SimpleNamespace(
+        impact_fingerprint=GATE_FINGERPRINT,
+        all_impacts=(),
+    )
+    db = MagicMock()
+    lock_result = MagicMock()
+    lock_result.scalar_one.return_value = "0"
+    db.execute.return_value = lock_result
+
+    def override_get_db():
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
     app.dependency_overrides[get_auth_repository] = lambda: mock_auth
+    app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_schedule_service] = lambda: mock_schedule
+    app.dependency_overrides[get_schedule_impact_service] = lambda: mock_impact
+    app.dependency_overrides[get_clock] = lambda: (lambda: GATE_NOW)
     token, _ = create_access_token(user_id=USER_ID, now=NOW)
     client = TestClient(app)
     headers = {"Authorization": f"Bearer {token}"}
@@ -215,6 +251,7 @@ def test_owner_create_salon_default_working_hours() -> None:
             "day_of_week": 1,
             "start_time": "09:00:00",
             "end_time": "17:00:00",
+            **_gate_fields(),
         },
     )
     assert response.status_code == 201
@@ -235,6 +272,7 @@ def test_admin_create_staff_specific_working_hours() -> None:
             "day_of_week": 2,
             "start_time": "10:00:00",
             "end_time": "18:00:00",
+            **_gate_fields(),
         },
     )
     assert response.status_code == 201
@@ -248,7 +286,12 @@ def test_create_working_hours_forbidden(role: str) -> None:
     response = client.post(
         WH_BASE,
         headers=headers,
-        json={"day_of_week": 0, "start_time": "09:00:00", "end_time": "17:00:00"},
+        json={
+            "day_of_week": 0,
+            "start_time": "09:00:00",
+            "end_time": "17:00:00",
+            **_gate_fields(),
+        },
     )
     assert response.status_code == 403
     mock_schedule.create_working_hour.assert_not_called()
@@ -266,6 +309,7 @@ def test_create_working_hours_body_cannot_override_salon_id() -> None:
             "start_time": "09:00:00",
             "end_time": "17:00:00",
             "salon_id": str(SALON_B),
+            **_gate_fields(),
         },
     )
     assert response.status_code == 422
@@ -278,7 +322,12 @@ def test_create_working_hours_invalid_day_422() -> None:
     response = client.post(
         WH_BASE,
         headers=headers,
-        json={"day_of_week": 7, "start_time": "09:00:00", "end_time": "17:00:00"},
+        json={
+            "day_of_week": 7,
+            "start_time": "09:00:00",
+            "end_time": "17:00:00",
+            **_gate_fields(),
+        },
     )
     assert response.status_code == 422
     client.close()
@@ -289,7 +338,12 @@ def test_create_working_hours_start_not_before_end_422() -> None:
     response = client.post(
         WH_BASE,
         headers=headers,
-        json={"day_of_week": 0, "start_time": "17:00:00", "end_time": "09:00:00"},
+        json={
+            "day_of_week": 0,
+            "start_time": "17:00:00",
+            "end_time": "09:00:00",
+            **_gate_fields(),
+        },
     )
     assert response.status_code == 422
     client.close()
@@ -306,6 +360,7 @@ def test_create_working_hours_invalid_effective_range_422() -> None:
             "end_time": "17:00:00",
             "effective_from": "2026-06-01",
             "effective_to": "2026-01-01",
+            **_gate_fields(),
         },
     )
     assert response.status_code == 422
@@ -323,6 +378,7 @@ def test_create_working_hours_cross_tenant_staff_404() -> None:
             "day_of_week": 0,
             "start_time": "09:00:00",
             "end_time": "17:00:00",
+            **_gate_fields(),
         },
     )
     assert response.status_code == 404
@@ -332,9 +388,19 @@ def test_create_working_hours_cross_tenant_staff_404() -> None:
 def test_create_multiple_windows_same_weekday_allowed() -> None:
     client, mock_schedule, headers = _auth_app(role="owner")
     mock_schedule.create_working_hour.return_value = _working_hour_row()
-    payload = {"day_of_week": 0, "start_time": "09:00:00", "end_time": "12:00:00"}
+    payload = {
+        "day_of_week": 0,
+        "start_time": "09:00:00",
+        "end_time": "12:00:00",
+        **_gate_fields(),
+    }
     assert client.post(WH_BASE, headers=headers, json=payload).status_code == 201
-    payload2 = {"day_of_week": 0, "start_time": "13:00:00", "end_time": "17:00:00"}
+    payload2 = {
+        "day_of_week": 0,
+        "start_time": "13:00:00",
+        "end_time": "17:00:00",
+        **_gate_fields(),
+    }
     assert client.post(WH_BASE, headers=headers, json=payload2).status_code == 201
     assert mock_schedule.create_working_hour.call_count == 2
     client.close()

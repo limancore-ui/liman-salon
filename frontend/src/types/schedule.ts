@@ -38,14 +38,22 @@ export type ListBlockedPeriodsParams = {
   block_type?: BlockType
 }
 
-/** Matches backend `WorkingHoursCreateRequest`. Times are local wall-clock `HH:mm:ss` strings. */
-export type WorkingHoursCreateBody = {
+/** Proposal fields shared with the impact preview. Times are wall-clock `HH:mm:ss`. */
+export type WorkingHoursCreateProposal = {
   staff_id?: string | null
   day_of_week: number
   start_time: string
   end_time: string
   effective_from?: string | null
   effective_to?: string | null
+}
+
+/** Matches backend `WorkingHoursCreateRequest` (proposal plus commit gate). */
+export type WorkingHoursCreateBody = WorkingHoursCreateProposal & {
+  impact_fingerprint: string
+  as_of: string
+  horizon_days: number
+  acknowledge_impacts: boolean
 }
 
 /** Matches backend `WorkingHoursUpdateRequest`. */
@@ -83,7 +91,7 @@ export const SCHEDULE_IMPACT_DEFAULT_LIMIT = 50
 export const SCHEDULE_IMPACT_MAX_LIMIT = 100
 
 /** Discriminated union matching backend `ScheduleImpactChangeRequest`. */
-export type WorkingHoursCreateImpactChange = WorkingHoursCreateBody & {
+export type WorkingHoursCreateImpactChange = WorkingHoursCreateProposal & {
   kind: 'working_hours.create'
 }
 

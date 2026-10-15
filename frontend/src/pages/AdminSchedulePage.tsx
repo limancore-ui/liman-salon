@@ -15,12 +15,15 @@ import {
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
 import type { StaffListItem } from '../types/staff'
-import { ScheduleImpactPreviewPanel } from '../components/ScheduleImpactPreviewPanel'
+import {
+  ScheduleImpactPreviewPanel,
+  type ScheduleImpactPreviewConfirmPayload,
+} from '../components/ScheduleImpactPreviewPanel'
 import type {
   BlockType,
   BlockedPeriodDeleteImpactChange,
   BlockedPeriodItem,
-  WorkingHoursCreateBody,
+  WorkingHoursCreateProposal,
   WorkingHoursCreateImpactChange,
   WorkingHoursDeleteImpactChange,
   WorkingHoursItem,
@@ -213,7 +216,7 @@ export function AdminSchedulePage() {
     snapshotId: number
     salonId: string
     staffId: string | null
-    body: Readonly<WorkingHoursCreateBody>
+    body: Readonly<WorkingHoursCreateProposal>
     change: Readonly<WorkingHoursCreateImpactChange>
   } | null>(null)
   const whCreateSnapshotSeq = useRef(0)
@@ -410,7 +413,9 @@ export function AdminSchedulePage() {
     setPendingWhCreate(null)
   }
 
-  async function handleConfirmCreateWorkingHours() {
+  async function handleConfirmCreateWorkingHours(
+    payload: ScheduleImpactPreviewConfirmPayload,
+  ) {
     if (!session || !manage || pendingWhCreate === null) {
       return
     }
@@ -423,8 +428,14 @@ export function AdminSchedulePage() {
     setWhSaving(true)
     setWhActionError(null)
     try {
-      // Snapshot body only: never the live form, scope selector or preview fingerprint.
-      await createWorkingHours(session.token, snapshot.salonId, snapshot.body)
+      // Frozen proposal plus the canonical preview gate. Do not rebuild from the live form.
+      await createWorkingHours(session.token, snapshot.salonId, {
+        ...snapshot.body,
+        impact_fingerprint: payload.fingerprint,
+        as_of: payload.response.as_of,
+        horizon_days: payload.response.change_summary.horizon.days,
+        acknowledge_impacts: payload.acknowledgementChecked,
+      })
       setWhCreateForm(emptyWorkingHoursForm())
       await loadWorkingHours()
     } catch (err) {
@@ -724,7 +735,7 @@ export function AdminSchedulePage() {
               change={pendingWhCreate.change}
               confirmLabel="Create working hours"
               onCancel={handleCancelCreateWorkingHoursPreview}
-              onConfirm={() => void handleConfirmCreateWorkingHours()}
+              onConfirm={(payload) => void handleConfirmCreateWorkingHours(payload)}
             />
           ) : null}
 
