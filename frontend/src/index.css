@@ -658,6 +658,10 @@ body {
   color: var(--color-muted);
 }
 
+.booking-confirmation__link-field {
+  margin-bottom: var(--space-md);
+}
+
 .booking-confirmation__actions {
   display: flex;
   flex-direction: column;

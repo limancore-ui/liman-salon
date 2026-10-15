@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   cancelPublicBookingBySlug,
   createPublicBookingReviewBySlug,
+  getPublicBookingManageBySlug,
   getPublicBookingReviewBySlug,
   getPublicSalon,
   getPublicServiceAvailability,
@@ -34,6 +35,10 @@ import {
   stripManageTokenFromUrl,
 } from '../utils/manageBookingStorage'
 import {
+  mapPublicManageBookingLoadFatalError,
+  mergeManageApiIntoSnapshot,
+} from '../utils/mergeManageBookingSnapshot'
+import {
   isManageSlotConflictError,
   mapPublicManageBookingError,
 } from '../utils/mapPublicManageBookingError'
@@ -54,6 +59,12 @@ type ReviewLoadState =
   | { status: 'none' }
   | { status: 'exists'; review: PublicBookingReviewStatusResponse }
   | { status: 'error'; message: string }
+
+type ManageFetchState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ready' }
+  | { status: 'not_found' }
 
 type StaffChoice =
   | { kind: 'any' }
@@ -140,6 +151,14 @@ export function PublicManageBookingPage() {
   const [reviewTitle, setReviewTitle] = useState('')
   const [reviewBody, setReviewBody] = useState('')
   const [reviewSuccess, setReviewSuccess] = useState(false)
+  const [manageFetchState, setManageFetchState] = useState<ManageFetchState>({
+    status: 'idle',
+  })
+  const [manageGetSucceeded, setManageGetSucceeded] = useState(false)
+  const [manageRefreshNotice, setManageRefreshNotice] = useState<string | null>(
+    null,
+  )
+  const manageFetchGenerationRef = useRef(0)
 
   useEffect(() => {
     if (!slug || !bookingId) {
@@ -157,6 +176,74 @@ export function PublicManageBookingPage() {
     }
     setAccessChecked(true)
   }, [slug, bookingId, searchParams])
+
+  useEffect(() => {
+    if (!slug || !bookingId || !accessChecked) {
+      return
+    }
+
+    const token = snapshot?.token?.trim()
+    if (!token) {
+      setManageFetchState({ status: 'idle' })
+      setManageGetSucceeded(false)
+      setManageRefreshNotice(null)
+      return
+    }
+
+    const generation = manageFetchGenerationRef.current + 1
+    manageFetchGenerationRef.current = generation
+    const controller = new AbortController()
+
+    setManageFetchState({ status: 'loading' })
+    setManageGetSucceeded(false)
+    setManageRefreshNotice(null)
+
+    getPublicBookingManageBySlug(slug, bookingId, token, controller.signal)
+      .then((api) => {
+        if (manageFetchGenerationRef.current !== generation) {
+          return
+        }
+        setSnapshot((prev) => {
+          if (
+            !prev ||
+            prev.slug !== slug ||
+            prev.booking_id !== bookingId ||
+            prev.token.trim() !== token
+          ) {
+            return prev
+          }
+          const merged = mergeManageApiIntoSnapshot(prev, api)
+          persistManageSnapshot(merged)
+          return merged
+        })
+        if (api.timezone.trim()) {
+          setSalonTimeZone(api.timezone)
+        }
+        setManageGetSucceeded(true)
+        setManageFetchState({ status: 'ready' })
+      })
+      .catch((err: unknown) => {
+        if (manageFetchGenerationRef.current !== generation) {
+          return
+        }
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return
+        }
+        if (err instanceof ApiError && err.status === 404) {
+          setManageFetchState({ status: 'not_found' })
+          setManageGetSucceeded(false)
+          return
+        }
+        setManageGetSucceeded(false)
+        setManageFetchState({ status: 'ready' })
+        setManageRefreshNotice(mapPublicManageBookingError(err))
+      })
+
+    return () => {
+      controller.abort()
+      manageFetchGenerationRef.current += 1
+    }
+  }, [slug, bookingId, accessChecked, snapshot?.token])
 
   useEffect(() => {
     if (!slug || !accessChecked) {
@@ -401,7 +488,8 @@ export function PublicManageBookingPage() {
         ...snapshot,
         status: result.status,
         cancelled_at: result.cancelled_at,
-        token: '',
+        can_cancel: false,
+        can_reschedule: false,
       })
       setView('summary')
       setCancelReason('')
@@ -489,14 +577,33 @@ export function PublicManageBookingPage() {
         result.staff_id,
         snapshot.staff_display_name,
       )
-      refreshSnapshot({
+      let nextSnapshot: ManageBookingSnapshot = {
         ...snapshot,
         staff_id: result.staff_id,
         staff_display_name: staffLabel,
         service_start: result.service_start,
         service_end: result.service_end,
         status: result.status,
-      })
+      }
+      try {
+        const api = await getPublicBookingManageBySlug(
+          slug,
+          bookingId,
+          snapshot.token,
+        )
+        nextSnapshot = mergeManageApiIntoSnapshot(nextSnapshot, api)
+        if (api.timezone.trim()) {
+          setSalonTimeZone(api.timezone)
+        }
+        setManageGetSucceeded(true)
+        setManageRefreshNotice(null)
+      } catch (err: unknown) {
+        setManageGetSucceeded(false)
+        if (!(err instanceof ApiError && err.status === 404)) {
+          setManageRefreshNotice(mapPublicManageBookingError(err))
+        }
+      }
+      refreshSnapshot(nextSnapshot)
       setView('summary')
       setStaffChoice(null)
       setSelectedDate(null)
@@ -540,9 +647,31 @@ export function PublicManageBookingPage() {
     )
   }
 
-  const hasToken = Boolean(snapshot?.token)
+  const hasToken = Boolean(snapshot?.token?.trim())
   const isCancelled =
     snapshot?.status === 'cancelled' || Boolean(snapshot?.cancelled_at)
+
+  if (hasToken && manageFetchState.status === 'loading') {
+    return (
+      <main className="page">
+        <LoadingState message="Загрузка записи…" />
+      </main>
+    )
+  }
+
+  if (manageFetchState.status === 'not_found') {
+    return (
+      <main className="page public-manage-page">
+        <ErrorState
+          title="Ссылка недействительна"
+          message={mapPublicManageBookingLoadFatalError()}
+        />
+        <p className="public-manage-page__back">
+          <Link to={`/s/${encodeURIComponent(slug)}`}>Вернуться в салон</Link>
+        </p>
+      </main>
+    )
+  }
 
   if (!snapshot || (!hasToken && !isCancelled)) {
     return (
@@ -558,8 +687,17 @@ export function PublicManageBookingPage() {
     )
   }
 
+  const manageActionsReady = manageGetSucceeded
   const canReschedule =
-    hasToken && !isCancelled && Boolean(snapshot.service_id.trim())
+    manageActionsReady &&
+    hasToken &&
+    !isCancelled &&
+    snapshot.can_reschedule === true
+  const canCancel =
+    manageActionsReady &&
+    hasToken &&
+    !isCancelled &&
+    snapshot.can_cancel === true
   const canReview =
     hasToken &&
     !isCancelled &&
@@ -624,6 +762,12 @@ export function PublicManageBookingPage() {
           </div>
         </dl>
 
+        {manageRefreshNotice && view === 'summary' ? (
+          <div className="form-error-banner" role="alert">
+            <p>{manageRefreshNotice}</p>
+          </div>
+        ) : null}
+
         {actionError && view === 'summary' ? (
           <div className="form-error-banner" role="alert">
             <p>{actionError}</p>
@@ -666,6 +810,7 @@ export function PublicManageBookingPage() {
               type="button"
               className="btn btn--secondary btn--block"
               onClick={handleStartCancel}
+              disabled={!canCancel}
             >
               Отменить запись
             </button>

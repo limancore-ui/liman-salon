@@ -1,9 +1,19 @@
-import type { ManageBookingSnapshot } from '../types/publicBooking'
+import type {
+  ManageBookingSnapshot,
+  PublicBookingCreateResponse,
+} from '../types/publicBooking'
 
 const KEY_PREFIX = 'liman:public-manage:'
 
 export function manageStorageKey(slug: string, bookingId: string): string {
   return `${KEY_PREFIX}${slug}:${bookingId}`
+}
+
+function isCancelledManageSnapshot(snapshot: ManageBookingSnapshot): boolean {
+  return (
+    snapshot.status === 'cancelled' ||
+    Boolean(snapshot.cancelled_at?.trim())
+  )
 }
 
 export function loadManageSnapshot(
@@ -16,8 +26,11 @@ export function loadManageSnapshot(
       return null
     }
     const parsed = JSON.parse(raw) as ManageBookingSnapshot
-    if (typeof parsed.token !== 'string' || !parsed.token.trim()) {
+    if (typeof parsed.token !== 'string') {
       return null
+    }
+    if (!parsed.token.trim()) {
+      return isCancelledManageSnapshot(parsed) ? parsed : null
     }
     return parsed
   } catch {
@@ -67,4 +80,29 @@ export function buildManageDeepLink(
   const path = buildManagePagePath(slug, bookingId)
   const query = new URLSearchParams({ token })
   return `${window.location.origin}${path}?${query.toString()}`
+}
+
+/** Merge POST /bookings manage_token into session before same-tab manage navigation. */
+export function ensureManageSessionFromCreate(
+  slug: string,
+  booking: PublicBookingCreateResponse,
+): ManageBookingSnapshot {
+  const existing = loadManageSnapshot(slug, booking.booking_id)
+  return persistManageSnapshot({
+    token: booking.manage_token,
+    booking_id: booking.booking_id,
+    slug,
+    salon_id: booking.salon_id,
+    service_id: existing?.service_id ?? '',
+    staff_id: existing?.staff_id ?? '',
+    service_name: existing?.service_name ?? '',
+    staff_display_name: existing?.staff_display_name ?? '',
+    service_start: booking.service_start,
+    service_end: booking.service_end,
+    hold_expires_at: booking.hold_expires_at,
+    status: existing?.status,
+    cancelled_at: existing?.cancelled_at,
+    can_cancel: existing?.can_cancel,
+    can_reschedule: existing?.can_reschedule,
+  })
 }

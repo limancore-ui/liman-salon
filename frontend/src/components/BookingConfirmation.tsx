@@ -1,8 +1,13 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { PublicBookingCreateResponse } from '../types/publicBooking'
+import { copyTextToClipboard } from '../utils/copyTextToClipboard'
 import { formatBookingDateTime } from '../utils/formatTime'
-import { buildManagePagePath } from '../utils/manageBookingStorage'
+import {
+  buildManageDeepLink,
+  buildManagePagePath,
+  ensureManageSessionFromCreate,
+} from '../utils/manageBookingStorage'
 
 type BookingConfirmationProps = {
   booking: PublicBookingCreateResponse
@@ -18,10 +23,27 @@ export function BookingConfirmation({
   onDone,
 }: BookingConfirmationProps) {
   const navigate = useNavigate()
+  const [copyHint, setCopyHint] = useState<string | null>(null)
+
+  const manageDeepLink = useMemo(
+    () => buildManageDeepLink(slug, booking.booking_id, booking.manage_token),
+    [slug, booking.booking_id, booking.manage_token],
+  )
 
   const handleManage = useCallback(() => {
+    ensureManageSessionFromCreate(slug, booking)
     navigate(buildManagePagePath(slug, booking.booking_id))
-  }, [navigate, slug, booking.booking_id])
+  }, [navigate, slug, booking])
+
+  const handleCopyLink = useCallback(async () => {
+    setCopyHint(null)
+    const copied = await copyTextToClipboard(manageDeepLink)
+    if (copied) {
+      setCopyHint('Ссылка скопирована')
+      return
+    }
+    setCopyHint('Не удалось скопировать автоматически — выделите ссылку ниже')
+  }, [manageDeepLink])
 
   return (
     <section className="booking-confirmation" aria-label="Запись создана">
@@ -53,7 +75,32 @@ export function BookingConfirmation({
         Подтвердите запись до указанного времени, иначе слот может быть
         освобождён. Сохраните ссылку для отмены или переноса записи.
       </p>
+      <div className="form-field booking-confirmation__link-field">
+        <label className="form-field__label" htmlFor="booking-manage-link">
+          Ссылка для управления записью
+        </label>
+        <input
+          id="booking-manage-link"
+          type="text"
+          className="form-field__input"
+          readOnly
+          value={manageDeepLink}
+          onFocus={(event) => event.currentTarget.select()}
+        />
+      </div>
+      {copyHint ? (
+        <p className="booking-confirmation__copy-hint" role="status">
+          {copyHint}
+        </p>
+      ) : null}
       <div className="booking-confirmation__actions">
+        <button
+          type="button"
+          className="btn btn--secondary btn--block"
+          onClick={() => void handleCopyLink()}
+        >
+          Копировать ссылку
+        </button>
         <button
           type="button"
           className="btn btn--primary btn--block"
