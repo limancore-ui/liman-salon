@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
   type ChangeEvent,
   type ReactNode,
@@ -43,6 +44,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [switchingSalon, setSwitchingSalon] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [isNarrowViewport, setIsNarrowViewport] = useState(readNarrowViewport)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const profileMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') {
@@ -78,12 +81,41 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     (item) => item.to !== '/admin/settings' || canAccessSalonSettings(salon?.role),
   )
 
+  useEffect(() => {
+    if (!profileMenuOpen) {
+      return
+    }
+    function onDocClick(event: MouseEvent) {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileMenuOpen(false)
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') {
+        return
+      }
+      setProfileMenuOpen(false)
+      profileMenuRef.current
+        ?.querySelector<HTMLButtonElement>('.admin-profile__trigger')
+        ?.focus()
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [profileMenuOpen])
+
   function closeMobileNav() {
     setMobileNavOpen(false)
   }
 
   function toggleMobileNav() {
     setMobileNavOpen((open) => !open)
+    if (!mobileNavOpen) {
+      setProfileMenuOpen(false)
+    }
   }
 
   const shellClassName = mobileNavOpen
@@ -164,20 +196,39 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             >
               {mobileNavOpen ? 'Close menu' : 'Open menu'}
             </button>
-            <div className="admin-shell__user">
-              <span className="admin-shell__email">{user?.email}</span>
-              <span className="admin-shell__role">{salon?.role}</span>
+            <div className="admin-profile" ref={profileMenuRef}>
+              <button
+                type="button"
+                className="admin-profile__trigger"
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+                aria-controls="admin-profile-menu"
+                onClick={() => setProfileMenuOpen((open) => !open)}
+              >
+                <span className="admin-shell__email">{user?.email}</span>
+                <span className="admin-shell__role">{salon?.role}</span>
+              </button>
+              {profileMenuOpen ? (
+                <div
+                  id="admin-profile-menu"
+                  className="admin-profile__menu"
+                  role="menu"
+                  aria-label="Profile"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="admin-profile__item"
+                    onClick={logout}
+                  >
+                    Log out
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="admin-shell__header-trailing">
             <AdminNotificationBell mobileNavOpen={mobileNavOpen} />
-            <button
-              type="button"
-              className="btn btn--secondary btn--compact"
-              onClick={logout}
-            >
-              Log out
-            </button>
           </div>
         </header>
         <div className="admin-shell__content">{children}</div>
