@@ -4,7 +4,7 @@ import uuid
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Header, Query, Response
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import (
@@ -21,6 +21,7 @@ from app.api.schemas.public_booking_cancel import (
     PublicBookingCancelRequest,
     PublicBookingCancelResponse,
 )
+from app.api.schemas.public_booking_manage import PublicBookingManageResponse
 from app.api.schemas.public_booking_reschedule import (
     PublicBookingRescheduleRequest,
     PublicBookingRescheduleResponse,
@@ -257,6 +258,46 @@ def create_public_booking_by_slug(
         service_end=result.service_end,
         hold_expires_at=result.hold_expires_at,
         manage_token=result.manage_token,
+    )
+
+
+@router.get(
+    "/public/salons/{slug}/bookings/{booking_id}/manage",
+    response_model=PublicBookingManageResponse,
+    response_model_exclude_none=True,
+    status_code=200,
+)
+def get_public_booking_manage_by_slug(
+    slug: str,
+    booking_id: uuid.UUID,
+    response: Response,
+    as_of: AsOfDep,
+    salon_public_service: SalonPublicServiceDep,
+    booking_service: BookingServiceDep,
+    x_booking_manage_token: Annotated[str | None, Header()] = None,
+) -> PublicBookingManageResponse:
+    entry = salon_public_service.resolve_public_salon_by_slug(slug)
+    result = booking_service.get_public_booking_for_manage(
+        salon_id=entry.salon_id,
+        booking_id=booking_id,
+        token=x_booking_manage_token,
+        salon_timezone=entry.timezone,
+        as_of=as_of,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return PublicBookingManageResponse(
+        booking_id=result.booking_id,
+        status=result.status,
+        service_id=result.service_id,
+        service_name=result.service_name,
+        staff_id=result.staff_id,
+        staff_display_name=result.staff_display_name,
+        service_start=result.service_start,
+        service_end=result.service_end,
+        hold_expires_at=result.hold_expires_at,
+        can_cancel=result.can_cancel,
+        can_reschedule=result.can_reschedule,
+        timezone=result.timezone,
     )
 
 
