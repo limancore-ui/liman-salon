@@ -56,6 +56,14 @@ export type WorkingHoursCreateBody = WorkingHoursCreateProposal & {
   acknowledge_impacts: boolean
 }
 
+/** Matches backend `WorkingHoursDeleteRequest`. */
+export type WorkingHoursDeleteBody = {
+  impact_fingerprint: string
+  as_of: string
+  horizon_days: number
+  acknowledge_impacts: boolean
+}
+
 /** Matches backend `WorkingHoursUpdateRequest`. */
 export type WorkingHoursUpdateBody = {
   staff_id?: string | null

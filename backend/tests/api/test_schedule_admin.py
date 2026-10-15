@@ -462,8 +462,14 @@ def test_patch_working_hours_cross_tenant_staff_404() -> None:
 
 def test_delete_working_hours_owner_204() -> None:
     client, mock_schedule, headers = _auth_app(role="owner")
-    response = client.delete(f"{WH_BASE}/{WH_ID}", headers=headers)
+    response = client.request(
+        "DELETE",
+        f"{WH_BASE}/{WH_ID}",
+        headers=headers,
+        json=_gate_fields(),
+    )
     assert response.status_code == 204
+    assert response.content == b""
     mock_schedule.delete_working_hour.assert_called_once_with(
         salon_id=SALON_A,
         working_hours_id=WH_ID,
@@ -474,17 +480,42 @@ def test_delete_working_hours_owner_204() -> None:
 @pytest.mark.parametrize("role", ["staff", "receptionist"])
 def test_delete_working_hours_forbidden(role: str) -> None:
     client, mock_schedule, headers = _auth_app(role=role)
-    assert client.delete(f"{WH_BASE}/{WH_ID}", headers=headers).status_code == 403
+    assert (
+        client.request(
+            "DELETE",
+            f"{WH_BASE}/{WH_ID}",
+            headers=headers,
+            json=_gate_fields(),
+        ).status_code
+        == 403
+    )
     mock_schedule.delete_working_hour.assert_not_called()
     client.close()
 
 
-def test_delete_working_hours_wrong_tenant_404() -> None:
+def test_delete_working_hours_unknown_id_stays_scoped_to_caller_salon() -> None:
+    """A row id outside the caller salon is a 404 before any delete.
+
+    The doubles do not open a second salon. Another salon's row is invisible
+    because preview is called with the authenticated salon id and then misses.
+    """
     client, mock_schedule, headers = _auth_app(role="owner")
-    mock_schedule.delete_working_hour.side_effect = ScheduleNotFoundError(
-        "working hours not found"
+    missing_id = uuid.uuid4()
+    impact = client.app.dependency_overrides[get_schedule_impact_service]()
+    impact.preview_impact.side_effect = ScheduleNotFoundError("working hours not found")
+    response = client.request(
+        "DELETE",
+        f"{WH_BASE}/{missing_id}",
+        headers=headers,
+        json=_gate_fields(),
     )
-    assert client.delete(f"{WH_BASE}/{uuid.uuid4()}", headers=headers).status_code == 404
+    assert response.status_code == 404
+    assert response.json()["code"] == "not_found"
+    preview_kwargs = impact.preview_impact.call_args.kwargs
+    assert preview_kwargs["salon_id"] == SALON_A
+    assert preview_kwargs["change"].working_hours_id == missing_id
+    assert preview_kwargs["change"].kind == "working_hours.delete"
+    mock_schedule.delete_working_hour.assert_not_called()
     client.close()
 
 

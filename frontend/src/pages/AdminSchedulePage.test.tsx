@@ -203,7 +203,7 @@ describe('AdminSchedulePage working hours delete preview', () => {
     expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
   })
 
-  it('confirm calls deleteWorkingHours with token, salon id and snapshot id only (no fingerprint)', async () => {
+  it('confirm sends the canonical preview gate with the DELETE', async () => {
     await renderPage()
     await click(buttonByText(container, 'Delete'))
     await settle()
@@ -211,11 +211,84 @@ describe('AdminSchedulePage working hours delete preview', () => {
     await settle()
 
     expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
-    expect(mockedDeleteWh.mock.calls[0]).toEqual([TOKEN, SALON_ID, 'wh-1'])
-    expect(JSON.stringify(mockedDeleteWh.mock.calls[0])).not.toContain('f'.repeat(64))
-    // list reloaded after delete, preview closed
+    expect(mockedDeleteWh.mock.calls[0]).toEqual([
+      TOKEN,
+      SALON_ID,
+      'wh-1',
+      {
+        impact_fingerprint: 'f'.repeat(64),
+        as_of: '2026-01-01T12:00:00+00:00',
+        horizon_days: 90,
+        acknowledge_impacts: false,
+      },
+    ])
     expect(mockedFetchWh.mock.calls.length).toBeGreaterThanOrEqual(2)
     expect(previewPanel()).toBeNull()
+  })
+
+  it('load more does not replace the canonical fingerprint used for delete confirmation', async () => {
+    const canonical = makeScheduleImpactPreviewResponse({
+      as_of: '2026-03-15T08:30:00+00:00',
+      impact_fingerprint: 'a'.repeat(64),
+      change_summary: {
+        kind: 'working_hours.delete',
+        affected_staff_ids: [],
+        horizon: {
+          starts_at_from: '2026-03-15T08:30:00+00:00',
+          starts_at_to: '2026-04-14T08:30:00+00:00',
+          days: 30,
+        },
+      },
+      counts: { total_impacted: 2, by_reason: {} },
+      commit_policy: { allow_commit_with_impacts: true, requires_acknowledgement: true },
+      impacts: [impactRow()],
+      pagination: {
+        offset: 0,
+        limit: 1,
+        returned: 1,
+        total_impacted: 2,
+        has_more: true,
+      },
+    })
+    const pageTwo = makeScheduleImpactPreviewResponse({
+      as_of: '2026-06-01T00:00:00+00:00',
+      impact_fingerprint: 'b'.repeat(64),
+      change_summary: {
+        kind: 'working_hours.delete',
+        affected_staff_ids: ['staff-x'],
+        horizon: {
+          starts_at_from: '2026-06-01T00:00:00+00:00',
+          starts_at_to: '2026-06-08T00:00:00+00:00',
+          days: 7,
+        },
+      },
+      counts: { total_impacted: 2, by_reason: {} },
+      impacts: [{ ...impactRow(), booking_id: 'b-2', customer_name: 'Bob' }],
+      pagination: {
+        offset: 1,
+        limit: 1,
+        returned: 1,
+        total_impacted: 2,
+        has_more: false,
+      },
+    })
+    mockedPreview.mockResolvedValueOnce(canonical).mockResolvedValueOnce(pageTwo)
+    await renderPage()
+    await click(buttonByText(container, 'Delete'))
+    await settle()
+    await click(previewPanel()!.querySelector('input[type="checkbox"]') as HTMLInputElement)
+    await click(buttonByText(previewPanel()!, 'Load more bookings'))
+    await settle()
+    await click(buttonByText(previewPanel()!, 'Delete working hours'))
+    await settle()
+
+    expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
+    expect(mockedDeleteWh.mock.calls[0][3]).toEqual({
+      impact_fingerprint: 'a'.repeat(64),
+      as_of: '2026-03-15T08:30:00+00:00',
+      horizon_days: 30,
+      acknowledge_impacts: true,
+    })
   })
 
   it('Cancel closes the preview and does not call DELETE', async () => {
@@ -247,7 +320,17 @@ describe('AdminSchedulePage working hours delete preview', () => {
     await click(buttonByText(previewPanel()!, 'Delete working hours'))
     await settle()
     expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
-    expect(mockedDeleteWh.mock.calls[0]).toEqual([TOKEN, SALON_ID, 'wh-1'])
+    expect(mockedDeleteWh.mock.calls[0]).toEqual([
+      TOKEN,
+      SALON_ID,
+      'wh-1',
+      {
+        impact_fingerprint: 'f'.repeat(64),
+        as_of: '2026-01-01T12:00:00+00:00',
+        horizon_days: 90,
+        acknowledge_impacts: true,
+      },
+    ])
   })
 
   it('confirm uses the frozen snapshot, not live rows that change while the preview is open', async () => {
@@ -281,7 +364,17 @@ describe('AdminSchedulePage working hours delete preview', () => {
     await settle()
 
     expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
-    expect(mockedDeleteWh.mock.calls[0]).toEqual([TOKEN, SALON_ID, 'wh-1'])
+    expect(mockedDeleteWh.mock.calls[0]).toEqual([
+      TOKEN,
+      SALON_ID,
+      'wh-1',
+      {
+        impact_fingerprint: 'f'.repeat(64),
+        as_of: '2026-01-01T12:00:00+00:00',
+        horizon_days: 90,
+        acknowledge_impacts: false,
+      },
+    ])
     expect(mockedPreview).toHaveBeenCalledTimes(1)
   })
 
@@ -1193,7 +1286,17 @@ describe('AdminSchedulePage working hours create preview', () => {
     await click(buttonByText(whPanel()!, 'Delete working hours'))
     await settle()
 
-    expect(mockedDeleteWh.mock.calls[0]).toEqual([TOKEN, SALON_ID, 'wh-1'])
+    expect(mockedDeleteWh.mock.calls[0]).toEqual([
+      TOKEN,
+      SALON_ID,
+      'wh-1',
+      {
+        impact_fingerprint: 'f'.repeat(64),
+        as_of: '2026-01-01T12:00:00+00:00',
+        horizon_days: 90,
+        acknowledge_impacts: false,
+      },
+    ])
     expect(mockedCreateWh).not.toHaveBeenCalled()
     expect(window.confirm).not.toHaveBeenCalled()
   })
