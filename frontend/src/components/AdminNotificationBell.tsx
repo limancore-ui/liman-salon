@@ -146,6 +146,9 @@ export function AdminNotificationBell({ mobileNavOpen = false }: AdminNotificati
         }
         onClick={() => {
           void ensureAdminNotificationAudioReady()
+          if (mobileNavOpen) {
+            return
+          }
           setOpen((v) => !v)
         }}
       >

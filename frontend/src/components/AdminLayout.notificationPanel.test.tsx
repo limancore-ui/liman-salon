@@ -172,4 +172,36 @@ describe('AdminLayout notification panel (mobile nav)', () => {
       root.unmount()
     })
   })
+
+  it('does not open notification panel when bell is clicked while mobile menu is open', async () => {
+    const container = document.createElement('div')
+    const root = await renderAdminLayout(container)
+
+    const menuToggle = container.querySelector(
+      '.admin-shell__menu-toggle',
+    ) as HTMLButtonElement
+    await act(async () => {
+      menuToggle.click()
+    })
+    expect(menuToggle.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('.admin-shell--nav-open')).not.toBeNull()
+
+    const bell = container.querySelector(
+      '.admin-notifications__bell',
+    ) as HTMLButtonElement
+    await act(async () => {
+      bell.click()
+    })
+
+    expect(bell.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('.admin-notifications__panel')).toBeNull()
+    expect(menuToggle.getAttribute('aria-expanded')).toBe('true')
+    expect(
+      container.querySelector('#admin-shell-sidebar')?.hasAttribute('inert'),
+    ).toBe(false)
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
 })
