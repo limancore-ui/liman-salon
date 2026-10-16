@@ -9,9 +9,21 @@ describe('mapPublicReviewError', () => {
     )
   })
 
-  it('maps validation errors', () => {
+  it('maps incomplete-visit validation to Russian copy', () => {
     expect(
-      mapPublicReviewError(new ApiError(422, 'review can only', 'validation_error')),
-    ).toBe('review can only')
+      mapPublicReviewError(
+        new ApiError(
+          422,
+          'review can only be submitted for a completed booking',
+          'validation_error',
+        ),
+      ),
+    ).toBe('Отзыв можно оставить после завершения визита')
+  })
+
+  it('maps other validation errors to detail or fallback', () => {
+    expect(
+      mapPublicReviewError(new ApiError(422, 'rating must be between 1 and 5', 'validation_error')),
+    ).toBe('rating must be between 1 and 5')
   })
 })

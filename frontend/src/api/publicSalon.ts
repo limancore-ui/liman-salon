@@ -81,6 +81,10 @@ export function mapPublicSalonWithMedia(
   return {
     ...entry,
     logo_url: resolvePublicMediaUrl(slug, entry.logo_media_id),
+    background_url: resolvePublicMediaUrl(
+      slug,
+      entry.background_media_id ?? null,
+    ),
   }
 }
 

@@ -12,6 +12,7 @@ import {
   reschedulePublicBookingBySlug,
 } from '../api/publicSalon'
 import { ApiError } from '../api/errors'
+import { t } from '../i18n'
 import {
   AvailabilityTimeList,
   type AvailabilityTimeListState,
@@ -29,6 +30,11 @@ import type { PublicSelectedSlot } from '../types/publicSalon'
 import { ANY_STAFF_CHOICE_ID } from '../types/publicSalon'
 import { defaultDateInTimeZone } from '../utils/date'
 import { formatBookingDateTime } from '../utils/formatTime'
+import type { SalonPublicThemeHints } from '../utils/salonPublicTheme'
+import {
+  buildSalonThemeStyle,
+  hintsFromPublicSalonAppearance,
+} from '../utils/salonPublicTheme'
 import {
   loadManageSnapshot,
   persistManageSnapshot,
@@ -125,6 +131,8 @@ export function PublicManageBookingPage() {
   const [accessChecked, setAccessChecked] = useState(false)
   const [salonName, setSalonName] = useState<string | null>(null)
   const [salonLogoUrl, setSalonLogoUrl] = useState<string | null>(null)
+  const [salonThemeHints, setSalonThemeHints] =
+    useState<SalonPublicThemeHints | null>(null)
   const [salonTimeZone, setSalonTimeZone] = useState('UTC')
   const [salonLoadError, setSalonLoadError] = useState<string | null>(null)
   const [view, setView] = useState<ManageView>('summary')
@@ -256,13 +264,21 @@ export function PublicManageBookingPage() {
         if (cancelled) return
         setSalonName(salon.name)
         setSalonLogoUrl(salon.logo_url)
+        setSalonThemeHints(
+          hintsFromPublicSalonAppearance(
+            salon.appearance,
+            salon.background_url,
+          ),
+        )
         setSalonTimeZone(salon.timezone)
         setSalonLoadError(null)
       })
       .catch((err: unknown) => {
         if (cancelled) return
         const message =
-          err instanceof ApiError ? err.message : 'Something went wrong'
+          err instanceof ApiError
+            ? err.message
+            : t('common.somethingWentWrong')
         setSalonLoadError(message)
       })
 
@@ -397,10 +413,13 @@ export function PublicManageBookingPage() {
   }, [])
 
   const handleStartReview = useCallback(() => {
+    if (snapshot?.status !== 'completed') {
+      return
+    }
     setActionError(null)
     setReviewSuccess(false)
     setView('review')
-  }, [])
+  }, [snapshot?.status])
 
   const handleReviewBack = useCallback(() => {
     setActionError(null)
@@ -409,6 +428,11 @@ export function PublicManageBookingPage() {
 
   const handleSubmitReview = useCallback(async () => {
     if (!slug || !bookingId || !snapshot?.token || submitInFlightRef.current) {
+      return
+    }
+    if (snapshot.status !== 'completed') {
+      setActionError('Отзыв можно оставить после завершения визита')
+      setView('summary')
       return
     }
     if (reviewRating < 1 || reviewRating > 5) {
@@ -451,6 +475,7 @@ export function PublicManageBookingPage() {
     slug,
     bookingId,
     snapshot?.token,
+    snapshot?.status,
     reviewRating,
     reviewTitle,
     reviewBody,
@@ -698,17 +723,25 @@ export function PublicManageBookingPage() {
     hasToken &&
     !isCancelled &&
     snapshot.can_cancel === true
+  const isCompletedVisit = snapshot.status === 'completed'
   const canReview =
     hasToken &&
     !isCancelled &&
+    isCompletedVisit &&
     reviewLoadState.status !== 'loading' &&
     reviewLoadState.status !== 'exists'
   const staffListSelectedId = staffChoiceToSelectedId(staffChoice)
 
+  const salonThemeStyle = buildSalonThemeStyle(salonThemeHints)
+
   return (
-    <main className="page public-manage-page">
+    <main className="page public-manage-page" style={salonThemeStyle}>
       {salonName ? (
-        <SalonHeader name={salonName} logoUrl={salonLogoUrl} />
+        <SalonHeader
+          name={salonName}
+          logoUrl={salonLogoUrl}
+          subtitle={t('public.manageSubtitle')}
+        />
       ) : salonLoadError ? (
         <p className="public-manage-page__salon-hint" role="status">
           {salonLoadError}
@@ -817,7 +850,7 @@ export function PublicManageBookingPage() {
           </div>
         ) : null}
 
-        {view === 'review' ? (
+        {view === 'review' && canReview ? (
           <div className="public-manage-page__subflow">
             <h2 className="booking-step__heading">Отзыв о визите</h2>
             <label className="public-manage-page__field">

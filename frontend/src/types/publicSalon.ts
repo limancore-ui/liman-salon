@@ -1,3 +1,5 @@
+import type { PublicSalonAppearance } from './salonAppearance'
+
 /** Matches backend `PublicSalonEntryResponse`. */
 export type PublicSalonEntryResponse = {
   salon_id: string
@@ -6,11 +8,14 @@ export type PublicSalonEntryResponse = {
   currency_code: string
   timezone: string
   logo_media_id: string | null
+  background_media_id?: string | null
+  appearance?: PublicSalonAppearance | null
 }
 
-/** Salon entry with resolved public logo URL when media is attached. */
+/** Salon entry with resolved public media URLs when attached. */
 export type PublicSalonWithMedia = PublicSalonEntryResponse & {
   logo_url: string | null
+  background_url: string | null
 }
 
 /** Selected availability slot including assignable staff (required for POST). */

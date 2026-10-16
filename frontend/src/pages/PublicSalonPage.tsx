@@ -10,6 +10,7 @@ import {
   mapServiceAvailabilityToSelectedSlots,
 } from '../api/publicSalon'
 import { ApiError } from '../api/errors'
+import { t } from '../i18n'
 import {
   AvailabilityTimeList,
   type AvailabilityTimeListState,
@@ -45,6 +46,10 @@ import type {
 import { ANY_STAFF_CHOICE_ID } from '../types/publicSalon'
 import { defaultDateInTimeZone } from '../utils/date'
 import { persistManageSnapshot } from '../utils/manageBookingStorage'
+import {
+  buildSalonThemeStyle,
+  hintsFromPublicSalonAppearance,
+} from '../utils/salonPublicTheme'
 import {
   isSlotConflictError,
   mapPublicBookingError,
@@ -148,7 +153,7 @@ export function PublicSalonPage() {
       setSalonState({
         status: 'error',
         statusCode: 404,
-        message: 'Salon not found',
+        message: t('public.salonNotFound'),
       })
       return
     }
@@ -188,12 +193,14 @@ export function PublicSalonPage() {
           setSalonState({
             status: 'error',
             statusCode: 404,
-            message: 'Salon not found',
+            message: t('public.salonNotFound'),
           })
           return
         }
         const message =
-          err instanceof ApiError ? err.message : 'Something went wrong'
+          err instanceof ApiError
+            ? err.message
+            : t('common.somethingWentWrong')
         setSalonState({
           status: 'error',
           statusCode: err instanceof ApiError ? err.status : 0,
@@ -283,7 +290,9 @@ export function PublicSalonPage() {
       .catch((err: unknown) => {
         if (cancelled) return
         const message =
-          err instanceof ApiError ? err.message : 'Something went wrong'
+          err instanceof ApiError
+            ? err.message
+            : t('common.somethingWentWrong')
         setServicesState({ status: 'error', message })
       })
 
@@ -310,7 +319,9 @@ export function PublicSalonPage() {
       .catch((err: unknown) => {
         if (cancelled) return
         const message =
-          err instanceof ApiError ? err.message : 'Something went wrong'
+          err instanceof ApiError
+            ? err.message
+            : t('common.somethingWentWrong')
         setStaffState({ status: 'error', message })
       })
 
@@ -573,7 +584,9 @@ export function PublicSalonPage() {
 
   if (salonState.status === 'error') {
     const title =
-      salonState.statusCode === 404 ? 'Salon not found' : 'Something went wrong'
+      salonState.statusCode === 404
+        ? t('public.salonNotFound')
+        : t('common.somethingWentWrong')
     return (
       <main className="page">
         <ErrorState title={title} message={salonState.message} />
@@ -582,14 +595,26 @@ export function PublicSalonPage() {
   }
 
   const showBookingWizard = selectedService !== null
+  const showConfirmation =
+    showBookingWizard && flowStep === 'confirmation' && bookingResult !== null
   const selectedStaffListId = staffChoiceToSelectedId(staffChoice)
 
+  const salonThemeStyle = buildSalonThemeStyle(
+    hintsFromPublicSalonAppearance(
+      salonState.salon.appearance,
+      salonState.salon.background_url,
+    ),
+  )
+
   return (
-    <main className="page public-salon-page">
-      <SalonHeader
-        name={salonState.salon.name}
-        logoUrl={salonState.salon.logo_url}
-      />
+    <main className="page public-salon-page" style={salonThemeStyle}>
+      {!showConfirmation ? (
+        <SalonHeader
+          name={salonState.salon.name}
+          logoUrl={salonState.salon.logo_url}
+          subtitle={showBookingWizard ? null : undefined}
+        />
+      ) : null}
 
       {showBookingWizard ? (
         <section
@@ -598,11 +623,13 @@ export function PublicSalonPage() {
         >
           <SelectedServiceBar service={selectedService} />
 
-          {flowStep === 'confirmation' && bookingResult !== null ? (
+          {showConfirmation ? (
             <BookingConfirmation
               booking={bookingResult}
               slug={slug ?? ''}
               timeZone={salonTimeZone}
+              salonName={salonState.salon.name}
+              logoUrl={salonState.salon.logo_url}
               onDone={handleBookingDone}
             />
           ) : flowStep === 'customer' &&
