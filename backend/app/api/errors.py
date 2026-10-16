@@ -60,6 +60,14 @@ from app.services.media.errors import (
     MediaStorageError,
     MediaValidationError,
 )
+from app.services.salon_appearance.errors import (
+    SalonAppearanceError,
+    SalonAppearanceNotFoundError,
+)
+from app.services.salon_profile.errors import (
+    SalonProfileError,
+    SalonProfileNotFoundError,
+)
 from app.services.salon_settings.errors import SalonSettingsError, SalonSettingsNotFoundError
 from app.services.review.errors import (
     ReviewConflictError,
@@ -422,6 +430,42 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(SalonSettingsError)
     async def salon_settings_error(
         _request: Request, exc: SalonSettingsError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(SalonAppearanceNotFoundError)
+    async def salon_appearance_not_found(
+        _request: Request, exc: SalonAppearanceNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(SalonAppearanceError)
+    async def salon_appearance_error(
+        _request: Request, exc: SalonAppearanceError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(SalonProfileNotFoundError)
+    async def salon_profile_not_found(
+        _request: Request, exc: SalonProfileNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(SalonProfileError)
+    async def salon_profile_error(
+        _request: Request, exc: SalonProfileError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=422,

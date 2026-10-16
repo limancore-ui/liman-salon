@@ -17,6 +17,8 @@ from app.services.public_booking.orchestrator import PublicBookingOrchestrator
 from app.services.public_booking.service import PublicBookingService
 from app.services.schedule.service import ScheduleService
 from app.services.schedule.impact import ScheduleImpactService
+from app.services.salon_appearance.service import SalonAppearanceService
+from app.services.salon_profile.service import SalonProfileService
 from app.services.salon_settings.service import SalonSettingsService
 from app.services.service_catalog.service import ServiceCatalogService
 from app.services.customer.service import CustomerService
@@ -192,6 +194,24 @@ def get_salon_settings_service(session: SessionDep) -> SalonSettingsService:
 
 SalonSettingsServiceDep = Annotated[
     SalonSettingsService, Depends(get_salon_settings_service)
+]
+
+
+def get_salon_appearance_service(session: SessionDep) -> SalonAppearanceService:
+    return SalonAppearanceService(session)
+
+
+SalonAppearanceServiceDep = Annotated[
+    SalonAppearanceService, Depends(get_salon_appearance_service)
+]
+
+
+def get_salon_profile_service(session: SessionDep) -> SalonProfileService:
+    return SalonProfileService(session)
+
+
+SalonProfileServiceDep = Annotated[
+    SalonProfileService, Depends(get_salon_profile_service)
 ]
 
 

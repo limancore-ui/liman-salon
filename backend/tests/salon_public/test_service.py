@@ -46,6 +46,8 @@ def test_resolve_returns_public_fields_only() -> None:
         currency_code="KZT",
         timezone="Asia/Almaty",
         logo_media_id=None,
+        background_media_id=None,
+        appearance=None,
     )
     svc._repo.get_active_salon_by_slug.assert_called_once_with("liman-a")
 

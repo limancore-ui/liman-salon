@@ -52,6 +52,7 @@ from app.api.schemas.review import (
     PublicReviewOut,
     PublicReviewsListResponse,
 )
+from app.api.schemas.salon_appearance import PublicSalonAppearanceResponse
 from app.api.schemas.salon_public import PublicSalonEntryResponse
 from app.services.availability.types import ServiceAvailabilityResult
 
@@ -111,6 +112,13 @@ def get_public_salon_by_slug(
     salon_public_service: SalonPublicServiceDep,
 ) -> PublicSalonEntryResponse:
     entry = salon_public_service.resolve_public_salon_by_slug(slug)
+    appearance = None
+    if entry.appearance is not None:
+        appearance = PublicSalonAppearanceResponse(
+            primary_color=entry.appearance.primary_color,
+            accent_soft_color=entry.appearance.accent_soft_color,
+            background_color=entry.appearance.background_color,
+        )
     return PublicSalonEntryResponse(
         salon_id=entry.salon_id,
         slug=entry.slug,
@@ -118,6 +126,8 @@ def get_public_salon_by_slug(
         currency_code=entry.currency_code,
         timezone=entry.timezone,
         logo_media_id=entry.logo_media_id,
+        background_media_id=entry.background_media_id,
+        appearance=appearance,
     )
 
 

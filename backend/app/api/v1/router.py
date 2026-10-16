@@ -11,6 +11,8 @@ from app.api.v1 import (
     dashboard,
     media,
     salons_public,
+    salon_appearance,
+    salon_profile,
     salon_settings,
     reviews,
     schedule,
@@ -36,3 +38,5 @@ v1_router.include_router(schedule.router)
 v1_router.include_router(smart_gaps.router)
 v1_router.include_router(reviews.router)
 v1_router.include_router(salon_settings.router)
+v1_router.include_router(salon_appearance.router)
+v1_router.include_router(salon_profile.router)
