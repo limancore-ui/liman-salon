@@ -11,7 +11,6 @@ from app.services.availability.types import ServiceForAvailability
 from app.services.booking.errors import SlotNotAvailableError
 from app.services.booking.manage_token import hash_manage_token, verify_manage_token
 from app.services.booking.types import CreateBookingResult
-from app.core.config import get_settings
 from app.services.public_booking.service import PublicBookingService
 
 UTC = timezone.utc
@@ -45,7 +44,6 @@ def test_create_public_booking_precheck_then_delegates() -> None:
         buffer_after_minutes=15,
     )
     booking_id = uuid.uuid4()
-    hold_seconds = get_settings().public_booking_hold_seconds
 
     with (
         patch.object(svc._availability_repo, "get_service_for_availability", return_value=service_row),
@@ -57,7 +55,7 @@ def test_create_public_booking_precheck_then_delegates() -> None:
                 booking_id=booking_id,
                 starts_at=SERVICE_START - timedelta(minutes=15),
                 ends_at=SERVICE_START + timedelta(minutes=75),
-                status="pending",
+                status="confirmed",
             ),
         ) as create,
     ):
@@ -74,9 +72,9 @@ def test_create_public_booking_precheck_then_delegates() -> None:
     create.assert_called_once()
     kwargs = create.call_args.kwargs
     assert kwargs["source"] == "public"
-    assert kwargs["status"] == "pending"
+    assert kwargs["status"] == "confirmed"
     assert kwargs["requested_service_start"] == SERVICE_START
-    assert kwargs["expires_at"] == AS_OF + timedelta(seconds=hold_seconds)
+    assert kwargs["expires_at"] is None
     assert kwargs["as_of"] == AS_OF
     assert kwargs["manage_token_hash"] is not None
     assert kwargs["manage_token_hash"] != result.manage_token
@@ -94,10 +92,11 @@ def test_create_public_booking_precheck_then_delegates() -> None:
     )
     assert result.service_start == SERVICE_START
     assert result.service_end == SERVICE_START + timedelta(minutes=60)
-    assert result.hold_expires_at == AS_OF + timedelta(seconds=hold_seconds)
+    assert result.hold_expires_at is None
+    assert result.status == "confirmed"
 
 
-def test_create_public_booking_uses_salon_hold_override() -> None:
+def test_create_public_booking_ignores_salon_hold_override() -> None:
     svc = _svc()
     svc._booking._repo.get_salon_settings.return_value = {
         "v": 1,
@@ -120,7 +119,7 @@ def test_create_public_booking_uses_salon_hold_override() -> None:
                 booking_id=uuid.uuid4(),
                 starts_at=SERVICE_START,
                 ends_at=SERVICE_START + timedelta(minutes=60),
-                status="pending",
+                status="confirmed",
             ),
         ) as create,
     ):
@@ -133,8 +132,64 @@ def test_create_public_booking_uses_salon_hold_override() -> None:
             as_of=AS_OF,
         )
 
-    assert create.call_args.kwargs["expires_at"] == AS_OF + timedelta(seconds=1200)
-    assert result.hold_expires_at == AS_OF + timedelta(seconds=1200)
+    assert create.call_args.kwargs["status"] == "confirmed"
+    assert create.call_args.kwargs["expires_at"] is None
+    assert result.hold_expires_at is None
+
+
+def test_public_booking_uses_injected_notification_service() -> None:
+    session = MagicMock()
+    notifications = MagicMock()
+    svc = PublicBookingService(
+        session,
+        booking_manage_token_pepper=TEST_PEPPER,
+        notifications=notifications,
+    )
+    assert svc._booking._notifications is notifications
+
+
+def test_confirmed_public_create_does_not_enqueue_admin_bell() -> None:
+    admin_notifications = MagicMock()
+    svc = PublicBookingService(
+        MagicMock(),
+        booking_manage_token_pepper=TEST_PEPPER,
+        admin_notifications=admin_notifications,
+    )
+    svc._booking._repo = MagicMock()
+    service_row = ServiceForAvailability(
+        id=SERVICE_ID,
+        is_active=True,
+        duration_minutes=60,
+        buffer_before_minutes=0,
+        buffer_after_minutes=0,
+    )
+    with (
+        patch.object(
+            svc._availability_repo,
+            "get_service_for_availability",
+            return_value=service_row,
+        ),
+        patch.object(svc._availability, "is_service_slot_available", return_value=True),
+        patch.object(
+            svc._booking,
+            "create_booking",
+            return_value=CreateBookingResult(
+                booking_id=uuid.uuid4(),
+                starts_at=SERVICE_START,
+                ends_at=SERVICE_START + timedelta(minutes=60),
+                status="confirmed",
+            ),
+        ),
+    ):
+        svc.create_public_booking(
+            salon_id=SALON_ID,
+            customer_id=CUSTOMER_ID,
+            staff_id=STAFF_ID,
+            service_id=SERVICE_ID,
+            service_start=SERVICE_START,
+            as_of=AS_OF,
+        )
+    admin_notifications.enqueue_public_booking_pending.assert_not_called()
 
 
 def test_create_public_booking_missing_service_404() -> None:

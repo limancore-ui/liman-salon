@@ -93,6 +93,10 @@ describe('BookingConfirmation', () => {
     expect(input.value).toBe(
       `${window.location.origin}/s/demo-salon/bookings/booking-99/manage?token=manage-token-value`,
     )
+    expect(container.textContent).toContain('Запись подтверждена')
+    expect(container.textContent).not.toContain('ожидает подтверждения')
+    expect(container.textContent).not.toContain('Удержание до')
+    expect(container.textContent).not.toContain('освобождён')
     cleanup()
   })
 

@@ -534,7 +534,7 @@ export function PublicSalonPage() {
         ),
         service_start: result.service_start,
         service_end: result.service_end,
-        hold_expires_at: result.hold_expires_at,
+        hold_expires_at: result.hold_expires_at ?? '',
       })
       setBookingResult(result)
       setFlowStep('confirmation')

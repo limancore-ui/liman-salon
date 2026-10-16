@@ -231,7 +231,7 @@ def test_reschedule_pending_updates_stored_times(
         "service_end",
     }
     assert body["booking_id"] == str(booking_id)
-    assert body["status"] == "pending"
+    assert body["status"] == "confirmed"
     assert body["staff_id"] == str(staff.id)
 
     row = db_session.scalar(

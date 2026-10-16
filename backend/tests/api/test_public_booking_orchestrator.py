@@ -64,7 +64,7 @@ def _success_result(*, customer_id: uuid.UUID = CUSTOMER_ID) -> PublicBookingOrc
         booking_id=BOOKING_ID,
         service_start=SERVICE_START,
         service_end=SERVICE_END,
-        hold_expires_at=FIXED_AS_OF + timedelta(seconds=900),
+        hold_expires_at=None,
         manage_token=MANAGE_TOKEN,
     )
 
@@ -266,6 +266,8 @@ def test_response_contains_only_allowed_public_fields() -> None:
         assert "starts_at" not in response.json()
         assert "ends_at" not in response.json()
         assert "status" not in response.json()
+        assert "hold_expires_at" in response.json()
+        assert response.json()["hold_expires_at"] is None
     finally:
         client.close()
 

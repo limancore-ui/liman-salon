@@ -320,3 +320,6 @@ def test_worker_provider_failure_marks_failed(db_session: Session) -> None:
     assert row.attempt_count == 1
     assert row.last_error == "provider down"
     assert row.sent_at is None
+    booking = db_session.get(Booking, booking_id)
+    assert booking is not None
+    assert booking.status == "confirmed"

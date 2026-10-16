@@ -105,6 +105,21 @@ def test_get_manage_success_pending() -> None:
     assert result.hold_expires_at is not None
 
 
+def test_get_manage_confirmed_allows_cancel_and_reschedule() -> None:
+    svc, _repo = _service_with_booking(_booking(status="confirmed"))
+    result = svc.get_public_booking_for_manage(
+        salon_id=SALON_ID,
+        booking_id=BOOKING_ID,
+        token=RAW_TOKEN,
+        salon_timezone=TZ,
+        as_of=AS_OF,
+    )
+    assert result.status == "confirmed"
+    assert result.can_cancel is True
+    assert result.can_reschedule is True
+    assert result.hold_expires_at is None
+
+
 def test_get_manage_stale_pending_reports_expired_without_db_write() -> None:
     booking = _booking(
         status="pending",

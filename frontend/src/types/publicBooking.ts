@@ -16,7 +16,7 @@ export type PublicBookingCreateResponse = {
   booking_id: string
   service_start: string
   service_end: string
-  hold_expires_at: string
+  hold_expires_at: string | null
   manage_token: string
 }
 

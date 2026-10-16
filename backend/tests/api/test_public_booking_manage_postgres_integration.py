@@ -225,16 +225,18 @@ def test_manage_valid_token_returns_safe_fields(
     assert resp.headers.get("cache-control") == "no-store"
     body = resp.json()
     assert body["booking_id"] == str(booking_id)
-    assert body["status"] == "pending"
+    assert body["status"] == "confirmed"
     assert body["service_id"] == str(service.id)
     assert body["service_name"] == "Cut"
     assert body["staff_id"] == str(staff.id)
     assert body["staff_display_name"] == "Bookable"
-    assert body["service_start"] == service_start
+    assert datetime.fromisoformat(body["service_start"]) == datetime.fromisoformat(
+        service_start
+    )
     assert body["can_cancel"] is True
     assert body["can_reschedule"] is True
     assert body["timezone"] == "Asia/Almaty"
-    assert body.get("hold_expires_at") is not None
+    assert body.get("hold_expires_at") is None
     for key in FORBIDDEN_RESPONSE_KEYS:
         assert key not in body
     assert manage_token not in resp.text
@@ -324,6 +326,8 @@ def test_manage_stale_pending_reports_expired_without_db_mutation(
         )
     )
     assert row is not None
+    row.status = "pending"
+    row.confirmed_at = None
     row.expires_at = datetime(2026, 7, 1, 0, 0, tzinfo=UTC)
     db_session.flush()
 

@@ -78,6 +78,7 @@ def get_public_booking_service(session: SessionDep) -> PublicBookingService:
         session,
         booking_manage_token_pepper=settings.booking_manage_token_pepper,
         admin_notifications=AdminNotificationService(session),
+        notifications=NotificationService(session),
     )
 
 

@@ -49,7 +49,7 @@ export function BookingConfirmation({
     <section className="booking-confirmation" aria-label="Запись создана">
       <h2 className="booking-confirmation__title">Запись оформлена</h2>
       <p className="booking-confirmation__lead">
-        Заявка принята и ожидает подтверждения салоном.
+        Запись подтверждена. Время зарезервировано.
       </p>
       <dl className="booking-summary__list booking-confirmation__details">
         <div className="booking-summary__row">
@@ -66,14 +66,9 @@ export function BookingConfirmation({
             {booking.booking_id}
           </dd>
         </div>
-        <div className="booking-summary__row">
-          <dt>Удержание до</dt>
-          <dd>{formatBookingDateTime(booking.hold_expires_at, timeZone)}</dd>
-        </div>
       </dl>
       <p className="booking-confirmation__hint">
-        Подтвердите запись до указанного времени, иначе слот может быть
-        освобождён. Сохраните ссылку для отмены или переноса записи.
+        Сохраните ссылку для отмены или переноса записи.
       </p>
       <div className="form-field booking-confirmation__link-field">
         <label className="form-field__label" htmlFor="booking-manage-link">
