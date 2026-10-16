@@ -8,19 +8,35 @@ import {
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { membershipLabel } from '../auth/workspace'
+import { t, type MessageKey } from '../i18n'
 import { AdminNotificationBell } from './AdminNotificationBell'
 
-const NAV_ITEMS = [
-  { label: 'Dashboard', to: '/admin' },
-  { label: 'Bookings', to: '/admin/bookings' },
-  { label: 'Customers', to: '/admin/customers' },
-  { label: 'Reviews', to: '/admin/reviews' },
-  { label: 'Staff', to: '/admin/staff' },
-  { label: 'Services', to: '/admin/services' },
-  { label: 'Schedule', to: '/admin/schedule' },
-  { label: 'Media', to: '/admin/media' },
-  { label: 'Settings', to: '/admin/settings' },
-] as const
+const NAV_ITEMS: ReadonlyArray<{
+  labelKey: MessageKey
+  to: string
+  ownerAdminOnly?: boolean
+  icon?: 'palette'
+}> = [
+  { labelKey: 'admin.nav.dashboard', to: '/admin' },
+  { labelKey: 'admin.nav.bookings', to: '/admin/bookings' },
+  { labelKey: 'admin.nav.customers', to: '/admin/customers' },
+  { labelKey: 'admin.nav.reviews', to: '/admin/reviews' },
+  { labelKey: 'admin.nav.staff', to: '/admin/staff' },
+  { labelKey: 'admin.nav.services', to: '/admin/services' },
+  { labelKey: 'admin.nav.schedule', to: '/admin/schedule' },
+  { labelKey: 'admin.nav.media', to: '/admin/media' },
+  {
+    labelKey: 'admin.nav.appearance',
+    to: '/admin/appearance',
+    ownerAdminOnly: true,
+    icon: 'palette',
+  },
+  {
+    labelKey: 'admin.nav.settings',
+    to: '/admin/settings',
+    ownerAdminOnly: true,
+  },
+]
 
 const MOBILE_NAV_MEDIA_QUERY = '(max-width: 47.99rem)'
 
@@ -35,8 +51,26 @@ type AdminLayoutProps = {
   children: ReactNode
 }
 
-function canAccessSalonSettings(role: string | undefined): boolean {
+function canAccessOwnerAdminNav(role: string | undefined): boolean {
   return role === 'owner' || role === 'admin'
+}
+
+function NavPaletteIcon() {
+  return (
+    <svg
+      className="admin-nav__icon"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        fill="currentColor"
+        d="M12 3c-4.97 0-9 3.58-9 8 0 3.31 2.4 6.1 5.7 7.3.4.14.8-.16.8-.56v-1.84c0-.28-.14-.53-.38-.67C6.8 14.5 5.5 12.9 5.5 11c0-3.31 2.91-6 6.5-6s6.5 2.69 6.5 6c0 1.66-1 3.05-2.5 3.8-.3.15-.5.45-.5.78V18c0 .55.45 1 1 1h.5c3.58 0 6.5-3.13 6.5-7 0-4.42-4.03-8-9-8zm-5.5 9.5a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm2.25-3.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zM12 7.75a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm3.25 1.5a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"
+      />
+    </svg>
+  )
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
@@ -60,6 +94,29 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       mediaQuery.removeEventListener('change', syncNarrowViewport)
     }
   }, [])
+
+  useEffect(() => {
+    if (!isNarrowViewport && mobileNavOpen) {
+      setMobileNavOpen(false)
+    }
+  }, [isNarrowViewport, mobileNavOpen])
+
+  useEffect(() => {
+    if (!mobileNavOpen) {
+      return
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') {
+        return
+      }
+      setMobileNavOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [mobileNavOpen])
+
   const salon = session?.salon
   const user = session?.user
   const salons = session?.salons ?? []
@@ -78,7 +135,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     }
   }
   const navItems = NAV_ITEMS.filter(
-    (item) => item.to !== '/admin/settings' || canAccessSalonSettings(salon?.role),
+    (item) => !item.ownerAdminOnly || canAccessOwnerAdminNav(salon?.role),
   )
 
   useEffect(() => {
@@ -128,26 +185,28 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <button
         type="button"
         className="admin-shell__nav-backdrop"
-        aria-label="Close navigation menu"
+        aria-label={t('admin.layout.closeNav')}
         tabIndex={mobileNavOpen ? 0 : -1}
         onClick={closeMobileNav}
       />
       <aside
         id="admin-shell-sidebar"
         className="admin-shell__sidebar"
-        aria-label="Admin navigation"
+        aria-label={t('admin.layout.navAria')}
         inert={sidebarInert ? true : undefined}
       >
         <div className="admin-shell__brand">
           {showWorkspaceSwitcher ? (
             <label className="admin-shell__workspace-switch">
-              <span className="visually-hidden">Active salon workspace</span>
+              <span className="visually-hidden">
+                {t('admin.layout.activeWorkspace')}
+              </span>
               <select
                 className="form-field__input admin-shell__workspace-select"
                 value={salon?.salon_id ?? ''}
                 disabled={switchingSalon}
                 onChange={handleWorkspaceChange}
-                aria-label="Switch salon workspace"
+                aria-label={t('admin.layout.switchWorkspace')}
               >
                 {salons.map((membership) => (
                   <option key={membership.salon_id} value={membership.salon_id}>
@@ -159,7 +218,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           ) : (
             <>
               <p className="admin-shell__salon-name">
-                {salon?.salon_name ?? 'Salon'}
+                {salon?.salon_name ?? t('admin.layout.salonFallback')}
               </p>
               <p className="admin-shell__salon-slug">{salon?.salon_slug}</p>
             </>
@@ -168,7 +227,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <nav className="admin-nav">
           <ul className="admin-nav__list">
             {navItems.map((item) => (
-              <li key={item.label} className="admin-nav__item">
+              <li key={item.to} className="admin-nav__item">
                 <NavLink
                   to={item.to}
                   end={item.to === '/admin'}
@@ -177,7 +236,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   }
                   onClick={closeMobileNav}
                 >
-                  {item.label}
+                  {item.icon === 'palette' ? <NavPaletteIcon /> : null}
+                  <span>{t(item.labelKey)}</span>
                 </NavLink>
               </li>
             ))}
@@ -194,7 +254,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               aria-controls="admin-shell-sidebar"
               onClick={toggleMobileNav}
             >
-              {mobileNavOpen ? 'Close menu' : 'Open menu'}
+              {mobileNavOpen
+                ? t('admin.layout.closeMenu')
+                : t('admin.layout.openMenu')}
             </button>
             <div className="admin-profile" ref={profileMenuRef}>
               <button
@@ -213,7 +275,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   id="admin-profile-menu"
                   className="admin-profile__menu"
                   role="menu"
-                  aria-label="Profile"
+                  aria-label={t('admin.layout.profileMenu')}
                 >
                   <button
                     type="button"
@@ -221,7 +283,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     className="admin-profile__item"
                     onClick={logout}
                   >
-                    Log out
+                    {t('common.logOut')}
                   </button>
                 </div>
               ) : null}

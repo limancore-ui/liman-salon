@@ -37,6 +37,8 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>
   selectWorkspace: (salonId: string) => Promise<void>
   switchWorkspace: (salonId: string) => Promise<void>
+  /** Reload me/salons/context for the current token (e.g. after profile rename). */
+  refreshSession: () => Promise<void>
   logout: () => void
   clearAuthAndRedirect: () => void
 }
@@ -220,6 +222,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [session, clearAuthAndRedirect],
   )
 
+  const refreshSession = useCallback(async () => {
+    const token = session?.token ?? getStoredAccessToken()
+    if (!token) {
+      return
+    }
+    try {
+      const result = await loadAdminSession(token)
+      applyLoadResult(result, {
+        setSession,
+        setPendingWorkspace,
+        setStatus,
+      })
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthAndRedirect()
+      }
+    }
+  }, [session?.token, clearAuthAndRedirect])
+
   const value = useMemo(
     (): AuthContextValue => ({
       status,
@@ -228,6 +249,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       login,
       selectWorkspace,
       switchWorkspace,
+      refreshSession,
       logout,
       clearAuthAndRedirect,
     }),
@@ -238,6 +260,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       login,
       selectWorkspace,
       switchWorkspace,
+      refreshSession,
       logout,
       clearAuthAndRedirect,
     ],

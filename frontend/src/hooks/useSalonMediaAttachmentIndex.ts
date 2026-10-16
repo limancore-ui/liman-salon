@@ -3,8 +3,8 @@ import {
   fetchAdminMediaAttachmentIndex,
   fetchAdminMediaList,
 } from '../api/media'
-import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
+import { adminUserErrorMessage } from '../utils/adminUserError'
 import type {
   MediaAssetResponse,
   MediaAttachmentIndexItem,
@@ -67,11 +67,7 @@ export function useSalonMediaAttachmentIndex(
         clearAuthAndRedirect()
         return
       }
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Could not load media attachments.',
-      )
+      setError(adminUserErrorMessage(err, 'admin.error.mediaIndexLoadFailed'))
       setAssets([])
       setIndexItems([])
       setIndex(new Map())

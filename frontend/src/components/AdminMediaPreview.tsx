@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchAdminMediaContentBlob } from '../api/media'
+import { t } from '../i18n'
 
 type AdminMediaPreviewProps = {
   token: string
@@ -50,7 +51,7 @@ export function AdminMediaPreview({
   if (failed || !objectUrl) {
     return (
       <div className={`admin-media-preview admin-media-preview--empty${className ? ` ${className}` : ''}`}>
-        <span className="admin-media-preview__placeholder">No preview</span>
+        <span className="admin-media-preview__placeholder">{t('admin.media.noPreview')}</span>
       </div>
     )
   }

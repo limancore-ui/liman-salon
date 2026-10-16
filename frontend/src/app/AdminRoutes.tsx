@@ -9,6 +9,7 @@ import { AdminSchedulePage } from '../pages/AdminSchedulePage'
 import { AdminMediaPage } from '../pages/AdminMediaPage'
 import { AdminDashboardPage } from '../pages/AdminDashboardPage'
 import { AdminSalonSettingsPage } from '../pages/AdminSalonSettingsPage'
+import { AdminAppearancePage } from '../pages/AdminAppearancePage'
 import { AdminReviewsPage } from '../pages/AdminReviewsPage'
 import { AdminLoginPage } from '../pages/AdminLoginPage'
 import { AdminNoAccessPage } from '../pages/AdminNoAccessPage'
@@ -30,6 +31,7 @@ export function AdminRoutes() {
           <Route path="services" element={<AdminServicesPage />} />
           <Route path="schedule" element={<AdminSchedulePage />} />
           <Route path="media" element={<AdminMediaPage />} />
+          <Route path="appearance" element={<AdminAppearancePage />} />
           <Route path="settings" element={<AdminSalonSettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/admin" replace />} />
