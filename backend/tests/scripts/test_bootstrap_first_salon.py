@@ -52,11 +52,97 @@ def test_development_skips_allow_flag(bootstrap) -> None:
     )
 
 
+def test_empty_environment_refused(bootstrap) -> None:
+    with pytest.raises(SystemExit, match="ENVIRONMENT must be"):
+        bootstrap.assert_bootstrap_allowed(
+            environment="",
+            database_url="postgresql+psycopg://x/y/liman_salon_staging",
+            allow_bootstrap=True,
+        )
+
+
+def test_unknown_environment_refused(bootstrap) -> None:
+    with pytest.raises(SystemExit, match="ENVIRONMENT must be"):
+        bootstrap.assert_bootstrap_allowed(
+            environment="qa",
+            database_url="postgresql+psycopg://x/y/liman_salon_staging",
+            allow_bootstrap=True,
+        )
+
+
+def test_staging_allows_exact_staging_database(bootstrap) -> None:
+    bootstrap.assert_bootstrap_allowed(
+        environment="staging",
+        database_url="postgresql+psycopg://u:p@db:5432/liman_salon_staging",
+        allow_bootstrap=True,
+    )
+
+
+def test_staging_allows_staging_database_with_query(bootstrap) -> None:
+    bootstrap.assert_bootstrap_allowed(
+        environment="staging",
+        database_url="postgresql+psycopg://u:p@db:5432/liman_salon_staging?sslmode=require",
+        allow_bootstrap=True,
+    )
+
+
+def test_staging_requires_allow_flag(bootstrap) -> None:
+    with pytest.raises(SystemExit, match="ALLOW_FIRST_SALON_BOOTSTRAP"):
+        bootstrap.assert_bootstrap_allowed(
+            environment="staging",
+            database_url="postgresql+psycopg://x/y/liman_salon_staging",
+            allow_bootstrap=False,
+        )
+
+
+def test_staging_refuses_production_database_name(bootstrap) -> None:
+    with pytest.raises(SystemExit, match="liman_salon_staging"):
+        bootstrap.assert_bootstrap_allowed(
+            environment="staging",
+            database_url="postgresql+psycopg://x/y/liman_salon",
+            allow_bootstrap=True,
+        )
+
+
+def test_staging_refuses_test_database(bootstrap) -> None:
+    with pytest.raises(SystemExit, match="liman_salon_test"):
+        bootstrap.assert_bootstrap_allowed(
+            environment="staging",
+            database_url="postgresql+psycopg://x/y/liman_salon_test",
+            allow_bootstrap=True,
+        )
+
+
+def test_staging_refuses_similar_database_name(bootstrap) -> None:
+    with pytest.raises(SystemExit, match="liman_salon_staging"):
+        bootstrap.assert_bootstrap_allowed(
+            environment="staging",
+            database_url="postgresql+psycopg://x/y/liman_salon_staging_backup",
+            allow_bootstrap=True,
+        )
+
+
+def test_staging_refuses_empty_database_url(bootstrap) -> None:
+    with pytest.raises(SystemExit, match="liman_salon_staging"):
+        bootstrap.assert_bootstrap_allowed(
+            environment="staging",
+            database_url="",
+            allow_bootstrap=True,
+        )
+
+
 def test_database_name_from_url(bootstrap) -> None:
     assert (
         bootstrap.database_name_from_url("postgresql+psycopg://u:p@h:5432/my_db?ssl=1")
         == "my_db"
     )
+    assert (
+        bootstrap.database_name_from_url(
+            "postgresql+psycopg://u:p@h:5432/liman_salon_staging?sslmode=require"
+        )
+        == "liman_salon_staging"
+    )
+    assert bootstrap.database_name_from_url("") is None
 
 
 def test_bootstrap_idempotent_on_postgres(bootstrap) -> None:

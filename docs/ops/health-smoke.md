@@ -34,7 +34,17 @@ docker compose ps
    docker compose run --rm api alembic upgrade head
    ```
 
-3. **First salon** (once per environment; production guard — see script help)
+3. **First salon** (once per environment; production/staging guard — see script help)
+
+   Requires `ALLOW_FIRST_SALON_BOOTSTRAP=1` when `ENVIRONMENT` is `production` or
+   `staging`. On **staging**, the script also refuses unless the database name
+   parsed from `DATABASE_URL` is exactly **`liman_salon_staging`** (not
+   `liman_salon`, not `liman_salon_test`). Confirm before running:
+
+   ```bash
+   # Example staging project — expect ENVIRONMENT=staging and DB name liman_salon_staging
+   docker compose -p liman-staging --env-file .env exec api printenv ENVIRONMENT POSTGRES_DB
+   ```
 
    ```bash
    docker compose run --rm \
@@ -47,6 +57,9 @@ docker compose ps
        --timezone Asia/Bishkek \
        --currency KGS
    ```
+
+   On staging, prefer `docker compose -p liman-staging --env-file .env run --rm --no-deps`
+   from `/opt/liman-salon-staging` (not the production checkout).
 
 4. **Health via nginx**
 
