@@ -8,20 +8,20 @@ import {
 
 describe('mapAdminBookingActionError', () => {
   it('maps known HTTP statuses', () => {
-    expect(mapAdminBookingActionError(new ApiError(404, 'x'))).toBe('Booking not found.')
+    expect(mapAdminBookingActionError(new ApiError(404, 'x'))).toBe('Запись не найдена.')
     expect(mapAdminBookingActionError(new ApiError(422, 'x'))).toBe(
-      'This booking cannot be changed in its current status.',
+      'Эту запись нельзя изменить в текущем статусе.',
     )
     expect(mapAdminBookingActionError(new ApiError(409, 'x'))).toBe(
-      'The selected time is not available.',
+      'Выбранное время недоступно.',
     )
   })
 })
 
 describe('mapAdminBookingCreateError', () => {
-  it('surfaces backend detail on 422', () => {
+  it('maps 422 without exposing raw backend detail', () => {
     expect(mapAdminBookingCreateError(new ApiError(422, 'staff is not active'))).toBe(
-      'staff is not active',
+      'Эту запись нельзя изменить в текущем статусе.',
     )
   })
 })

@@ -30,7 +30,7 @@ describe('parseStaffFormFields', () => {
 
     const result = parseStaffFormFields(form)
 
-    expect(result).toBe('Title must be at most 100 characters.')
+    expect(result).toBe('Должность не длиннее 100 символов.')
   })
 
   it('accepts title at 100 characters', () => {

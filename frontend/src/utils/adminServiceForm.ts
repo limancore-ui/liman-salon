@@ -1,5 +1,7 @@
 import { ApiError } from '../api/errors'
 import type { ServiceListItem, ServiceUpdateBody } from '../types/services'
+import { t } from '../i18n'
+import { adminUserErrorMessage } from './adminUserError'
 
 export type ServiceFormState = {
   name: string
@@ -66,35 +68,17 @@ export function buildServiceUpdatePatch(
 }
 
 function mapAdminServiceNetworkError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 403) {
-      return 'You do not have permission to update services.'
-    }
-    if (err.status === 422 && err.message.trim() !== '') {
-      return err.message
-    }
-    if (err.status === 0) {
-      return 'Could not reach the server. Check your connection and try again.'
-    }
-    return 'Could not update the service. Try again later.'
+  if (err instanceof ApiError && err.status === 403) {
+    return t('admin.services.noPermissionUpdate')
   }
-  return 'Could not reach the server. Check your connection and try again.'
+  return adminUserErrorMessage(err, 'admin.services.updateFailed')
 }
 
 export function mapAdminServiceCreateError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 403) {
-      return 'You do not have permission to create services.'
-    }
-    if (err.status === 422 && err.message.trim() !== '') {
-      return err.message
-    }
-    if (err.status === 0) {
-      return 'Could not reach the server. Check your connection and try again.'
-    }
-    return 'Could not create the service. Try again later.'
+  if (err instanceof ApiError && err.status === 403) {
+    return t('admin.services.noPermissionCreate')
   }
-  return 'Could not reach the server. Check your connection and try again.'
+  return adminUserErrorMessage(err, 'admin.services.createFailed')
 }
 
 /** Edit form saves and active/inactive toggles. */
@@ -102,8 +86,8 @@ export function mapAdminServiceUpdateError(err: unknown): string {
   return mapAdminServiceNetworkError(err)
 }
 
-export function serviceActiveToggleLabel(isActive: boolean): 'Activate' | 'Deactivate' {
-  return isActive ? 'Deactivate' : 'Activate'
+export function serviceActiveToggleLabel(isActive: boolean): string {
+  return isActive ? t('admin.services.deactivate') : t('admin.services.activate')
 }
 
 export function serviceActiveTogglePatch(isActive: boolean): Pick<ServiceUpdateBody, 'is_active'> {

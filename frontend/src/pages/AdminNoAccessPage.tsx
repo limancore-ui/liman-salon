@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { t } from '../i18n'
 
 export function AdminNoAccessPage() {
   const { status, pendingWorkspace, logout } = useAuth()
@@ -7,7 +8,7 @@ export function AdminNoAccessPage() {
   if (status === 'loading') {
     return (
       <main className="page page--admin-auth">
-        <p className="page__hint">Checking access…</p>
+        <p className="page__hint">{t('admin.noAccess.checking')}</p>
       </main>
     )
   }
@@ -25,21 +26,19 @@ export function AdminNoAccessPage() {
   return (
     <main className="page page--admin-auth">
       <div className="admin-login">
-        <h1 className="admin-login__title">No salon access</h1>
+        <h1 className="admin-login__title">{t('admin.noAccess.title')}</h1>
         <p className="admin-login__lead">
           {email
-            ? `${email} is not linked to any active salon workspace.`
-            : 'Your account is not linked to any active salon workspace.'}
+            ? t('admin.noAccess.leadWithEmail', { email })
+            : t('admin.noAccess.lead')}
         </p>
-        <p className="page__hint">
-          Ask a salon owner or administrator to invite you, then sign in again.
-        </p>
+        <p className="page__hint">{t('admin.noAccess.hint')}</p>
         <button
           type="button"
           className="btn btn--primary btn--block"
           onClick={logout}
         >
-          Log out
+          {t('common.logOut')}
         </button>
       </div>
     </main>

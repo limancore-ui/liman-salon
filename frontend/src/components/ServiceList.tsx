@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import type { PublicCatalogServiceWithMedia } from '../types/publicCatalog'
 import { ErrorState } from './ErrorState'
 import { LoadingState } from './LoadingState'
@@ -21,17 +22,22 @@ export function ServiceList({
   onSelectService,
 }: ServiceListProps) {
   if (state.status === 'idle' || state.status === 'loading') {
-    return <LoadingState message="Loading services…" />
+    return <LoadingState message={t('public.servicesLoading')} />
   }
 
   if (state.status === 'error') {
     return (
-      <ErrorState title="Could not load services" message={state.message} />
+      <ErrorState
+        title={t('public.servicesLoadError')}
+        message={state.message}
+      />
     )
   }
 
   if (state.services.length === 0) {
-    return <p className="service-list__empty">No services available yet.</p>
+    return (
+      <p className="service-list__empty">{t('public.servicesEmpty')}</p>
+    )
   }
 
   return (

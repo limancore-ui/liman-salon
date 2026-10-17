@@ -97,27 +97,27 @@ describe('serviceActiveTogglePatch', () => {
 
 describe('serviceActiveToggleLabel', () => {
   it('shows Deactivate for active rows and Activate for inactive', () => {
-    expect(serviceActiveToggleLabel(true)).toBe('Deactivate')
-    expect(serviceActiveToggleLabel(false)).toBe('Activate')
+    expect(serviceActiveToggleLabel(true)).toBe('Деактивировать')
+    expect(serviceActiveToggleLabel(false)).toBe('Активировать')
   })
 })
 
 describe('mapAdminServiceUpdateError', () => {
   it('maps 403, 422 detail, network, and generic failures', () => {
     expect(mapAdminServiceUpdateError(new ApiError(403, 'Forbidden'))).toBe(
-      'You do not have permission to update services.',
+      'Недостаточно прав, чтобы изменять услуги.',
     )
     expect(mapAdminServiceUpdateError(new ApiError(422, 'name already taken'))).toBe(
-      'name already taken',
+      'Проверьте введённые данные и попробуйте снова.',
     )
     expect(mapAdminServiceUpdateError(new ApiError(0, ''))).toBe(
-      'Could not reach the server. Check your connection and try again.',
+      'Ошибка сети. Попробуйте снова.',
     )
     expect(mapAdminServiceUpdateError(new ApiError(500, 'x'))).toBe(
-      'Could not update the service. Try again later.',
+      'Не удалось обновить услугу. Попробуйте позже.',
     )
     expect(mapAdminServiceUpdateError(new Error('offline'))).toBe(
-      'Could not reach the server. Check your connection and try again.',
+      'Не удалось обновить услугу. Попробуйте позже.',
     )
   })
 })
@@ -125,10 +125,10 @@ describe('mapAdminServiceUpdateError', () => {
 describe('mapAdminServiceCreateError', () => {
   it('uses create-specific permission and failure copy', () => {
     expect(mapAdminServiceCreateError(new ApiError(403, 'Forbidden'))).toBe(
-      'You do not have permission to create services.',
+      'Недостаточно прав, чтобы создавать услуги.',
     )
     expect(mapAdminServiceCreateError(new ApiError(500, 'x'))).toBe(
-      'Could not create the service. Try again later.',
+      'Не удалось создать услугу. Попробуйте позже.',
     )
   })
 })

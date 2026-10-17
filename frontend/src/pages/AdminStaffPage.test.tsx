@@ -158,14 +158,14 @@ describe('AdminStaffPage CRUD', () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Add staff'))
+    await click(buttonByText(container, 'Добавить сотрудника'))
     await settle()
 
-    const nameInput = inputByLabel('Display name')
+    const nameInput = inputByLabel('Отображаемое имя')
     expect(nameInput).toBeTruthy()
     await setInputValue(nameInput!, 'Jordan')
 
-    await click(buttonByText(container, 'Create staff'))
+    await click(buttonByText(container, 'Создать сотрудника'))
     await settle()
 
     expect(mockedCreate).toHaveBeenCalledWith(TOKEN, SALON_ID, {
@@ -179,14 +179,14 @@ describe('AdminStaffPage CRUD', () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Add staff'))
+    await click(buttonByText(container, 'Добавить сотрудника'))
     await settle()
 
-    await click(buttonByText(container, 'Create staff'))
+    await click(buttonByText(container, 'Создать сотрудника'))
     await settle()
 
     expect(mockedCreate).not.toHaveBeenCalled()
-    expect(container.textContent).toContain('Display name is required.')
+    expect(container.textContent).toContain('Укажите отображаемое имя.')
   })
 
   it('edits staff with a partial PATCH and refreshes', async () => {
@@ -198,13 +198,13 @@ describe('AdminStaffPage CRUD', () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Edit'))
+    await click(buttonByText(container, 'Изменить'))
     await settle()
 
-    const nameInput = inputByLabel('Display name')
+    const nameInput = inputByLabel('Отображаемое имя')
     await setInputValue(nameInput!, 'Alex R.')
 
-    await click(buttonByText(container, 'Save changes'))
+    await click(buttonByText(container, 'Сохранить изменения'))
     await settle()
 
     expect(mockedPatch).toHaveBeenCalledWith(TOKEN, SALON_ID, 'staff-1', {
@@ -225,7 +225,7 @@ describe('AdminStaffPage CRUD', () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Make unbookable'))
+    await click(buttonByText(container, 'Сделать недоступным'))
     await settle()
 
     expect(mockedPatch).toHaveBeenLastCalledWith(TOKEN, SALON_ID, 'staff-1', {
@@ -235,11 +235,11 @@ describe('AdminStaffPage CRUD', () => {
     mockedFetch.mockResolvedValue([makeStaff({ is_bookable: false })])
     await settle()
 
-    await click(buttonByText(container, 'Deactivate'))
+    await click(buttonByText(container, 'Деактивировать'))
     await settle()
     expect(mockedPatch).toHaveBeenCalledTimes(1)
 
-    await click(buttonByText(container, 'Confirm deactivation'))
+    await click(buttonByText(container, 'Подтвердить деактивацию'))
     await settle()
 
     expect(mockedPatch).toHaveBeenLastCalledWith(TOKEN, SALON_ID, 'staff-1', {
@@ -255,23 +255,23 @@ describe('AdminStaffPage CRUD', () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Add staff'))
+    await click(buttonByText(container, 'Добавить сотрудника'))
     await settle()
 
-    const nameInput = inputByLabel('Display name')
+    const nameInput = inputByLabel('Отображаемое имя')
     await setInputValue(nameInput!, 'Bad')
-    await click(buttonByText(container, 'Create staff'))
+    await click(buttonByText(container, 'Создать сотрудника'))
     await settle()
 
-    expect(container.textContent).toContain('display_name must not be blank')
+    expect(container.textContent).toContain('Проверьте введённые данные и попробуйте снова.')
 
-    await click(buttonByText(container, 'Deactivate'))
+    await click(buttonByText(container, 'Деактивировать'))
     await settle()
-    await click(buttonByText(container, 'Confirm deactivation'))
+    await click(buttonByText(container, 'Подтвердить деактивацию'))
     await settle()
 
-    expect(container.textContent).toContain('You do not have permission to update staff.')
-    expect(buttonByText(container, 'Make unbookable')).toBeTruthy()
+    expect(container.textContent).toContain('Недостаточно прав, чтобы изменять сотрудников.')
+    expect(buttonByText(container, 'Сделать недоступным')).toBeTruthy()
   })
 
   it('shows loading state while list loads', async () => {
@@ -284,7 +284,7 @@ describe('AdminStaffPage CRUD', () => {
     )
 
     await renderPage()
-    expect(container.textContent).toContain('Loading staff…')
+    expect(container.textContent).toContain('Загрузка сотрудников…')
 
     await act(async () => {
       resolveFetch([makeStaff()])
@@ -292,7 +292,7 @@ describe('AdminStaffPage CRUD', () => {
       await flushPromises()
     })
 
-    expect(container.textContent).not.toContain('Loading staff…')
+    expect(container.textContent).not.toContain('Загрузка сотрудников…')
     expect(container.textContent).toContain('Alex')
   })
 
@@ -302,48 +302,48 @@ describe('AdminStaffPage CRUD', () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Edit'))
+    await click(buttonByText(container, 'Изменить'))
     await settle()
 
-    const titleInput = inputByLabel('Title')
+    const titleInput = inputByLabel('Должность')
     expect(titleInput).toBeTruthy()
     await setInputValue(titleInput!, '')
 
-    await click(buttonByText(container, 'Save changes'))
+    await click(buttonByText(container, 'Сохранить изменения'))
     await settle()
 
     expect(mockedPatch).not.toHaveBeenCalled()
-    expect(container.textContent).toContain('Clearing title, bio, or color is not supported')
+    expect(container.textContent).toContain('Очистка должности, описания или цвета не поддерживается')
   })
 
   it('rejects title longer than 100 characters on create', async () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Add staff'))
+    await click(buttonByText(container, 'Добавить сотрудника'))
     await settle()
 
-    const nameInput = inputByLabel('Display name')
+    const nameInput = inputByLabel('Отображаемое имя')
     await setInputValue(nameInput!, 'Jordan')
-    const titleInput = inputByLabel('Title')
+    const titleInput = inputByLabel('Должность')
     await setInputValue(titleInput!, 't'.repeat(101))
 
-    await click(buttonByText(container, 'Create staff'))
+    await click(buttonByText(container, 'Создать сотрудника'))
     await settle()
 
     expect(mockedCreate).not.toHaveBeenCalled()
-    expect(container.textContent).toContain('Title must be at most 100 characters.')
+    expect(container.textContent).toContain('Должность не длиннее 100 символов.')
   })
 
   it('disables row toggles while that row is being edited', async () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Edit'))
+    await click(buttonByText(container, 'Изменить'))
     await settle()
 
-    const deactivate = buttonByText(container, 'Deactivate')
-    const unbookable = buttonByText(container, 'Make unbookable')
+    const deactivate = buttonByText(container, 'Деактивировать')
+    const unbookable = buttonByText(container, 'Сделать недоступным')
     expect(deactivate?.disabled).toBe(true)
     expect(unbookable?.disabled).toBe(true)
   })
@@ -353,8 +353,8 @@ describe('AdminStaffPage CRUD', () => {
     await renderPage()
     await settle()
 
-    expect(buttonByText(container, 'Add staff')).toBeUndefined()
-    expect(buttonByText(container, 'Edit')).toBeUndefined()
+    expect(buttonByText(container, 'Добавить сотрудника')).toBeUndefined()
+    expect(buttonByText(container, 'Изменить')).toBeUndefined()
     expect(container.textContent).toContain('Alex')
   })
 })
@@ -414,25 +414,25 @@ describe('AdminStaffPage deactivation confirmation', () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Deactivate'))
+    await click(buttonByText(container, 'Деактивировать'))
     await settle()
 
     expect(mockedPatch).not.toHaveBeenCalled()
-    expect(container.textContent).toContain('Deactivate Alex?')
+    expect(container.textContent).toContain('Деактивировать Alex?')
   })
 
   it('does not PATCH when Cancel is clicked', async () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Deactivate'))
+    await click(buttonByText(container, 'Деактивировать'))
     await settle()
-    await click(buttonByText(container, 'Cancel'))
+    await click(buttonByText(container, 'Отмена'))
     await settle()
 
     expect(mockedPatch).not.toHaveBeenCalled()
-    expect(buttonByText(container, 'Deactivate')).toBeTruthy()
-    expect(container.textContent).not.toContain('Deactivate Alex?')
+    expect(buttonByText(container, 'Деактивировать')).toBeTruthy()
+    expect(container.textContent).not.toContain('Деактивировать Alex?')
   })
 
   it('PATCHes is_active false only after Confirm deactivation', async () => {
@@ -444,9 +444,9 @@ describe('AdminStaffPage deactivation confirmation', () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Deactivate'))
+    await click(buttonByText(container, 'Деактивировать'))
     await settle()
-    await click(buttonByText(container, 'Confirm deactivation'))
+    await click(buttonByText(container, 'Подтвердить деактивацию'))
     await settle()
 
     expect(mockedPatch).toHaveBeenCalledTimes(1)
@@ -463,10 +463,10 @@ describe('AdminStaffPage deactivation confirmation', () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Deactivate'))
+    await click(buttonByText(container, 'Деактивировать'))
     await settle()
 
-    expect(container.textContent).toContain('Deactivate Jordan Lee?')
+    expect(container.textContent).toContain('Деактивировать Jordan Lee?')
   })
 
   it('shows API errors after confirm and keeps the page usable', async () => {
@@ -475,14 +475,14 @@ describe('AdminStaffPage deactivation confirmation', () => {
     await renderPage()
     await settle()
 
-    await click(buttonByText(container, 'Deactivate'))
+    await click(buttonByText(container, 'Деактивировать'))
     await settle()
-    await click(buttonByText(container, 'Confirm deactivation'))
+    await click(buttonByText(container, 'Подтвердить деактивацию'))
     await settle()
 
-    expect(container.textContent).toContain('You do not have permission to update staff.')
-    expect(buttonByText(container, 'Edit')).toBeTruthy()
-    expect(buttonByText(container, 'Make unbookable')).toBeTruthy()
+    expect(container.textContent).toContain('Недостаточно прав, чтобы изменять сотрудников.')
+    expect(buttonByText(container, 'Изменить')).toBeTruthy()
+    expect(buttonByText(container, 'Сделать недоступным')).toBeTruthy()
     expect(mockedPatch).toHaveBeenCalledWith(TOKEN, SALON_ID, 'staff-1', {
       is_active: false,
     })

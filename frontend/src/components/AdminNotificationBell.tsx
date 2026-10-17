@@ -10,6 +10,7 @@ import {
   setAdminNotificationSoundMuted,
 } from '../utils/adminNotificationSound'
 import { formatBookingDateTime } from '../utils/adminSalonFormat'
+import { t } from '../i18n'
 
 type AdminNotificationBellProps = {
   /** When true (mobile nav drawer open), notification panel is closed. */
@@ -141,8 +142,8 @@ export function AdminNotificationBell({ mobileNavOpen = false }: AdminNotificati
         aria-haspopup="true"
         aria-label={
           unreadCount > 0
-            ? `Notifications, ${unreadCount} unread`
-            : 'Notifications'
+            ? t('admin.bell.unreadAria', { count: unreadCount })
+            : t('admin.bell.notifications')
         }
         onClick={() => {
           void ensureAdminNotificationAudioReady()
@@ -158,19 +159,19 @@ export function AdminNotificationBell({ mobileNavOpen = false }: AdminNotificati
         ) : null}
       </button>
       {open ? (
-        <div className="admin-notifications__panel" role="dialog" aria-label="Notifications">
+        <div className="admin-notifications__panel" role="dialog" aria-label={t('admin.bell.notifications')}>
           <div className="admin-notifications__panel-header">
-            <h2 className="admin-notifications__title">Notifications</h2>
+            <h2 className="admin-notifications__title">{t('admin.bell.notifications')}</h2>
             <div className="admin-notifications__panel-actions">
               <button
                 type="button"
                 className="btn btn--link btn--compact"
                 aria-pressed={soundMuted}
-                aria-label={soundMuted ? 'Unmute notification sounds' : 'Mute notification sounds'}
-                title={soundMuted ? 'Unmute sounds' : 'Mute sounds'}
+                aria-label={soundMuted ? t('admin.bell.unmuteTitle') : t('admin.bell.muteTitle')}
+                title={soundMuted ? t('admin.bell.unmute') : t('admin.bell.mute')}
                 onClick={toggleSoundMuted}
               >
-                {soundMuted ? 'Sound off' : 'Sound on'}
+                {soundMuted ? t('admin.bell.soundOff') : t('admin.bell.soundOn')}
               </button>
               {unreadCount > 0 ? (
                 <button
@@ -178,16 +179,16 @@ export function AdminNotificationBell({ mobileNavOpen = false }: AdminNotificati
                   className="btn btn--link btn--compact"
                   onClick={() => void markAllRead()}
                 >
-                  Mark all read
+                  {t('admin.bell.markAllRead')}
                 </button>
               ) : null}
             </div>
           </div>
           {loading && items.length === 0 ? (
-            <p className="admin-notifications__empty">Loading…</p>
+            <p className="admin-notifications__empty">{t('admin.bell.loading')}</p>
           ) : null}
           {!loading && items.length === 0 ? (
-            <p className="admin-notifications__empty">No pending public bookings.</p>
+            <p className="admin-notifications__empty">{t('admin.bell.empty')}</p>
           ) : null}
           <ul className="admin-notifications__list">
             {items.map((item) => {
@@ -199,7 +200,7 @@ export function AdminNotificationBell({ mobileNavOpen = false }: AdminNotificati
                       {unread ? (
                         <span className="admin-notifications__dot" aria-hidden="true" />
                       ) : null}
-                      New public booking
+                      {t('admin.bell.newPublic')}
                     </p>
                     <p className="admin-notifications__item-meta">
                       {item.customer_name} · {item.service_name} · {item.staff_name}
@@ -219,7 +220,7 @@ export function AdminNotificationBell({ mobileNavOpen = false }: AdminNotificati
                         setOpen(false)
                       }}
                     >
-                      View
+                      {t('admin.bell.view')}
                     </Link>
                     {unread ? (
                       <button
@@ -227,7 +228,7 @@ export function AdminNotificationBell({ mobileNavOpen = false }: AdminNotificati
                         className="btn btn--link btn--compact"
                         onClick={() => void markRead(item.id)}
                       >
-                        Mark read
+                        {t('admin.bell.markRead')}
                       </button>
                     ) : null}
                   </div>

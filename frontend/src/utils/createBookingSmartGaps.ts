@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { isoToSalonLocalDatetimeLocal } from './adminBookingTime'
 import { formatBookingTime } from './adminSalonFormat'
 import type { SmartGapOut } from '../types/smartGaps'
@@ -79,11 +80,11 @@ export function smartGapListStatusMessage(
 ): string | null {
   switch (phase) {
     case 'loading':
-      return 'Loading free gaps…'
+      return t('admin.bookings.smartGapsLoading')
     case 'error':
-      return error ?? 'Could not load smart gaps.'
+      return error ?? t('admin.bookings.smartGapsFailed')
     case 'empty':
-      return 'No free gaps fit this service on the chosen day.'
+      return t('admin.bookings.smartGapsEmpty')
     case 'idle':
     case 'ready':
       return null

@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
 import { fetchAdminCustomers } from '../api/customers'
-import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
+import { adminUserErrorMessage } from '../utils/adminUserError'
 import type { CustomerListItem } from '../types/customers'
 import { formatDashboardPrice } from '../utils/adminSalonFormat'
+import { t } from '../i18n'
 
 function formatBool(value: boolean): string {
-  return value ? 'Yes' : 'No'
+  return value ? t('common.yes') : t('common.no')
 }
 
 export function AdminCustomersPage() {
@@ -36,11 +37,7 @@ export function AdminCustomersPage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Could not load customers.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.customers.loadFailed'))
       setItems([])
     } finally {
       setLoading(false)
@@ -61,19 +58,19 @@ export function AdminCustomersPage() {
     <AdminLayout>
       <section className="admin-customers">
         <header className="admin-customers__header">
-          <h1 className="admin-customers__title">Customers</h1>
-          <p className="admin-customers__lead">Read-only list for your salon.</p>
+          <h1 className="admin-customers__title">{t('admin.customers.title')}</h1>
+          <p className="admin-customers__lead">{t('admin.customers.lead')}</p>
         </header>
 
         <form className="admin-customers__filters" onSubmit={handleSearchSubmit}>
           <label className="admin-customers__filter">
-            <span>Search</span>
+            <span>{t('common.search')}</span>
             <input
               type="search"
               className="admin-customers__search-input"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Name, phone, or email"
+              placeholder={t('admin.customers.searchPlaceholder')}
               autoComplete="off"
             />
           </label>
@@ -84,7 +81,7 @@ export function AdminCustomersPage() {
 
         {loading ? (
           <p className="admin-customers__state" role="status">
-            Loading customers…
+            {t('admin.customers.loading')}
           </p>
         ) : null}
 
@@ -95,7 +92,7 @@ export function AdminCustomersPage() {
         ) : null}
 
         {!loading && !error && items.length === 0 ? (
-          <p className="admin-customers__state">No customers match your search.</p>
+          <p className="admin-customers__state">{t('admin.customers.empty')}</p>
         ) : null}
 
         {!loading && !error && items.length > 0 ? (
@@ -103,12 +100,12 @@ export function AdminCustomersPage() {
             <table className="admin-customers__table">
               <thead>
                 <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Phone</th>
-                  <th scope="col">Email</th>
-                  <th scope="col">Bonus</th>
-                  <th scope="col">WhatsApp</th>
-                  <th scope="col">Marketing</th>
+                  <th scope="col">{t('admin.customers.colName')}</th>
+                  <th scope="col">{t('admin.customers.colPhone')}</th>
+                  <th scope="col">{t('admin.customers.colEmail')}</th>
+                  <th scope="col">{t('admin.customers.colBonus')}</th>
+                  <th scope="col">{t('admin.customers.colWhatsApp')}</th>
+                  <th scope="col">{t('admin.customers.colMarketing')}</th>
                 </tr>
               </thead>
               <tbody>

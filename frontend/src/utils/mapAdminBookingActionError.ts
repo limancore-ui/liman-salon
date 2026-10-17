@@ -1,33 +1,31 @@
 import { ApiError } from '../api/errors'
+import { t } from '../i18n'
 
 /** User-facing message for admin cancel/reschedule; does not expose raw backend details. */
 export function mapAdminBookingActionError(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 404) {
-      return 'Booking not found.'
+      return t('admin.bookingError.notFound')
     }
     if (err.status === 403) {
-      return 'You do not have permission to change this booking.'
+      return t('admin.bookingError.forbidden')
     }
     if (err.status === 409) {
-      return 'The selected time is not available.'
+      return t('admin.bookingError.slotUnavailable')
     }
     if (err.status === 422) {
-      return 'This booking cannot be changed in its current status.'
+      return t('admin.bookingError.badStatus')
     }
     if (err.status === 0) {
-      return 'Could not reach the server. Check your connection and try again.'
+      return t('admin.bookingError.unreachable')
     }
-    return 'Could not complete the action. Try again later.'
+    return t('admin.bookingError.generic')
   }
-  return 'Could not reach the server. Check your connection and try again.'
+  return t('admin.bookingError.unreachable')
 }
 
-/** Create booking: reuse action mapping; surface backend validation detail on 422. */
+/** Create booking: reuse action mapping without exposing raw backend detail. */
 export function mapAdminBookingCreateError(err: unknown): string {
-  if (err instanceof ApiError && err.status === 422 && err.message.trim() !== '') {
-    return err.message
-  }
   return mapAdminBookingActionError(err)
 }
 

@@ -56,8 +56,8 @@ describe('staffAvailableToAssign', () => {
 
 describe('assignedStaffSummary', () => {
   it('formats empty, short, and truncated lists', () => {
-    expect(assignedStaffSummary(undefined)).toBe('Staff')
-    expect(assignedStaffSummary([])).toBe('No staff assigned')
+    expect(assignedStaffSummary(undefined)).toBe('Сотрудники')
+    expect(assignedStaffSummary([])).toBe('Нет назначенных сотрудников')
     expect(assignedStaffSummary([staff('1', 'Alex')])).toBe('Alex')
     expect(
       assignedStaffSummary([
@@ -72,10 +72,14 @@ describe('assignedStaffSummary', () => {
 describe('mapAdminServiceStaffAssignError', () => {
   it('maps forbidden, not found, and network errors', () => {
     expect(mapAdminServiceStaffAssignError(new ApiError(403, 'Forbidden'))).toContain(
-      'permission',
+      'прав',
     )
-    expect(mapAdminServiceStaffAssignError(new ApiError(404, 'missing'))).toBe('missing')
-    expect(mapAdminServiceStaffAssignError(new ApiError(0, ''))).toContain('connection')
-    expect(mapAdminServiceStaffAssignError(new Error('offline'))).toContain('connection')
+    expect(mapAdminServiceStaffAssignError(new ApiError(404, 'missing'))).toBe(
+      'Услуга или сотрудник не найдены.',
+    )
+    expect(mapAdminServiceStaffAssignError(new ApiError(0, ''))).toContain('сети')
+    expect(mapAdminServiceStaffAssignError(new Error('offline'))).toBe(
+      'Не удалось обновить назначение. Попробуйте позже.',
+    )
   })
 })

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { previewScheduleImpact } from '../api/schedule'
-import { ApiError } from '../api/errors'
 import type {
   ScheduleImpactChange,
   ScheduleImpactBookingRow,
   ScheduleImpactPreviewResponse,
 } from '../types/schedule'
+import { adminUserErrorMessage } from '../utils/adminUserError'
 import {
   SCHEDULE_IMPACT_DEFAULT_HORIZON_DAYS,
   SCHEDULE_IMPACT_DEFAULT_LIMIT,
@@ -16,11 +16,11 @@ import {
   paginationFromLoadMorePage,
 } from '../utils/scheduleImpactPreviewState'
 
-function mapPreviewError(err: unknown): string {
-  if (err instanceof ApiError) {
-    return err.message
-  }
-  return 'Could not load impact preview.'
+function mapPreviewError(
+  err: unknown,
+  fallback: 'admin.error.impactPreviewFailed' | 'admin.error.impactLoadMoreFailed' = 'admin.error.impactPreviewFailed',
+): string {
+  return adminUserErrorMessage(err, fallback)
 }
 
 export type UseScheduleImpactPreviewParams = {
@@ -140,7 +140,7 @@ export function useScheduleImpactPreview(
           setImpacts([])
           setError(mapPreviewError(err))
         } else if (activeMoreRequestId.current === requestId) {
-          setLoadMoreError(mapPreviewError(err))
+          setLoadMoreError(mapPreviewError(err, 'admin.error.impactLoadMoreFailed'))
         }
       } finally {
         if (
