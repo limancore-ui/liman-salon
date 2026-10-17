@@ -8,7 +8,7 @@ export function salonBrandInitials(name: string): string {
     return '?'
   }
   if (parts.length === 1) {
-    return parts[0].slice(0, 2).toLocaleUpperCase('ru-RU')
+    return (parts[0][0] ?? '?').toLocaleUpperCase('ru-RU')
   }
   const first = parts[0][0] ?? ''
   const second = parts[1][0] ?? ''

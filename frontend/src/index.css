@@ -31,8 +31,12 @@
   --salon-accent: var(--color-accent);
   --salon-accent-soft: var(--color-accent-soft);
   --salon-bg-image: none;
+  /* Keeps the cover decorative: a wash of the salon background colour sits above it. */
+  --salon-bg-wash: color-mix(in srgb, var(--salon-bg) 82%, transparent);
   background-color: var(--salon-bg);
-  background-image: var(--salon-bg-image);
+  background-image:
+    linear-gradient(var(--salon-bg-wash), var(--salon-bg-wash)),
+    var(--salon-bg-image);
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;

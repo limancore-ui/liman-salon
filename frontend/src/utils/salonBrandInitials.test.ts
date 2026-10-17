@@ -6,8 +6,9 @@ describe('salonBrandInitials', () => {
     expect(salonBrandInitials('Malina Beauty')).toBe('MB')
   })
 
-  it('uses up to two characters for a single word', () => {
-    expect(salonBrandInitials('Весна')).toBe('ВЕ')
+  it('uses the first letter for a single word', () => {
+    expect(salonBrandInitials('Весна')).toBe('В')
+    expect(salonBrandInitials('beauty')).toBe('B')
   })
 
   it('trims whitespace and ignores empty segments', () => {

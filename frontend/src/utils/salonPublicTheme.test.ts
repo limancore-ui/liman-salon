@@ -6,7 +6,50 @@ import {
   SALON_THEME_CSS_VARS,
   buildSalonThemeStyle,
   hintsFromPublicSalonAppearance,
+  publicSalonBackgroundUrl,
 } from './salonPublicTheme'
+
+describe('publicSalonBackgroundUrl', () => {
+  it('returns the cover url when it differs from the logo', () => {
+    expect(
+      publicSalonBackgroundUrl({
+        logo_media_id: 'logo-1',
+        background_media_id: 'cover-1',
+        background_url: '/api/cover-1',
+      }),
+    ).toBe('/api/cover-1')
+  })
+
+  it('returns the cover url when there is no logo', () => {
+    expect(
+      publicSalonBackgroundUrl({
+        logo_media_id: null,
+        background_media_id: 'cover-1',
+        background_url: '/api/cover-1',
+      }),
+    ).toBe('/api/cover-1')
+  })
+
+  it('drops the background when the cover is the same asset as the logo', () => {
+    expect(
+      publicSalonBackgroundUrl({
+        logo_media_id: 'same',
+        background_media_id: 'same',
+        background_url: '/api/same',
+      }),
+    ).toBeNull()
+  })
+
+  it('returns null when there is no cover', () => {
+    expect(
+      publicSalonBackgroundUrl({
+        logo_media_id: null,
+        background_media_id: null,
+        background_url: null,
+      }),
+    ).toBeNull()
+  })
+})
 
 describe('hintsFromPublicSalonAppearance', () => {
   it('returns null when no appearance and no background image', () => {

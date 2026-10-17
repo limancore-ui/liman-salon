@@ -111,7 +111,7 @@ describe('SalonHeader', () => {
 
     expect(container.querySelector('img.salon-header__logo')).toBeNull()
     expect(container.querySelector('.salon-header__initials')?.textContent).toBe(
-      'ВЕ',
+      'В',
     )
     expect(container.textContent).toContain('Весна')
     cleanup()

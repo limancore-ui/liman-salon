@@ -49,6 +49,7 @@ import { persistManageSnapshot } from '../utils/manageBookingStorage'
 import {
   buildSalonThemeStyle,
   hintsFromPublicSalonAppearance,
+  publicSalonBackgroundUrl,
 } from '../utils/salonPublicTheme'
 import {
   isSlotConflictError,
@@ -602,7 +603,7 @@ export function PublicSalonPage() {
   const salonThemeStyle = buildSalonThemeStyle(
     hintsFromPublicSalonAppearance(
       salonState.salon.appearance,
-      salonState.salon.background_url,
+      publicSalonBackgroundUrl(salonState.salon),
     ),
   )
 

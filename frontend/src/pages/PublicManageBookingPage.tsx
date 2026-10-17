@@ -34,6 +34,7 @@ import type { SalonPublicThemeHints } from '../utils/salonPublicTheme'
 import {
   buildSalonThemeStyle,
   hintsFromPublicSalonAppearance,
+  publicSalonBackgroundUrl,
 } from '../utils/salonPublicTheme'
 import {
   loadManageSnapshot,
@@ -267,7 +268,7 @@ export function PublicManageBookingPage() {
         setSalonThemeHints(
           hintsFromPublicSalonAppearance(
             salon.appearance,
-            salon.background_url,
+            publicSalonBackgroundUrl(salon),
           ),
         )
         setSalonTimeZone(salon.timezone)

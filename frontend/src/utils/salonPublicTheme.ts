@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import type { PublicSalonWithMedia } from '../types/publicSalon'
 import type { PublicSalonAppearance } from '../types/salonAppearance'
 
 /**
@@ -23,6 +24,22 @@ export type SalonPublicThemeHints = {
   backgroundColor?: string | null
   backgroundImageUrl?: string | null
   surfaceColor?: string | null
+}
+
+/** Cover URL for the page background, skipped when it is the same asset as the logo. */
+export function publicSalonBackgroundUrl(
+  salon: Pick<
+    PublicSalonWithMedia,
+    'logo_media_id' | 'background_media_id' | 'background_url'
+  >,
+): string | null {
+  if (
+    salon.background_media_id != null &&
+    salon.background_media_id === salon.logo_media_id
+  ) {
+    return null
+  }
+  return salon.background_url
 }
 
 export function hintsFromPublicSalonAppearance(
