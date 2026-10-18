@@ -172,6 +172,70 @@ def _seed_customer(session: Session, salon_id: uuid.UUID) -> uuid.UUID:
     return customer.id
 
 
+def _enqueue_legacy_pending_public(
+    session: Session,
+    *,
+    salon: Salon,
+    staff: Staff,
+    service: Service,
+    customer_id: uuid.UUID,
+    service_start: datetime,
+    as_of: datetime,
+) -> uuid.UUID:
+    """Seed a legacy pending public row and its bell event. New checkout is confirmed."""
+    result = BookingService(session).create_booking(
+        salon_id=salon.id,
+        customer_id=customer_id,
+        staff_id=staff.id,
+        service_id=service.id,
+        requested_service_start=service_start,
+        source="public",
+        status="pending",
+        as_of=as_of,
+        expires_at=as_of + timedelta(hours=1),
+    )
+    AdminNotificationService(session).enqueue_public_booking_pending(
+        salon_id=salon.id,
+        booking_id=result.booking_id,
+    )
+    return result.booking_id
+
+
+def test_confirmed_public_booking_does_not_create_bell_events(
+    db_session: Session,
+) -> None:
+    salon, staff, service, _owner, _admin, _staff_user = _seed_salon_with_members(
+        db_session
+    )
+    customer_id = _seed_customer(db_session, salon.id)
+    as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
+    public_svc = PublicBookingService(
+        db_session,
+        booking_manage_token_pepper="test-pepper",
+        admin_notifications=AdminNotificationService(db_session),
+        notifications=None,
+    )
+    result = public_svc.create_public_booking(
+        salon_id=salon.id,
+        customer_id=customer_id,
+        staff_id=staff.id,
+        service_id=service.id,
+        service_start=datetime(2026, 7, 2, 9, 0, tzinfo=UTC),
+        as_of=as_of,
+    )
+    booking = db_session.get(Booking, result.booking_id)
+    assert booking is not None
+    assert booking.status == "confirmed"
+    assert booking.confirmed_at == as_of
+    assert booking.expires_at is None
+    rows = db_session.scalars(
+        select(AdminNotificationEvent).where(
+            AdminNotificationEvent.booking_id == result.booking_id,
+        )
+    ).all()
+    assert rows == []
+
+
 def test_public_booking_creates_owner_admin_events(db_session: Session) -> None:
     salon, staff, service, owner, admin, staff_user = _seed_salon_with_members(
         db_session
@@ -180,16 +244,12 @@ def test_public_booking_creates_owner_admin_events(db_session: Session) -> None:
     as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
     service_start = datetime(2026, 7, 2, 10, 0, tzinfo=UTC)
 
-    public_svc = PublicBookingService(
+    booking_id = _enqueue_legacy_pending_public(
         db_session,
-        booking_manage_token_pepper="test-pepper",
-        admin_notifications=AdminNotificationService(db_session),
-    )
-    result = public_svc.create_public_booking(
-        salon_id=salon.id,
+        salon=salon,
+        staff=staff,
+        service=service,
         customer_id=customer_id,
-        staff_id=staff.id,
-        service_id=service.id,
         service_start=service_start,
         as_of=as_of,
     )
@@ -197,7 +257,7 @@ def test_public_booking_creates_owner_admin_events(db_session: Session) -> None:
     rows = db_session.scalars(
         select(AdminNotificationEvent).where(
             AdminNotificationEvent.salon_id == salon.id,
-            AdminNotificationEvent.booking_id == result.booking_id,
+            AdminNotificationEvent.booking_id == booking_id,
         )
     ).all()
     recipient_ids = {row.recipient_user_id for row in rows}
@@ -248,28 +308,24 @@ def test_enqueue_idempotent(db_session: Session) -> None:
     salon, staff, service, owner, admin, _ = _seed_salon_with_members(db_session)
     customer_id = _seed_customer(db_session, salon.id)
     as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
-    public_svc = PublicBookingService(
+    booking_id = _enqueue_legacy_pending_public(
         db_session,
-        booking_manage_token_pepper="test-pepper",
-        admin_notifications=AdminNotificationService(db_session),
-    )
-    result = public_svc.create_public_booking(
-        salon_id=salon.id,
+        salon=salon,
+        staff=staff,
+        service=service,
         customer_id=customer_id,
-        staff_id=staff.id,
-        service_id=service.id,
         service_start=datetime(2026, 7, 2, 11, 0, tzinfo=UTC),
         as_of=as_of,
     )
     admin_svc = AdminNotificationService(db_session)
     again = admin_svc.enqueue_public_booking_pending(
         salon_id=salon.id,
-        booking_id=result.booking_id,
+        booking_id=booking_id,
     )
     assert again == 0
     rows = db_session.scalars(
         select(AdminNotificationEvent).where(
-            AdminNotificationEvent.booking_id == result.booking_id,
+            AdminNotificationEvent.booking_id == booking_id,
         )
     ).all()
     assert len(rows) == 2
@@ -282,20 +338,15 @@ def test_transaction_rollback_removes_events(db_session: Session) -> None:
     booking_id: uuid.UUID | None = None
     try:
         with db_session.begin_nested():
-            public_svc = PublicBookingService(
+            booking_id = _enqueue_legacy_pending_public(
                 db_session,
-                booking_manage_token_pepper="test-pepper",
-                admin_notifications=AdminNotificationService(db_session),
-            )
-            result = public_svc.create_public_booking(
-                salon_id=salon.id,
+                salon=salon,
+                staff=staff,
+                service=service,
                 customer_id=customer_id,
-                staff_id=staff.id,
-                service_id=service.id,
                 service_start=datetime(2026, 7, 2, 12, 0, tzinfo=UTC),
                 as_of=as_of,
             )
-            booking_id = result.booking_id
             raise RuntimeError("force rollback")
     except RuntimeError:
         pass
@@ -313,23 +364,19 @@ def test_stale_when_booking_not_pending(db_session: Session) -> None:
     salon, staff, service, owner, admin, _ = _seed_salon_with_members(db_session)
     customer_id = _seed_customer(db_session, salon.id)
     as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
-    public_svc = PublicBookingService(
+    booking_id = _enqueue_legacy_pending_public(
         db_session,
-        booking_manage_token_pepper="test-pepper",
-        admin_notifications=AdminNotificationService(db_session),
-    )
-    result = public_svc.create_public_booking(
-        salon_id=salon.id,
+        salon=salon,
+        staff=staff,
+        service=service,
         customer_id=customer_id,
-        staff_id=staff.id,
-        service_id=service.id,
         service_start=datetime(2026, 7, 2, 14, 0, tzinfo=UTC),
         as_of=as_of,
     )
     booking = db_session.scalar(
         select(Booking).where(
             Booking.salon_id == salon.id,
-            Booking.id == result.booking_id,
+            Booking.id == booking_id,
         )
     )
     assert booking is not None
@@ -354,24 +401,21 @@ def test_cross_tenant_isolation(db_session: Session) -> None:
     customer_b = _seed_customer(db_session, salon_b.id)
     as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
 
-    public_svc = PublicBookingService(
+    res_a = _enqueue_legacy_pending_public(
         db_session,
-        booking_manage_token_pepper="test-pepper",
-        admin_notifications=AdminNotificationService(db_session),
-    )
-    res_a = public_svc.create_public_booking(
-        salon_id=salon_a.id,
+        salon=salon_a,
+        staff=staff_a,
+        service=service_a,
         customer_id=customer_a,
-        staff_id=staff_a.id,
-        service_id=service_a.id,
         service_start=datetime(2026, 7, 3, 10, 0, tzinfo=UTC),
         as_of=as_of,
     )
-    res_b = public_svc.create_public_booking(
-        salon_id=salon_b.id,
+    res_b = _enqueue_legacy_pending_public(
+        db_session,
+        salon=salon_b,
+        staff=staff_b,
+        service=service_b,
         customer_id=customer_b,
-        staff_id=staff_b.id,
-        service_id=service_b.id,
         service_start=datetime(2026, 7, 3, 11, 0, tzinfo=UTC),
         as_of=as_of,
     )
@@ -384,7 +428,7 @@ def test_cross_tenant_isolation(db_session: Session) -> None:
         offset=0,
     )
     assert len(list_a) == 1
-    assert list_a[0].booking_id == res_a.booking_id
+    assert list_a[0].booking_id == res_a
 
     list_b_for_a_owner = admin_svc.list_notifications(
         salon_id=salon_b.id,
@@ -399,16 +443,12 @@ def test_list_since_returns_public_pending_for_stream(db_session: Session) -> No
     salon, staff, service, owner, _, _ = _seed_salon_with_members(db_session)
     customer_id = _seed_customer(db_session, salon.id)
     as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
-    public_svc = PublicBookingService(
+    booking_id = _enqueue_legacy_pending_public(
         db_session,
-        booking_manage_token_pepper="test-pepper",
-        admin_notifications=AdminNotificationService(db_session),
-    )
-    result = public_svc.create_public_booking(
-        salon_id=salon.id,
+        salon=salon,
+        staff=staff,
+        service=service,
         customer_id=customer_id,
-        staff_id=staff.id,
-        service_id=service.id,
         service_start=datetime(2026, 7, 2, 15, 0, tzinfo=UTC),
         as_of=as_of,
     )
@@ -421,7 +461,7 @@ def test_list_since_returns_public_pending_for_stream(db_session: Session) -> No
         limit=20,
     )
     assert len(streamed) == 1
-    assert streamed[0].booking_id == result.booking_id
+    assert streamed[0].booking_id == booking_id
     assert streamed[0].event_type == "public_booking_pending"
 
 
@@ -429,24 +469,21 @@ def test_list_since_after_id_cursor_no_gap_no_replay(db_session: Session) -> Non
     salon, staff, service, owner, _, _ = _seed_salon_with_members(db_session)
     customer_id = _seed_customer(db_session, salon.id)
     as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
-    public_svc = PublicBookingService(
+    first = _enqueue_legacy_pending_public(
         db_session,
-        booking_manage_token_pepper="test-pepper",
-        admin_notifications=AdminNotificationService(db_session),
-    )
-    first = public_svc.create_public_booking(
-        salon_id=salon.id,
+        salon=salon,
+        staff=staff,
+        service=service,
         customer_id=customer_id,
-        staff_id=staff.id,
-        service_id=service.id,
         service_start=datetime(2026, 7, 2, 16, 0, tzinfo=UTC),
         as_of=as_of,
     )
-    second = public_svc.create_public_booking(
-        salon_id=salon.id,
+    second = _enqueue_legacy_pending_public(
+        db_session,
+        salon=salon,
+        staff=staff,
+        service=service,
         customer_id=customer_id,
-        staff_id=staff.id,
-        service_id=service.id,
         service_start=datetime(2026, 7, 2, 17, 0, tzinfo=UTC),
         as_of=as_of,
     )
@@ -458,8 +495,8 @@ def test_list_since_after_id_cursor_no_gap_no_replay(db_session: Session) -> Non
     ).all()
     assert len(event_rows) == 2
     by_booking = {row.booking_id: row for row in event_rows}
-    by_booking[first.booking_id].created_at = as_of
-    by_booking[second.booking_id].created_at = as_of + timedelta(seconds=1)
+    by_booking[first].created_at = as_of
+    by_booking[second].created_at = as_of + timedelta(seconds=1)
     db_session.flush()
 
     admin_svc = AdminNotificationService(db_session)
@@ -470,10 +507,7 @@ def test_list_since_after_id_cursor_no_gap_no_replay(db_session: Session) -> Non
         limit=20,
     )
     assert len(initial) == 2
-    assert {row.booking_id for row in initial} == {
-        first.booking_id,
-        second.booking_id,
-    }
+    assert {row.booking_id for row in initial} == {first, second}
     assert initial[0].created_at <= initial[1].created_at
 
     after_first = admin_svc.list_since(
@@ -499,23 +533,19 @@ def test_list_since_empty_when_booking_no_longer_pending(db_session: Session) ->
     salon, staff, service, owner, _, _ = _seed_salon_with_members(db_session)
     customer_id = _seed_customer(db_session, salon.id)
     as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
-    public_svc = PublicBookingService(
+    booking_id = _enqueue_legacy_pending_public(
         db_session,
-        booking_manage_token_pepper="test-pepper",
-        admin_notifications=AdminNotificationService(db_session),
-    )
-    result = public_svc.create_public_booking(
-        salon_id=salon.id,
+        salon=salon,
+        staff=staff,
+        service=service,
         customer_id=customer_id,
-        staff_id=staff.id,
-        service_id=service.id,
         service_start=datetime(2026, 7, 2, 18, 0, tzinfo=UTC),
         as_of=as_of,
     )
     booking = db_session.scalar(
         select(Booking).where(
             Booking.salon_id == salon.id,
-            Booking.id == result.booking_id,
+            Booking.id == booking_id,
         )
     )
     assert booking is not None

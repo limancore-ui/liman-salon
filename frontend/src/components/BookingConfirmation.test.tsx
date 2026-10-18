@@ -93,7 +93,47 @@ describe('BookingConfirmation', () => {
     expect(input.value).toBe(
       `${window.location.origin}/s/demo-salon/bookings/booking-99/manage?token=manage-token-value`,
     )
+    expect(container.textContent).toContain('Запись успешно оформлена!')
+    expect(container.textContent).toContain(
+      'Ваше время зарезервировано. Ждём вас!',
+    )
+    expect(container.textContent).toContain(
+      'Нужно перенести или отменить запись?',
+    )
+    expect(container.textContent).toContain('персональную ссылку')
+    expect(container.textContent).not.toContain('ожидает подтверждения')
+    expect(container.textContent).not.toContain('Удержание до')
+    expect(container.textContent).not.toContain('освобождён')
+    expect(container.textContent).not.toContain('Malina')
     cleanup()
+  })
+
+  it('renders salon brand for the correct salon when provided', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root: Root = createRoot(container)
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={['/s/sever']}>
+          <BookingConfirmation
+            booking={booking}
+            slug="sever"
+            timeZone="UTC"
+            salonName="Студия Север"
+            logoUrl="/api/v1/public/salons/sever/media/logo-9/content"
+            onDone={vi.fn()}
+          />
+        </MemoryRouter>,
+      )
+    })
+
+    expect(container.textContent).toContain('Студия Север')
+    expect(container.textContent).not.toContain('Malina')
+    const img = container.querySelector('img.salon-header__logo') as HTMLImageElement
+    expect(img?.getAttribute('src')).toContain('/salons/sever/media/logo-9/')
+    expect(img?.getAttribute('alt')).toBe('Логотип салона Студия Север')
+    act(() => root.unmount())
+    container.remove()
   })
 
   it('copies manage link when copy button clicked', async () => {
@@ -103,9 +143,10 @@ describe('BookingConfirmation', () => {
     const { container, cleanup } = renderConfirmation()
 
     const copyBtn = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent?.includes('Копировать ссылку'),
+      (b) => b.textContent?.includes('Скопировать ссылку'),
     )
     expect(copyBtn).toBeDefined()
+    expect(copyBtn?.className).toContain('btn--secondary')
 
     await act(async () => {
       copyBtn!.click()
@@ -123,7 +164,7 @@ describe('BookingConfirmation', () => {
     const { container, cleanup } = renderConfirmation()
 
     const copyBtn = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent?.includes('Копировать ссылку'),
+      (b) => b.textContent?.includes('Скопировать ссылку'),
     )
 
     await act(async () => {
@@ -134,6 +175,18 @@ describe('BookingConfirmation', () => {
     cleanup()
   })
 
+  it('uses primary style for manage and secondary for copy', () => {
+    const { container, cleanup } = renderConfirmation()
+    const manageBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('Управлять записью'),
+    )
+    const copyBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('Скопировать ссылку'),
+    )
+    expect(manageBtn?.className).toContain('btn--primary')
+    expect(copyBtn?.className).toContain('btn--secondary')
+    cleanup()
+  })
   it('navigates to manage path without token and persists session token', async () => {
     const { container, cleanup } = renderConfirmation()
 

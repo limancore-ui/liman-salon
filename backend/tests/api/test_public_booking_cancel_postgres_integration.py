@@ -335,7 +335,7 @@ def test_cancel_wrong_token_404(
         select(Booking).where(Booking.salon_id == salon.id, Booking.id == booking_id)
     )
     assert row is not None
-    assert row.status == "pending"
+    assert row.status == "confirmed"
 
 
 def test_cancel_other_salon_booking_404(
@@ -376,7 +376,7 @@ def test_cancel_other_salon_booking_404(
         select(Booking).where(Booking.salon_id == salon_a.id, Booking.id == booking_id)
     )
     assert row is not None
-    assert row.status == "pending"
+    assert row.status == "confirmed"
     assert row.manage_token_hash is not None
     pepper = get_settings().booking_manage_token_pepper
     from app.services.booking.manage_token import verify_manage_token

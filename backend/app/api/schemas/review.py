@@ -12,7 +12,7 @@ class PublicBookingReviewCreateRequest(BaseModel):
     token: str = Field(min_length=1, description="Manage token from booking creation")
     rating: int = Field(ge=1, le=5)
     title: str | None = Field(default=None, max_length=200)
-    body: str | None = None
+    body: str | None = Field(default=None, max_length=1000)
 
 
 class PublicBookingReviewCreateResponse(BaseModel):

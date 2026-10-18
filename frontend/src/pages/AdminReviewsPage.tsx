@@ -7,9 +7,10 @@ import {
   publishAdminReview,
   rejectAdminReview,
 } from '../api/reviews'
-import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
 import type { AdminReviewListItem } from '../types/reviews'
+import { t, reviewStatusLabel } from '../i18n'
+import { adminUserErrorMessage } from '../utils/adminUserError'
 
 export function AdminReviewsPage() {
   const { session, clearAuthAndRedirect } = useAuth()
@@ -32,11 +33,7 @@ export function AdminReviewsPage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Could not load reviews.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.reviews.loadFailed'))
       setItems([])
     } finally {
       setLoading(false)
@@ -70,11 +67,7 @@ export function AdminReviewsPage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Action failed.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.reviews.actionFailed'))
     } finally {
       setActingId(null)
     }
@@ -84,13 +77,13 @@ export function AdminReviewsPage() {
     <AdminLayout>
       <section className="admin-customers">
         <header className="admin-customers__header">
-          <h1 className="admin-customers__title">Reviews</h1>
-          <p className="admin-customers__lead">Moderate customer feedback.</p>
+          <h1 className="admin-customers__title">{t('admin.reviews.title')}</h1>
+          <p className="admin-customers__lead">{t('admin.reviews.lead')}</p>
         </header>
 
         {loading ? (
           <p className="admin-customers__state" role="status">
-            Loading reviews…
+            {t('admin.reviews.loading')}
           </p>
         ) : null}
 
@@ -101,7 +94,7 @@ export function AdminReviewsPage() {
         ) : null}
 
         {!loading && !error && items.length === 0 ? (
-          <p className="admin-customers__state">No reviews yet.</p>
+          <p className="admin-customers__state">{t('admin.reviews.empty')}</p>
         ) : null}
 
         {!loading && items.length > 0 ? (
@@ -110,7 +103,7 @@ export function AdminReviewsPage() {
               <li key={row.id} className="admin-customers__row">
                 <div>
                   <strong>
-                    {row.rating}/5 · {row.status}
+                    {row.rating}/5 · {reviewStatusLabel(row.status)}
                   </strong>
                   <p>
                     {row.customer_display_name}
@@ -128,7 +121,7 @@ export function AdminReviewsPage() {
                         disabled={actingId === row.id}
                         onClick={() => void runAction(row.id, 'publish')}
                       >
-                        Publish
+                        {t('admin.reviews.publish')}
                       </button>
                       <button
                         type="button"
@@ -136,7 +129,7 @@ export function AdminReviewsPage() {
                         disabled={actingId === row.id}
                         onClick={() => void runAction(row.id, 'reject')}
                       >
-                        Reject
+                        {t('admin.reviews.reject')}
                       </button>
                     </>
                   ) : null}
@@ -147,7 +140,7 @@ export function AdminReviewsPage() {
                       disabled={actingId === row.id}
                       onClick={() => void runAction(row.id, 'hide')}
                     >
-                      Hide
+                      {t('admin.reviews.hide')}
                     </button>
                   ) : null}
                 </div>

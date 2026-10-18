@@ -88,6 +88,12 @@ class MediaAttachment(Base, UUIDPrimaryKeyMixin):
             postgresql_where=text("entity_type = 'salon' AND purpose = 'logo'"),
         ),
         Index(
+            "uq_media_attachments_salon_cover",
+            "salon_id",
+            unique=True,
+            postgresql_where=text("entity_type = 'salon' AND purpose = 'cover'"),
+        ),
+        Index(
             "uq_media_attachments_service_cover",
             "salon_id",
             "entity_id",

@@ -96,6 +96,7 @@ function mockSession(role: string) {
     },
     logout: vi.fn(),
     switchWorkspace: vi.fn(),
+    refreshSession: vi.fn(),
   } as unknown as ReturnType<typeof useAuth>)
 }
 
@@ -115,7 +116,7 @@ describe('AdminLayout', () => {
     window.matchMedia = originalMatchMedia
   })
 
-  it('keeps Log out inside the profile menu instead of the header', async () => {
+  it('keeps log out inside the profile menu instead of the header', async () => {
     installMatchMedia(false)
     const logout = vi.fn()
     mockedUseAuth.mockReturnValue({
@@ -145,6 +146,7 @@ describe('AdminLayout', () => {
       },
       logout,
       switchWorkspace: vi.fn(),
+      refreshSession: vi.fn(),
     } as unknown as ReturnType<typeof useAuth>)
 
     const container = document.createElement('div')
@@ -160,7 +162,7 @@ describe('AdminLayout', () => {
     })
 
     const header = container.querySelector('.admin-shell__header') as HTMLElement
-    expect(header.textContent).not.toContain('Log out')
+    expect(header.textContent).not.toContain('Выйти')
     const trigger = container.querySelector(
       '.admin-profile__trigger',
     ) as HTMLButtonElement
@@ -172,11 +174,11 @@ describe('AdminLayout', () => {
     })
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     const logoutItem = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === 'Log out',
+      (button) => button.textContent === 'Выйти',
     ) as HTMLButtonElement
     expect(logoutItem.closest('.admin-profile__menu')).not.toBeNull()
     expect(header.querySelector('.admin-shell__header-trailing')?.textContent).not.toContain(
-      'Log out',
+      'Выйти',
     )
 
     await act(async () => {
@@ -218,7 +220,7 @@ describe('AdminLayout', () => {
     const logoutItem = container.querySelector(
       '.admin-profile__item',
     ) as HTMLButtonElement
-    expect(logoutItem.textContent).toBe('Log out')
+    expect(logoutItem.textContent).toBe('Выйти')
 
     await act(async () => {
       logoutItem.focus()
@@ -323,22 +325,33 @@ describe('AdminLayout', () => {
     expect(html).toContain('admin-shell__menu-toggle')
     expect(html).toContain('aria-expanded="false"')
     expect(html).toContain('aria-controls="admin-shell-sidebar"')
-    expect(html).toContain('Open menu')
+    expect(html).toContain('Открыть меню')
   })
 
-  it('omits Settings nav for roles without salon settings access', () => {
+  it('omits Settings and Appearance nav for roles without owner/admin access', () => {
     installMatchMedia(false)
     mockSession('staff')
     const html = renderLayout()
-    expect(html).not.toContain('>Settings<')
-    expect(html).toContain('>Bookings<')
+    expect(html).not.toContain('>Настройки<')
+    expect(html).not.toContain('>Оформление<')
+    expect(html).toContain('>Записи<')
   })
 
-  it('includes Settings nav for owner role', () => {
+  it('shows the read-only Showcase navigation for staff roles supported by its list endpoint', () => {
+    installMatchMedia(false)
+    mockSession('staff')
+    const html = renderLayout()
+    expect(html).toContain('href="/admin/showcase"')
+    expect(html).toContain('>Витрина<')
+  })
+
+  it('includes Settings and Appearance nav for owner role', () => {
     installMatchMedia(false)
     mockSession('owner')
     const html = renderLayout()
-    expect(html).toContain('>Settings<')
+    expect(html).toContain('>Настройки<')
+    expect(html).toContain('>Оформление<')
+    expect(html).toContain('admin-nav__icon')
   })
 
   it('toggles aria-expanded when menu button is clicked', async () => {
@@ -361,13 +374,13 @@ describe('AdminLayout', () => {
       '.admin-shell__menu-toggle',
     ) as HTMLButtonElement
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(toggle.textContent).toBe('Open menu')
+    expect(toggle.textContent).toBe('Открыть меню')
 
     await act(async () => {
       toggle.click()
     })
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
-    expect(toggle.textContent).toBe('Close menu')
+    expect(toggle.textContent).toBe('Закрыть меню')
     expect(container.querySelector('.admin-shell--nav-open')).not.toBeNull()
 
     await act(async () => {
@@ -446,6 +459,80 @@ describe('AdminLayout', () => {
 
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(container.querySelector('.admin-shell--nav-open')).toBeNull()
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('closes mobile nav on Escape', async () => {
+    installMatchMedia(true)
+    mockSession('staff')
+    const container = document.createElement('div')
+    const root: Root = createRoot(container)
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter>
+          <AdminLayout>
+            <p>Page content</p>
+          </AdminLayout>
+        </MemoryRouter>,
+      )
+    })
+
+    const toggle = container.querySelector(
+      '.admin-shell__menu-toggle',
+    ) as HTMLButtonElement
+    await act(async () => {
+      toggle.click()
+    })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      )
+    })
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('.admin-shell--nav-open')).toBeNull()
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
+  it('closes mobile nav when viewport becomes wide (desktop)', async () => {
+    const { setMatches } = installMatchMedia(true)
+    mockSession('staff')
+    const container = document.createElement('div')
+    const root: Root = createRoot(container)
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter>
+          <AdminLayout>
+            <p>Page content</p>
+          </AdminLayout>
+        </MemoryRouter>,
+      )
+    })
+
+    const toggle = container.querySelector(
+      '.admin-shell__menu-toggle',
+    ) as HTMLButtonElement
+    await act(async () => {
+      toggle.click()
+    })
+    expect(container.querySelector('.admin-shell--nav-open')).not.toBeNull()
+
+    await act(async () => {
+      setMatches(false)
+    })
+
+    expect(container.querySelector('.admin-shell--nav-open')).toBeNull()
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
 
     await act(async () => {
       root.unmount()

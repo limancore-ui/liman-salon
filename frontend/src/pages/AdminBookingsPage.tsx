@@ -16,8 +16,8 @@ import { fetchAdminCustomers } from '../api/customers'
 import { fetchAdminServices, fetchAdminStaffForService } from '../api/services'
 import { fetchAdminStaff } from '../api/staff'
 import { fetchAdminSmartGaps } from '../api/smartGaps'
-import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
+import { adminUserErrorMessage } from '../utils/adminUserError'
 import type { AdminBookingCreateStatus, BookingListItem } from '../types/bookings'
 import type { CustomerListItem } from '../types/customers'
 import type { ServiceListItem } from '../types/services'
@@ -48,21 +48,22 @@ import {
   smartGapListStatusMessage,
 } from '../utils/createBookingSmartGaps'
 import type { SmartGapOut } from '../types/smartGaps'
+import { t, bookingStatusLabel } from '../i18n'
 
 const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'no_show', label: 'No show' },
-  { value: 'expired', label: 'Expired' },
+  { value: '', label: t('admin.status.all') },
+  { value: 'pending', label: t('admin.status.pending') },
+  { value: 'confirmed', label: t('admin.status.confirmed') },
+  { value: 'in_progress', label: t('admin.status.inProgress') },
+  { value: 'completed', label: t('admin.status.completed') },
+  { value: 'cancelled', label: t('admin.status.cancelled') },
+  { value: 'no_show', label: t('admin.status.noShow') },
+  { value: 'expired', label: t('admin.status.expired') },
 ] as const
 
 const CREATE_STATUS_OPTIONS = [
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'pending', label: 'Pending' },
+  { value: 'confirmed', label: t('admin.status.confirmed') },
+  { value: 'pending', label: t('admin.status.pending') },
 ] as const satisfies ReadonlyArray<{
   value: AdminBookingCreateStatus
   label: string
@@ -198,11 +199,7 @@ export function AdminBookingsPage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Could not load bookings.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.bookings.loadFailed'))
       setItems([])
     } finally {
       setLoading(false)
@@ -288,7 +285,7 @@ export function AdminBookingsPage() {
           return
         }
         setCreateServices([])
-        setCreateError('Could not load services.')
+        setCreateError(t('admin.bookings.servicesLoadFailed'))
       })
       .finally(() => {
         if (!cancelled) {
@@ -326,7 +323,7 @@ export function AdminBookingsPage() {
         }
         setCreateServiceStaffIds([])
         setCreateStaffId('')
-        setCreateError('Could not load staff for this service.')
+        setCreateError(t('admin.bookings.staffLoadFailed'))
       })
       .finally(() => {
         if (!cancelled) {
@@ -385,15 +382,15 @@ export function AdminBookingsPage() {
       return
     }
     if (!createServiceId) {
-      setCreateSmartGapsError('Select a service first.')
+      setCreateSmartGapsError(t('admin.bookings.selectServiceFirst'))
       return
     }
     if (!createStaffId) {
-      setCreateSmartGapsError('Select a staff member first.')
+      setCreateSmartGapsError(t('admin.bookings.selectStaffFirst'))
       return
     }
     if (!createGapSearchDate) {
-      setCreateSmartGapsError('Choose a day to search.')
+      setCreateSmartGapsError(t('admin.bookings.chooseDay'))
       return
     }
 
@@ -423,11 +420,9 @@ export function AdminBookingsPage() {
       if (!shouldApplySmartGapResponse(requestId, createSmartGapsRequestIdRef.current)) {
         return
       }
-      if (err instanceof ApiError) {
-        setCreateSmartGapsError(err.message)
-      } else {
-        setCreateSmartGapsError('Could not load smart gaps.')
-      }
+      setCreateSmartGapsError(
+        adminUserErrorMessage(err, 'admin.bookings.smartGapsFailed'),
+      )
       setCreateSmartGapsRaw(null)
       setCreateSmartGapsSearched(true)
     } finally {
@@ -453,7 +448,7 @@ export function AdminBookingsPage() {
         salonTimeZoneForInput,
       )
       if (!startLocal) {
-        setCreateError('Could not derive a bookable start for this gap.')
+        setCreateError(t('admin.bookings.gapStartFailed'))
         return
       }
       setCreateStartLocal(startLocal)
@@ -485,7 +480,7 @@ export function AdminBookingsPage() {
       }
       setCreateCustomers([])
       setCreateCustomerId('')
-      setCreateError('Could not search customers.')
+      setCreateError(t('admin.bookings.customerSearchFailed'))
     } finally {
       setCreateCustomersLoading(false)
     }
@@ -518,19 +513,19 @@ export function AdminBookingsPage() {
         return
       }
       if (!createCustomerId) {
-        setCreateError('Select a customer.')
+        setCreateError(t('admin.bookings.selectCustomer'))
         return
       }
       if (!createServiceId) {
-        setCreateError('Select a service.')
+        setCreateError(t('admin.bookings.selectService'))
         return
       }
       if (!createStaffId) {
-        setCreateError('Select a staff member.')
+        setCreateError(t('admin.bookings.selectStaff'))
         return
       }
       if (!createStartLocal) {
-        setCreateError('Choose a service start time.')
+        setCreateError(t('admin.bookings.chooseStart'))
         return
       }
 
@@ -672,11 +667,11 @@ export function AdminBookingsPage() {
         return
       }
       if (!rescheduleStaffId) {
-        setActionError('Select a staff member.')
+        setActionError(t('admin.bookings.selectStaff'))
         return
       }
       if (!rescheduleStartLocal) {
-        setActionError('Choose a new service start time.')
+        setActionError(t('admin.bookings.chooseNewStart'))
         return
       }
 
@@ -724,11 +719,11 @@ export function AdminBookingsPage() {
     <AdminLayout>
       <section className="admin-bookings">
         <header className="admin-bookings__header">
-          <h1 className="admin-bookings__title">Bookings</h1>
+          <h1 className="admin-bookings__title">{t('admin.bookings.title')}</h1>
           <p className="admin-bookings__lead">
             {manage
-              ? 'View bookings, create appointments, manage visit status, and cancel or reschedule pending and confirmed ones.'
-              : 'Read-only list for your salon.'}
+              ? t('admin.bookings.leadManage')
+              : t('admin.bookings.leadReadonly')}
           </p>
           {manage && !createOpen && actionMode === null ? (
             <p className="admin-bookings__header-actions">
@@ -738,7 +733,7 @@ export function AdminBookingsPage() {
                 onClick={startCreate}
                 disabled={actionSubmitting || createSubmitting}
               >
-                Create booking
+                {t('admin.bookings.createBooking')}
               </button>
             </p>
           ) : null}
@@ -752,7 +747,7 @@ export function AdminBookingsPage() {
           }}
         >
           <label className="admin-bookings__filter">
-            <span>From (salon day)</span>
+            <span>{t('admin.bookings.fromDay')}</span>
             <input
               type="date"
               value={dateFrom}
@@ -760,7 +755,7 @@ export function AdminBookingsPage() {
             />
           </label>
           <label className="admin-bookings__filter">
-            <span>To (salon day)</span>
+            <span>{t('admin.bookings.toDay')}</span>
             <input
               type="date"
               value={dateTo}
@@ -768,7 +763,7 @@ export function AdminBookingsPage() {
             />
           </label>
           <label className="admin-bookings__filter">
-            <span>Status</span>
+            <span>{t('common.status')}</span>
             <select
               value={status}
               onChange={(event) => setStatus(event.target.value)}
@@ -781,7 +776,7 @@ export function AdminBookingsPage() {
             </select>
           </label>
           <button type="submit" className="btn btn--secondary btn--compact">
-            Apply
+            {t('common.apply')}
           </button>
         </form>
 
@@ -790,14 +785,13 @@ export function AdminBookingsPage() {
             className="admin-bookings__form"
             onSubmit={(event) => void handleConfirmCreate(event)}
           >
-            <h2 className="admin-bookings__form-title">Create booking</h2>
+            <h2 className="admin-bookings__form-title">{t('admin.bookings.createTitle')}</h2>
             <p className="admin-bookings__form-lead">
-              Search for a customer, then choose service, staff, and start time in salon
-              timezone ({salonTimeZoneForInput}).
+              {t('admin.bookings.createLead', { timeZone: salonTimeZoneForInput })}
             </p>
             <div className="admin-bookings__form-grid">
               <label className="admin-bookings__filter admin-bookings__filter--wide">
-                <span>Customer search</span>
+                <span>{t('admin.bookings.customerSearch')}</span>
                 <input
                   type="search"
                   value={createCustomerSearch}
@@ -808,24 +802,24 @@ export function AdminBookingsPage() {
                       void searchCreateCustomers()
                     }
                   }}
-                  placeholder="Name, phone, or email"
+                  placeholder={t('admin.bookings.customerSearchPlaceholder')}
                   autoComplete="off"
                   disabled={createSubmitting}
                 />
               </label>
               <label className="admin-bookings__filter">
-                <span>Find</span>
+                <span>{t('admin.bookings.find')}</span>
                 <button
                   type="button"
                   className="btn btn--secondary btn--compact"
                   onClick={() => void searchCreateCustomers()}
                   disabled={createSubmitting || createCustomersLoading}
                 >
-                  Search customers
+                  {t('admin.bookings.searchCustomers')}
                 </button>
               </label>
               <label className="admin-bookings__filter admin-bookings__filter--wide">
-                <span>Customer</span>
+                <span>{t('common.customer')}</span>
                 <select
                   value={createCustomerId}
                   onChange={(event) => setCreateCustomerId(event.target.value)}
@@ -835,7 +829,7 @@ export function AdminBookingsPage() {
                   required
                 >
                   {createCustomers.length === 0 ? (
-                    <option value="">Search to load customers</option>
+                    <option value="">{t('admin.bookings.searchCustomersHint')}</option>
                   ) : null}
                   {createCustomers.map((customer) => (
                     <option key={customer.id} value={customer.id}>
@@ -846,7 +840,7 @@ export function AdminBookingsPage() {
                 </select>
               </label>
               <label className="admin-bookings__filter">
-                <span>Service</span>
+                <span>{t('common.service')}</span>
                 <select
                   value={createServiceId}
                   onChange={(event) => setCreateServiceId(event.target.value)}
@@ -855,14 +849,14 @@ export function AdminBookingsPage() {
                 >
                   {createServices.length === 0 ? (
                     <option value="">
-                      {createServicesLoading ? 'Loading services…' : 'No active services'}
+                      {createServicesLoading ? t('admin.bookings.loadingServices') : t('admin.bookings.noActiveServices')}
                     </option>
                   ) : (
                     <>
-                      <option value="">Select service</option>
+                      <option value="">{t('admin.bookings.selectServiceOption')}</option>
                       {createServices.map((service) => (
                         <option key={service.id} value={service.id}>
-                          {service.name} · {service.duration_minutes} min
+                          {service.name} · {service.duration_minutes} {t('common.minutesShort')}
                         </option>
                       ))}
                     </>
@@ -870,7 +864,7 @@ export function AdminBookingsPage() {
                 </select>
               </label>
               <label className="admin-bookings__filter">
-                <span>Staff</span>
+                <span>{t('common.staff')}</span>
                 <select
                   value={createStaffId}
                   onChange={(event) => setCreateStaffId(event.target.value)}
@@ -884,12 +878,12 @@ export function AdminBookingsPage() {
                   required
                 >
                   {!createServiceId ? (
-                    <option value="">Select a service first</option>
+                    <option value="">{t('admin.bookings.selectServiceFirstOption')}</option>
                   ) : createStaffList.length === 0 ? (
                     <option value="">
                       {createServiceStaffLoading || staffLoading
-                        ? 'Loading staff…'
-                        : 'No bookable staff for service'}
+                        ? t('admin.bookings.loadingStaff')
+                        : t('admin.bookings.noBookableStaff')}
                     </option>
                   ) : null}
                   {createStaffList.map((staff) => (
@@ -900,14 +894,13 @@ export function AdminBookingsPage() {
                 </select>
               </label>
               <div className="admin-bookings__smart-gaps">
-                <h3 className="admin-bookings__smart-gaps-title">Smart Gap (optional)</h3>
+                <h3 className="admin-bookings__smart-gaps-title">{t('admin.bookings.smartGapTitle')}</h3>
                 <p className="admin-bookings__smart-gaps-hint">
-                  Find free intervals for the selected staff and service, then pick a gap to
-                  fill service start. Booking is still created with the form below.
+                  {t('admin.bookings.smartGapsHint')}
                 </p>
                 <div className="admin-bookings__smart-gaps-row">
                   <label className="admin-bookings__filter">
-                    <span>Gap search day</span>
+                    <span>{t('admin.bookings.gapSearchDay')}</span>
                     <input
                       type="date"
                       value={createGapSearchDate}
@@ -916,7 +909,7 @@ export function AdminBookingsPage() {
                     />
                   </label>
                   <label className="admin-bookings__filter">
-                    <span>Search</span>
+                    <span>{t('common.search')}</span>
                     <button
                       type="button"
                       className="btn btn--secondary btn--compact"
@@ -929,7 +922,7 @@ export function AdminBookingsPage() {
                         !createGapSearchDate
                       }
                     >
-                      Find smart gaps
+                      {t('admin.bookings.findSmartGaps')}
                     </button>
                   </label>
                 </div>
@@ -965,7 +958,7 @@ export function AdminBookingsPage() {
                           onClick={() => selectCreateSmartGap(gap)}
                           disabled={createSubmitting}
                         >
-                          Use gap start
+                          {t('admin.bookings.useGapStart')}
                         </button>
                       </li>
                     ))}
@@ -973,7 +966,7 @@ export function AdminBookingsPage() {
                 ) : null}
               </div>
               <label className="admin-bookings__filter">
-                <span>Service start</span>
+                <span>{t('admin.bookings.serviceStart')}</span>
                 <input
                   type="datetime-local"
                   required
@@ -983,7 +976,7 @@ export function AdminBookingsPage() {
                 />
               </label>
               <label className="admin-bookings__filter">
-                <span>Status</span>
+                <span>{t('common.status')}</span>
                 <select
                   value={createStatus}
                   onChange={(event) =>
@@ -1010,7 +1003,7 @@ export function AdminBookingsPage() {
                   createCustomers.length === 0
                 }
               >
-                Create booking
+                {t('admin.bookings.createBooking')}
               </button>
               <button
                 type="button"
@@ -1018,7 +1011,7 @@ export function AdminBookingsPage() {
                 onClick={clearCreate}
                 disabled={createSubmitting}
               >
-                Back
+                {t('common.back')}
               </button>
             </div>
           </form>
@@ -1035,7 +1028,7 @@ export function AdminBookingsPage() {
             className="admin-bookings__form"
             onSubmit={(event) => void handleConfirmCancel(event)}
           >
-            <h2 className="admin-bookings__form-title">Cancel booking</h2>
+            <h2 className="admin-bookings__form-title">{t('admin.bookings.cancelTitle')}</h2>
             <p className="admin-bookings__form-lead">
               {actionBooking.customer_name} ·{' '}
               {formatBookingDateTime(actionBooking.starts_at, salonTimeZone)} ·{' '}
@@ -1043,13 +1036,13 @@ export function AdminBookingsPage() {
             </p>
             <div className="admin-bookings__form-grid">
               <label className="admin-bookings__filter admin-bookings__filter--wide">
-                <span>Reason (optional)</span>
+                <span>{t('admin.bookings.reasonOptional')}</span>
                 <input
                   type="text"
                   maxLength={255}
                   value={cancelReason}
                   onChange={(event) => setCancelReason(event.target.value)}
-                  placeholder="Optional"
+                  placeholder={t('admin.bookings.reasonPlaceholder')}
                   disabled={actionSubmitting}
                 />
               </label>
@@ -1060,7 +1053,7 @@ export function AdminBookingsPage() {
                 className="btn btn--primary btn--compact"
                 disabled={actionSubmitting}
               >
-                Confirm cancel
+                {t('admin.bookings.confirmCancel')}
               </button>
               <button
                 type="button"
@@ -1068,7 +1061,7 @@ export function AdminBookingsPage() {
                 onClick={clearAction}
                 disabled={actionSubmitting}
               >
-                Back
+                {t('common.back')}
               </button>
             </div>
           </form>
@@ -1079,14 +1072,14 @@ export function AdminBookingsPage() {
             className="admin-bookings__form"
             onSubmit={(event) => void handleConfirmReschedule(event)}
           >
-            <h2 className="admin-bookings__form-title">Reschedule booking</h2>
+            <h2 className="admin-bookings__form-title">{t('admin.bookings.rescheduleTitleForm')}</h2>
             <p className="admin-bookings__form-lead">
               {actionBooking.customer_name} · {actionBooking.service_name} ·{' '}
-              {actionBooking.duration_minutes} min
+              {actionBooking.duration_minutes} {t('common.minutesShort')}
             </p>
             <div className="admin-bookings__form-grid">
               <label className="admin-bookings__filter">
-                <span>Staff</span>
+                <span>{t('common.staff')}</span>
                 <select
                   value={rescheduleStaffId}
                   onChange={(event) => setRescheduleStaffId(event.target.value)}
@@ -1094,9 +1087,9 @@ export function AdminBookingsPage() {
                   required
                 >
                   {staffList.length === 0 ? (
-                    <option value="">No bookable staff</option>
+                    <option value="">{t('admin.bookings.noBookableStaffGeneric')}</option>
                   ) : (
-                    <option value="">Select staff</option>
+                    <option value="">{t('admin.bookings.selectStaffOption')}</option>
                   )}
                   {staffList.map((staff) => (
                     <option key={staff.id} value={staff.id}>
@@ -1106,7 +1099,7 @@ export function AdminBookingsPage() {
                 </select>
               </label>
               <label className="admin-bookings__filter">
-                <span>Service start</span>
+                <span>{t('admin.bookings.serviceStart')}</span>
                 <input
                   type="datetime-local"
                   required
@@ -1124,7 +1117,7 @@ export function AdminBookingsPage() {
                   actionSubmitting || staffLoading || staffList.length === 0
                 }
               >
-                Confirm reschedule
+                {t('admin.bookings.confirmReschedule')}
               </button>
               <button
                 type="button"
@@ -1132,7 +1125,7 @@ export function AdminBookingsPage() {
                 onClick={clearAction}
                 disabled={actionSubmitting}
               >
-                Back
+                {t('common.back')}
               </button>
             </div>
           </form>
@@ -1146,7 +1139,7 @@ export function AdminBookingsPage() {
 
         {loading ? (
           <p className="admin-bookings__state" role="status">
-            Loading bookings…
+            {t('admin.bookings.loading')}
           </p>
         ) : null}
 
@@ -1157,7 +1150,7 @@ export function AdminBookingsPage() {
         ) : null}
 
         {!loading && !error && items.length === 0 ? (
-          <p className="admin-bookings__state">No bookings match your filters.</p>
+          <p className="admin-bookings__state">{t('admin.bookings.empty')}</p>
         ) : null}
 
         {!loading && !error && items.length > 0 ? (
@@ -1165,13 +1158,13 @@ export function AdminBookingsPage() {
             <table className="admin-bookings__table">
               <thead>
                 <tr>
-                  <th scope="col">When</th>
-                  <th scope="col">Customer</th>
-                  <th scope="col">Service</th>
-                  <th scope="col">Staff</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Price</th>
-                  {manage ? <th scope="col">Actions</th> : null}
+                  <th scope="col">{t('admin.bookings.colWhen')}</th>
+                  <th scope="col">{t('admin.bookings.colCustomer')}</th>
+                  <th scope="col">{t('admin.bookings.colService')}</th>
+                  <th scope="col">{t('common.staff')}</th>
+                  <th scope="col">{t('common.status')}</th>
+                  <th scope="col">{t('admin.bookings.colPrice')}</th>
+                  {manage ? <th scope="col">{t('common.actions')}</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -1196,7 +1189,9 @@ export function AdminBookingsPage() {
                       <td>{row.service_name}</td>
                       <td>{row.staff_name}</td>
                       <td>
-                        <span className="admin-bookings__status">{row.status.replace('_', ' ')}</span>
+                        <span className="admin-bookings__status">
+                          {bookingStatusLabel(row.status)}
+                        </span>
                       </td>
                       <td>{formatDashboardPrice(row.price_cents, salonCurrencyCode)}</td>
                       {manage ? (
@@ -1210,7 +1205,7 @@ export function AdminBookingsPage() {
                                   onClick={() => void handleConfirmPending(row)}
                                   disabled={actionsBusy}
                                 >
-                                  Confirm
+                                  {t('admin.bookings.confirmPending')}
                                 </button>
                               ) : null}
                               <button
@@ -1224,7 +1219,7 @@ export function AdminBookingsPage() {
                                   (isActiveRow && actionMode === 'reschedule')
                                 }
                               >
-                                Reschedule
+                                {t('admin.bookings.reschedule')}
                               </button>
                               <button
                                 type="button"
@@ -1237,7 +1232,7 @@ export function AdminBookingsPage() {
                                   (isActiveRow && actionMode === 'cancel')
                                 }
                               >
-                                Cancel
+                                {t('admin.bookings.cancel')}
                               </button>
                             </>
                           ) : null}
@@ -1252,7 +1247,7 @@ export function AdminBookingsPage() {
                                   }
                                   disabled={actionsBusy}
                                 >
-                                  Start visit
+                                  {t('admin.bookings.startVisit')}
                                 </button>
                               ) : null}
                               {row.status === 'in_progress' ? (
@@ -1264,7 +1259,7 @@ export function AdminBookingsPage() {
                                   }
                                   disabled={actionsBusy}
                                 >
-                                  Complete
+                                  {t('admin.bookings.completeVisit')}
                                 </button>
                               ) : null}
                               {row.status === 'confirmed' ? (
@@ -1276,7 +1271,7 @@ export function AdminBookingsPage() {
                                   }
                                   disabled={actionsBusy}
                                 >
-                                  No show
+                                  {t('admin.bookings.markNoShow')}
                                 </button>
                               ) : null}
                             </>

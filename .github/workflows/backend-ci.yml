@@ -11,26 +11,10 @@ defaults:
     working-directory: backend
 
 jobs:
-  test:
+  unit:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: liman_salon_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d liman_salon_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     env:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/liman_salon_test
+      DATABASE_URL: postgresql+psycopg://unit_mock:unit_mock@127.0.0.1:1/unit_mock
       JWT_SECRET_KEY: "01234567890123456789012345678901"
 
     steps:
@@ -45,8 +29,101 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
-      - name: Run migrations
-        run: alembic upgrade head
+      - name: Run unit and mock tests without a database service
+        run: >-
+          pytest tests -v --tb=short
+          --ignore-glob='*_postgres.py'
+          --ignore-glob='*_postgres_integration.py'
+          --ignore=tests/public_booking/test_manage_token_integration.py
+          --ignore=tests/booking/test_expire_all_stale_pending_holds.py
+          --ignore=tests/api/test_public_customer_lookup.py
+          --ignore=tests/public_booking/test_request_transaction_boundary.py
+          --ignore=tests/schedule/test_schedule_lock.py
+          --ignore=tests/scripts/test_seed_staging_demo.py
+          --ignore=tests/scripts/test_bootstrap_first_salon.py
 
-      - name: Run tests
-        run: pytest tests -v --tb=short
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: liman_ci_bootstrap
+          POSTGRES_PASSWORD: liman_ci_bootstrap_only
+          POSTGRES_DB: liman_salon_test
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U liman_ci_bootstrap -d liman_salon_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      JWT_SECRET_KEY: "01234567890123456789012345678901"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Generate ephemeral test credentials
+        run: |
+          python - <<'PY'
+          import os
+          import secrets
+
+          password = secrets.token_urlsafe(32)
+          database_url = (
+              "postgresql+psycopg://liman_test_user:"
+              f"{password}@127.0.0.1:5432/liman_salon_test"
+          )
+          print(f"::add-mask::{password}")
+          print(f"::add-mask::{database_url}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(f"LIMAN_PG_TEST_PASSWORD={password}\n")
+              env_file.write(f"DATABASE_URL={database_url}\n")
+              env_file.write(f"LIMAN_PG_TEST_DATABASE_URL={database_url}\n")
+          PY
+
+      - name: Provision restricted test role and required extensions
+        env:
+          PGPASSWORD: liman_ci_bootstrap_only
+        run: |
+          psql --host 127.0.0.1 --port 5432 --username liman_ci_bootstrap \
+            --dbname liman_salon_test --set ON_ERROR_STOP=1 \
+            --set test_password="$LIMAN_PG_TEST_PASSWORD" <<'SQL'
+          CREATE ROLE liman_test_user LOGIN PASSWORD :'test_password'
+            NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+          CREATE EXTENSION IF NOT EXISTS btree_gist;
+          ALTER DATABASE liman_salon_test OWNER TO liman_test_user;
+          SQL
+
+      - name: Run guarded Alembic migrations
+        env:
+          LIMAN_PG_TESTS_ENABLED: "1"
+          LIMAN_PG_TEST_EXPECTED_DRIVER: postgresql+psycopg
+          LIMAN_PG_TEST_EXPECTED_HOST: 127.0.0.1
+          LIMAN_PG_TEST_EXPECTED_PORT: "5432"
+          LIMAN_PG_TEST_EXPECTED_DATABASE: liman_salon_test
+          LIMAN_PG_TEST_EXPECTED_USERNAME: liman_test_user
+        run: python -m tests.guarded_alembic head
+
+      - name: Run adapted PostgreSQL integration tests
+        env:
+          LIMAN_PG_TESTS_ENABLED: "1"
+          LIMAN_PG_TEST_EXPECTED_DRIVER: postgresql+psycopg
+          LIMAN_PG_TEST_EXPECTED_HOST: 127.0.0.1
+          LIMAN_PG_TEST_EXPECTED_PORT: "5432"
+          LIMAN_PG_TEST_EXPECTED_DATABASE: liman_salon_test
+          LIMAN_PG_TEST_EXPECTED_USERNAME: liman_test_user
+        run: >-
+          pytest -v --tb=short -p tests.postgres_safety_plugin
+          tests/booking/test_attention_bookings_postgres.py

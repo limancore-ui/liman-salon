@@ -21,10 +21,10 @@ describe('ScheduleImpactPreviewView', () => {
         onLoadMore={() => {}}
         onCancel={() => {}}
         onConfirm={() => {}}
-        confirmLabel="Continue"
+        confirmLabel="Продолжить"
       />,
     )
-    expect(html).toContain('Loading impact preview')
+    expect(html).toContain('Загрузка влияния…')
   })
 
   it('renders empty result when total_impacted is zero', () => {
@@ -45,14 +45,14 @@ describe('ScheduleImpactPreviewView', () => {
         onLoadMore={() => {}}
         onCancel={() => {}}
         onConfirm={() => {}}
-        confirmLabel="Continue"
+        confirmLabel="Продолжить"
       />,
     )
-    expect(html).toContain('No bookings would be affected')
+    expect(html).toContain('В горизонте просмотра это изменение не затронет записи.')
     expect(html).toContain('0')
   })
 
-  it('renders populated impacts with English reasons and status', () => {
+  it('renders populated impacts with Russian reasons and status', () => {
     const response = makeScheduleImpactPreviewResponse({
       counts: { total_impacted: 1, by_reason: { outside_availability: 1 } },
       pagination: {
@@ -96,14 +96,15 @@ describe('ScheduleImpactPreviewView', () => {
         onLoadMore={() => {}}
         onCancel={() => {}}
         onConfirm={() => {}}
-        confirmLabel="Continue"
+        confirmLabel="Продолжить"
       />,
     )
     expect(html).toContain('Alex Client')
     expect(html).toContain('Haircut')
-    expect(html).toContain('Outside available hours or blocked time')
-    expect(html).toContain('confirmed')
-    expect(html).toContain('I understand that 1 booking may be affected')
+    expect(html).toContain('Вне доступного времени или в заблокированном интервале')
+    expect(html).toContain('Подтверждена')
+    expect(html).toContain('Я понимаю, что может быть затронуто записей:')
+    expect(html).toContain('может быть затронута этим изменением.')
   })
 
   it('renders API error with retry', () => {
@@ -123,11 +124,11 @@ describe('ScheduleImpactPreviewView', () => {
         onLoadMore={() => {}}
         onCancel={() => {}}
         onConfirm={() => {}}
-        confirmLabel="Continue"
+        confirmLabel="Продолжить"
       />,
     )
     expect(html).toContain('Forbidden')
-    expect(html).toContain('Retry preview')
+    expect(html).toContain('Повторить просмотр')
   })
 
   it('shows load more when canLoadMore', () => {
@@ -170,11 +171,12 @@ describe('ScheduleImpactPreviewView', () => {
         onLoadMore={() => {}}
         onCancel={() => {}}
         onConfirm={() => {}}
-        confirmLabel="Continue"
+        confirmLabel="Продолжить"
       />,
     )
-    expect(html).toContain('Load more bookings')
-    expect(html).toContain('Showing 1 of 2')
+    expect(html).toContain('Загрузить ещё записи')
+    expect(html).toContain('Показано')
+    expect(html).toContain('из')
   })
 
   it('renders load more error without hiding the list', () => {
@@ -217,12 +219,12 @@ describe('ScheduleImpactPreviewView', () => {
         onLoadMore={() => {}}
         onCancel={() => {}}
         onConfirm={() => {}}
-        confirmLabel="Continue"
+        confirmLabel="Продолжить"
       />,
     )
     expect(html).toContain('Could not load more')
     expect(html).toContain('A')
-    expect(html).toContain('Showing 1 of 2')
+    expect(html).toContain('Показано')
   })
 
   it('disables confirm when confirmDisabled', () => {
@@ -243,7 +245,7 @@ describe('ScheduleImpactPreviewView', () => {
         onLoadMore={() => {}}
         onCancel={() => {}}
         onConfirm={() => {}}
-        confirmLabel="Continue"
+        confirmLabel="Продолжить"
       />,
     )
     expect(html).toContain('disabled=""')

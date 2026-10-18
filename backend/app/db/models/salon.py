@@ -49,6 +49,9 @@ class Salon(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     settings: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default="{}"
     )
+    appearance: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default="{}", default=dict
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
 
     memberships: Mapped[list[SalonUser]] = relationship(

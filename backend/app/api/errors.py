@@ -60,6 +60,14 @@ from app.services.media.errors import (
     MediaStorageError,
     MediaValidationError,
 )
+from app.services.salon_appearance.errors import (
+    SalonAppearanceError,
+    SalonAppearanceNotFoundError,
+)
+from app.services.salon_profile.errors import (
+    SalonProfileError,
+    SalonProfileNotFoundError,
+)
 from app.services.salon_settings.errors import SalonSettingsError, SalonSettingsNotFoundError
 from app.services.review.errors import (
     ReviewConflictError,
@@ -72,6 +80,11 @@ from app.services.bonus.errors import (
     BonusLedgerError,
     BonusLedgerNotFoundError,
     BonusLedgerValidationError,
+)
+from app.services.showcase.errors import (
+    ShowcaseItemNotFoundError,
+    ShowcaseItemValidationError,
+    ShowcaseMediaNotFoundError,
 )
 
 
@@ -428,6 +441,42 @@ def register_exception_handlers(app: FastAPI) -> None:
             content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
         )
 
+    @app.exception_handler(SalonAppearanceNotFoundError)
+    async def salon_appearance_not_found(
+        _request: Request, exc: SalonAppearanceNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(SalonAppearanceError)
+    async def salon_appearance_error(
+        _request: Request, exc: SalonAppearanceError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
+    @app.exception_handler(SalonProfileNotFoundError)
+    async def salon_profile_not_found(
+        _request: Request, exc: SalonProfileNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(SalonProfileError)
+    async def salon_profile_error(
+        _request: Request, exc: SalonProfileError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
+        )
+
     @app.exception_handler(MediaNotFoundError)
     async def media_not_found(_request: Request, exc: MediaNotFoundError) -> JSONResponse:
         return JSONResponse(
@@ -471,4 +520,31 @@ def register_exception_handlers(app: FastAPI) -> None:
                 detail="internal server error",
                 code="internal_error",
             ).model_dump(),
+        )
+
+    @app.exception_handler(ShowcaseItemNotFoundError)
+    async def showcase_item_not_found(
+        _request: Request, exc: ShowcaseItemNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(ShowcaseMediaNotFoundError)
+    async def showcase_media_not_found(
+        _request: Request, _exc: ShowcaseMediaNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail="media asset not found", code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(ShowcaseItemValidationError)
+    async def showcase_validation(
+        _request: Request, exc: ShowcaseItemValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
         )

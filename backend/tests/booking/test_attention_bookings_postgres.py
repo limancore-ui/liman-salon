@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import insert, select, text
+from sqlalchemy import insert, select
 from sqlalchemy.orm import Session
 
 from app.db.models.booking import Booking
@@ -14,38 +14,26 @@ from app.db.models.customer import Customer
 from app.db.models.salon import Salon
 from app.db.models.service import Service
 from app.db.models.staff import Staff
-from app.db.session import engine
 from app.services.booking.repository import BookingRepository
 
 UTC = timezone.utc
 
 
-def _postgres_available() -> bool:
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        return True
-    except Exception:
-        return False
-
-
-pytestmark = pytest.mark.skipif(
-    not _postgres_available(),
-    reason="PostgreSQL test database not reachable",
-)
-
-
 @pytest.fixture
-def db_session() -> Session:
-    connection = engine.connect()
+def db_session(postgres_test_engine) -> Session:
+    connection = postgres_test_engine.connect()
     transaction = connection.begin()
-    session = Session(bind=connection, join_transaction_mode="create_savepoint")
     try:
-        yield session
+        session = Session(bind=connection, join_transaction_mode="create_savepoint")
+        try:
+            yield session
+        finally:
+            session.close()
     finally:
-        session.close()
-        transaction.rollback()
-        connection.close()
+        try:
+            transaction.rollback()
+        finally:
+            connection.close()
 
 
 def _seed_salon_booking(

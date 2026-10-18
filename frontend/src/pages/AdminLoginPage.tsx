@@ -4,6 +4,7 @@ import { ApiError } from '../api/errors'
 import { useAuth } from '../auth/AuthContext'
 import { NoSalonAccessError, SalonContextResolutionError } from '../auth/session'
 import { isUnauthorizedError } from '../api/auth'
+import { t } from '../i18n'
 
 export function AdminLoginPage() {
   const navigate = useNavigate()
@@ -26,7 +27,7 @@ export function AdminLoginPage() {
   if (status === 'loading') {
     return (
       <main className="page page--admin-auth">
-        <p className="page__hint">Checking sign-in…</p>
+        <p className="page__hint">{t('admin.login.checking')}</p>
       </main>
     )
   }
@@ -47,15 +48,15 @@ export function AdminLoginPage() {
         return
       }
       if (error instanceof ApiError && error.status === 401) {
-        setErrorMessage('Invalid email or password.')
+        setErrorMessage(t('admin.login.invalidCredentials'))
       } else if (error instanceof SalonContextResolutionError) {
         setErrorMessage(error.message)
       } else if (isUnauthorizedError(error)) {
-        setErrorMessage('Invalid email or password.')
+        setErrorMessage(t('admin.login.invalidCredentials'))
       } else if (error instanceof ApiError && error.status === 0) {
-        setErrorMessage('Network error. Try again.')
+        setErrorMessage(t('common.networkError'))
       } else {
-        setErrorMessage('Sign-in failed. Try again.')
+        setErrorMessage(t('admin.login.failed'))
       }
     } finally {
       setSubmitting(false)
@@ -65,8 +66,8 @@ export function AdminLoginPage() {
   return (
     <main className="page page--admin-auth">
       <div className="admin-login">
-        <h1 className="admin-login__title">Salon admin</h1>
-        <p className="admin-login__lead">Sign in with your staff account.</p>
+        <h1 className="admin-login__title">{t('admin.login.title')}</h1>
+        <p className="admin-login__lead">{t('admin.login.lead')}</p>
         <form className="admin-login__form" onSubmit={handleSubmit}>
           {errorMessage ? (
             <div className="form-error-banner" role="alert">
@@ -75,7 +76,7 @@ export function AdminLoginPage() {
           ) : null}
           <div className="form-field">
             <label className="form-field__label" htmlFor="admin-email">
-              Email
+              {t('admin.login.email')}
             </label>
             <input
               id="admin-email"
@@ -91,7 +92,7 @@ export function AdminLoginPage() {
           </div>
           <div className="form-field">
             <label className="form-field__label" htmlFor="admin-password">
-              Password
+              {t('admin.login.password')}
             </label>
             <input
               id="admin-password"
@@ -110,7 +111,7 @@ export function AdminLoginPage() {
             className="btn btn--primary btn--block"
             disabled={submitting}
           >
-            {submitting ? 'Signing in…' : 'Sign in'}
+            {submitting ? t('admin.login.submitting') : t('admin.login.submit')}
           </button>
         </form>
       </div>

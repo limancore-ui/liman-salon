@@ -298,6 +298,24 @@ def test_allowed_salon_logo_streams() -> None:
     assert response.content == _MIN_JPEG
 
 
+def test_allowed_salon_cover_streams() -> None:
+    client, salon_svc, _ = _public_app()
+    salon_svc.resolve_public_salon_by_slug.return_value = _entry()
+    real = _real_media_service(
+        attachments=[
+            _attachment(
+                entity_type=MediaEntityType.SALON,
+                entity_id=SALON_A,
+                purpose=MediaPurpose.COVER,
+            )
+        ],
+    )
+    client.app.dependency_overrides[get_media_service] = lambda: real
+    response = client.get(PUBLIC_PATH)
+    assert response.status_code == 200
+    assert response.content == _MIN_JPEG
+
+
 def test_allowed_service_cover_streams() -> None:
     client, salon_svc, _ = _public_app()
     salon_svc.resolve_public_salon_by_slug.return_value = _entry()

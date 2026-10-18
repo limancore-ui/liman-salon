@@ -287,6 +287,12 @@ class MediaService:
                 and attachment.entity_id == salon_id
             ):
                 return True
+            if (
+                entity_type is MediaEntityType.SALON
+                and purpose is MediaPurpose.COVER
+                and attachment.entity_id == salon_id
+            ):
+                return True
             if entity_type is MediaEntityType.SERVICE and purpose is MediaPurpose.COVER:
                 if self._repo.service_is_active(
                     salon_id=salon_id,

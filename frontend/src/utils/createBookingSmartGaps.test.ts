@@ -127,8 +127,8 @@ describe('smart gap request sequencing', () => {
 
 describe('smartGapListStatusMessage', () => {
   it('returns loading and empty copy', () => {
-    expect(smartGapListStatusMessage('loading', null)).toBe('Loading free gaps…')
-    expect(smartGapListStatusMessage('empty', null)).toContain('No free gaps')
+    expect(smartGapListStatusMessage('loading', null)).toBe('Загрузка свободных окон…')
+    expect(smartGapListStatusMessage('empty', null)).toContain('нет подходящих свободных окон')
   })
 
   it('returns API error message in error phase', () => {

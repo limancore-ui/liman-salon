@@ -4,6 +4,7 @@ import { ApiError } from '../api/errors'
 import { useAuth } from '../auth/AuthContext'
 import { SalonContextResolutionError } from '../auth/session'
 import { membershipLabel } from '../auth/workspace'
+import { t } from '../i18n'
 
 export function AdminWorkspacePickerPage() {
   const navigate = useNavigate()
@@ -15,7 +16,7 @@ export function AdminWorkspacePickerPage() {
   if (status === 'loading') {
     return (
       <main className="page page--admin-auth">
-        <p className="page__hint">Loading workspaces…</p>
+        <p className="page__hint">{t('admin.workspace.loading')}</p>
       </main>
     )
   }
@@ -33,7 +34,7 @@ export function AdminWorkspacePickerPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!salonId) {
-      setErrorMessage('Choose a salon workspace.')
+      setErrorMessage(t('admin.workspace.chooseRequired'))
       return
     }
     setErrorMessage(null)
@@ -45,9 +46,9 @@ export function AdminWorkspacePickerPage() {
       if (error instanceof SalonContextResolutionError) {
         setErrorMessage(error.message)
       } else if (error instanceof ApiError && error.status === 0) {
-        setErrorMessage('Network error. Try again.')
+        setErrorMessage(t('common.networkError'))
       } else {
-        setErrorMessage('Could not open that workspace. Try again.')
+        setErrorMessage(t('admin.workspace.openFailed'))
       }
     } finally {
       setSubmitting(false)
@@ -57,9 +58,9 @@ export function AdminWorkspacePickerPage() {
   return (
     <main className="page page--admin-auth">
       <div className="admin-login">
-        <h1 className="admin-login__title">Choose workspace</h1>
+        <h1 className="admin-login__title">{t('admin.workspace.title')}</h1>
         <p className="admin-login__lead">
-          Signed in as {pendingWorkspace.user.email}. Select a salon to manage.
+          {t('admin.workspace.lead', { email: pendingWorkspace.user.email })}
         </p>
         <form className="admin-login__form" onSubmit={handleSubmit}>
           {errorMessage ? (
@@ -69,7 +70,7 @@ export function AdminWorkspacePickerPage() {
           ) : null}
           <div className="form-field">
             <label className="form-field__label" htmlFor="admin-workspace">
-              Salon
+              {t('admin.workspace.salonLabel')}
             </label>
             <select
               id="admin-workspace"
@@ -79,7 +80,7 @@ export function AdminWorkspacePickerPage() {
               onChange={(event) => setSalonId(event.target.value)}
               required
             >
-              <option value="">Select a salon…</option>
+              <option value="">{t('admin.workspace.placeholder')}</option>
               {salons.map((membership) => (
                 <option key={membership.salon_id} value={membership.salon_id}>
                   {membershipLabel(membership)} — {membership.role}
@@ -92,7 +93,9 @@ export function AdminWorkspacePickerPage() {
             className="btn btn--primary btn--block"
             disabled={submitting}
           >
-            {submitting ? 'Opening…' : 'Continue'}
+            {submitting
+              ? t('admin.workspace.opening')
+              : t('admin.workspace.continue')}
           </button>
           <button
             type="button"
@@ -100,7 +103,7 @@ export function AdminWorkspacePickerPage() {
             disabled={submitting}
             onClick={logout}
           >
-            Log out
+            {t('common.logOut')}
           </button>
         </form>
       </div>

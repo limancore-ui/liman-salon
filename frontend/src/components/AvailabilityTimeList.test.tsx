@@ -27,6 +27,8 @@ describe('AvailabilityTimeList', () => {
       />,
     )
     expect(html.match(/time-slot/g)?.length).toBe(2)
+    expect(html).not.toContain('time-list__heading')
+    expect(html.match(/Выберите время/g)?.length).toBe(1)
   })
 
   it('renders empty state when no slots', () => {

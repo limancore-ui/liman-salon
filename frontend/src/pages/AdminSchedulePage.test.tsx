@@ -174,7 +174,7 @@ describe('AdminSchedulePage working hours delete preview', () => {
 
   it('Delete click opens the preview with a working_hours.delete change and does not call DELETE', async () => {
     await renderPage()
-    await click(buttonByText(container, 'Delete'))
+    await click(buttonByText(container, 'Удалить'))
     await settle()
 
     expect(previewPanel()).not.toBeNull()
@@ -192,22 +192,22 @@ describe('AdminSchedulePage working hours delete preview', () => {
 
   it('shows the preview even with zero impacts and requires explicit confirm to DELETE', async () => {
     await renderPage()
-    await click(buttonByText(container, 'Delete'))
+    await click(buttonByText(container, 'Удалить'))
     await settle()
 
-    expect(previewPanel()?.textContent).toContain('No bookings would be affected')
+    expect(previewPanel()?.textContent).toContain('В горизонте просмотра это изменение не затронет записи.')
     expect(mockedDeleteWh).not.toHaveBeenCalled()
 
-    await click(buttonByText(previewPanel()!, 'Delete working hours'))
+    await click(buttonByText(previewPanel()!, 'Удалить рабочие часы'))
     await settle()
     expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
   })
 
   it('confirm sends the canonical preview gate with the DELETE', async () => {
     await renderPage()
-    await click(buttonByText(container, 'Delete'))
+    await click(buttonByText(container, 'Удалить'))
     await settle()
-    await click(buttonByText(previewPanel()!, 'Delete working hours'))
+    await click(buttonByText(previewPanel()!, 'Удалить рабочие часы'))
     await settle()
 
     expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
@@ -274,12 +274,12 @@ describe('AdminSchedulePage working hours delete preview', () => {
     })
     mockedPreview.mockResolvedValueOnce(canonical).mockResolvedValueOnce(pageTwo)
     await renderPage()
-    await click(buttonByText(container, 'Delete'))
+    await click(buttonByText(container, 'Удалить'))
     await settle()
     await click(previewPanel()!.querySelector('input[type="checkbox"]') as HTMLInputElement)
-    await click(buttonByText(previewPanel()!, 'Load more bookings'))
+    await click(buttonByText(previewPanel()!, 'Загрузить ещё записи'))
     await settle()
-    await click(buttonByText(previewPanel()!, 'Delete working hours'))
+    await click(buttonByText(previewPanel()!, 'Удалить рабочие часы'))
     await settle()
 
     expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
@@ -293,9 +293,9 @@ describe('AdminSchedulePage working hours delete preview', () => {
 
   it('Cancel closes the preview and does not call DELETE', async () => {
     await renderPage()
-    await click(buttonByText(container, 'Delete'))
+    await click(buttonByText(container, 'Удалить'))
     await settle()
-    await click(buttonByText(previewPanel()!, 'Cancel'))
+    await click(buttonByText(previewPanel()!, 'Отмена'))
     await settle()
 
     expect(previewPanel()).toBeNull()
@@ -305,19 +305,19 @@ describe('AdminSchedulePage working hours delete preview', () => {
   it('confirm stays disabled until acknowledgement when impacts require it', async () => {
     mockedPreview.mockResolvedValue(impactfulResponse())
     await renderPage()
-    await click(buttonByText(container, 'Delete'))
+    await click(buttonByText(container, 'Удалить'))
     await settle()
 
-    const confirmBtn = buttonByText(previewPanel()!, 'Delete working hours')
+    const confirmBtn = buttonByText(previewPanel()!, 'Удалить рабочие часы')
     expect(confirmBtn?.disabled).toBe(true)
     await click(confirmBtn)
     expect(mockedDeleteWh).not.toHaveBeenCalled()
 
     const checkbox = previewPanel()!.querySelector('input[type="checkbox"]') as HTMLInputElement
     await click(checkbox)
-    expect(buttonByText(previewPanel()!, 'Delete working hours')?.disabled).toBe(false)
+    expect(buttonByText(previewPanel()!, 'Удалить рабочие часы')?.disabled).toBe(false)
 
-    await click(buttonByText(previewPanel()!, 'Delete working hours'))
+    await click(buttonByText(previewPanel()!, 'Удалить рабочие часы'))
     await settle()
     expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
     expect(mockedDeleteWh.mock.calls[0]).toEqual([
@@ -341,7 +341,7 @@ describe('AdminSchedulePage working hours delete preview', () => {
       } as unknown as Awaited<ReturnType<typeof fetchAdminStaff>>[number],
     ])
     await renderPage()
-    await click(buttonByText(container, 'Delete'))
+    await click(buttonByText(container, 'Удалить'))
     await settle()
     expect(previewPanel()).not.toBeNull()
 
@@ -359,8 +359,8 @@ describe('AdminSchedulePage working hours delete preview', () => {
       await flushPromises()
     })
 
-    expect(container.textContent).not.toContain('No working hours defined')
-    await click(buttonByText(previewPanel()!, 'Delete working hours'))
+    expect(container.textContent).not.toContain('Для этой области не заданы рабочие часы.')
+    await click(buttonByText(previewPanel()!, 'Удалить рабочие часы'))
     await settle()
 
     expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
@@ -379,19 +379,19 @@ describe('AdminSchedulePage working hours delete preview', () => {
   })
 
   it('when previewScheduleImpact rejects: preview is called, DELETE is not, error shows in panel, Cancel closes without delete', async () => {
-    mockedPreview.mockRejectedValue(new ApiError(502, 'Preview unavailable'))
+    mockedPreview.mockRejectedValue(new ApiError(502, 'Не удалось загрузить просмотр влияния.'))
     await renderPage()
-    await click(buttonByText(container, 'Delete'))
+    await click(buttonByText(container, 'Удалить'))
     await settle()
 
     expect(mockedPreview).toHaveBeenCalledTimes(1)
     expect(mockedDeleteWh).not.toHaveBeenCalled()
     expect(previewPanel()).not.toBeNull()
     expect(previewPanel()?.querySelector('[role="alert"]')?.textContent).toContain(
-      'Preview unavailable',
+      'Не удалось загрузить просмотр влияния.',
     )
 
-    await click(buttonByText(previewPanel()!, 'Cancel'))
+    await click(buttonByText(previewPanel()!, 'Отмена'))
     await settle()
 
     expect(previewPanel()).toBeNull()
@@ -399,23 +399,23 @@ describe('AdminSchedulePage working hours delete preview', () => {
   })
 
   it('shows an error and closes the preview when DELETE fails', async () => {
-    mockedDeleteWh.mockRejectedValue(new ApiError(500, 'Server exploded'))
+    mockedDeleteWh.mockRejectedValue(new ApiError(500, 'Не удалось удалить рабочие часы.'))
     await renderPage()
-    await click(buttonByText(container, 'Delete'))
+    await click(buttonByText(container, 'Удалить'))
     await settle()
-    await click(buttonByText(previewPanel()!, 'Delete working hours'))
+    await click(buttonByText(previewPanel()!, 'Удалить рабочие часы'))
     await settle()
 
     expect(mockedDeleteWh).toHaveBeenCalledTimes(1)
     expect(previewPanel()).toBeNull()
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Server exploded')
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Не удалось удалить рабочие часы.')
   })
 
   it('does not offer delete or preview to roles that cannot manage the schedule', async () => {
     setAuth('staff')
     await renderPage()
 
-    expect(buttonByText(container, 'Delete')).toBeUndefined()
+    expect(buttonByText(container, 'Удалить')).toBeUndefined()
     expect(previewPanel()).toBeNull()
     expect(mockedPreview).not.toHaveBeenCalled()
     expect(mockedDeleteWh).not.toHaveBeenCalled()
@@ -423,9 +423,9 @@ describe('AdminSchedulePage working hours delete preview', () => {
 
   it('regression: working-hours delete never uses window.confirm; create/update are not triggered', async () => {
     await renderPage()
-    await click(buttonByText(container, 'Delete'))
+    await click(buttonByText(container, 'Удалить'))
     await settle()
-    await click(buttonByText(previewPanel()!, 'Delete working hours'))
+    await click(buttonByText(previewPanel()!, 'Удалить рабочие часы'))
     await settle()
 
     expect(window.confirm).not.toHaveBeenCalled()
@@ -494,7 +494,7 @@ describe('AdminSchedulePage blocked period delete preview', () => {
   }
 
   async function openBpPreview() {
-    await click(buttonByText(bpSection(), 'Delete'))
+    await click(buttonByText(bpSection(), 'Удалить'))
     await settle()
   }
 
@@ -541,17 +541,17 @@ describe('AdminSchedulePage blocked period delete preview', () => {
     })
     expect(mockedDeleteBp).not.toHaveBeenCalled()
     expect(window.confirm).not.toHaveBeenCalled()
-    expect(buttonByText(bpSection(), 'Delete')?.disabled).toBe(true)
+    expect(buttonByText(bpSection(), 'Удалить')?.disabled).toBe(true)
   })
 
   it('shows the preview even with zero impacts and requires explicit confirm to DELETE', async () => {
     await renderPage()
     await openBpPreview()
 
-    expect(previewPanel()?.textContent).toContain('No bookings would be affected')
+    expect(previewPanel()?.textContent).toContain('В горизонте просмотра это изменение не затронет записи.')
     expect(mockedDeleteBp).not.toHaveBeenCalled()
 
-    await click(buttonByText(previewPanel()!, 'Delete blocked period'))
+    await click(buttonByText(previewPanel()!, 'Удалить блокировку'))
     await settle()
     expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
   })
@@ -559,7 +559,7 @@ describe('AdminSchedulePage blocked period delete preview', () => {
   it('confirm calls deleteBlockedPeriod with token, salon id and snapshot id only (no fingerprint)', async () => {
     await renderPage()
     await openBpPreview()
-    await click(buttonByText(previewPanel()!, 'Delete blocked period'))
+    await click(buttonByText(previewPanel()!, 'Удалить блокировку'))
     await settle()
 
     expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
@@ -573,12 +573,12 @@ describe('AdminSchedulePage blocked period delete preview', () => {
   it('Cancel closes the preview, does not call DELETE, and re-enables row Delete', async () => {
     await renderPage()
     await openBpPreview()
-    await click(buttonByText(previewPanel()!, 'Cancel'))
+    await click(buttonByText(previewPanel()!, 'Отмена'))
     await settle()
 
     expect(previewPanel()).toBeNull()
     expect(mockedDeleteBp).not.toHaveBeenCalled()
-    expect(buttonByText(bpSection(), 'Delete')?.disabled).toBe(false)
+    expect(buttonByText(bpSection(), 'Удалить')?.disabled).toBe(false)
   })
 
   it('confirm stays disabled until acknowledgement when impacts require it', async () => {
@@ -586,16 +586,16 @@ describe('AdminSchedulePage blocked period delete preview', () => {
     await renderPage()
     await openBpPreview()
 
-    const confirmBtn = buttonByText(previewPanel()!, 'Delete blocked period')
+    const confirmBtn = buttonByText(previewPanel()!, 'Удалить блокировку')
     expect(confirmBtn?.disabled).toBe(true)
     await click(confirmBtn)
     expect(mockedDeleteBp).not.toHaveBeenCalled()
 
     const checkbox = previewPanel()!.querySelector('input[type="checkbox"]') as HTMLInputElement
     await click(checkbox)
-    expect(buttonByText(previewPanel()!, 'Delete blocked period')?.disabled).toBe(false)
+    expect(buttonByText(previewPanel()!, 'Удалить блокировку')?.disabled).toBe(false)
 
-    await click(buttonByText(previewPanel()!, 'Delete blocked period'))
+    await click(buttonByText(previewPanel()!, 'Удалить блокировку'))
     await settle()
     expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
     expect(mockedDeleteBp.mock.calls[0]).toEqual([TOKEN, SALON_ID, 'bp-1'])
@@ -608,11 +608,11 @@ describe('AdminSchedulePage blocked period delete preview', () => {
 
     // Live list changes underneath the open preview: re-applying filters reloads other rows.
     mockedFetchBp.mockResolvedValue([makeBp({ id: 'bp-2', reason: 'Replacement row' })])
-    await click(buttonByText(bpSection(), 'Apply'))
+    await click(buttonByText(bpSection(), 'Применить'))
     await settle()
     expect(bpSection().textContent).toContain('Replacement row')
 
-    await click(buttonByText(previewPanel()!, 'Delete blocked period'))
+    await click(buttonByText(previewPanel()!, 'Удалить блокировку'))
     await settle()
 
     expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
@@ -621,7 +621,7 @@ describe('AdminSchedulePage blocked period delete preview', () => {
   })
 
   it('when previewScheduleImpact rejects: preview is called, DELETE is not, error shows in panel, Cancel closes without delete', async () => {
-    mockedPreview.mockRejectedValue(new ApiError(502, 'Preview unavailable'))
+    mockedPreview.mockRejectedValue(new ApiError(502, 'Не удалось загрузить просмотр влияния.'))
     await renderPage()
     await openBpPreview()
 
@@ -629,10 +629,10 @@ describe('AdminSchedulePage blocked period delete preview', () => {
     expect(mockedDeleteBp).not.toHaveBeenCalled()
     expect(previewPanel()).not.toBeNull()
     expect(previewPanel()?.querySelector('[role="alert"]')?.textContent).toContain(
-      'Preview unavailable',
+      'Не удалось загрузить просмотр влияния.',
     )
 
-    await click(buttonByText(previewPanel()!, 'Cancel'))
+    await click(buttonByText(previewPanel()!, 'Отмена'))
     await settle()
 
     expect(previewPanel()).toBeNull()
@@ -640,22 +640,24 @@ describe('AdminSchedulePage blocked period delete preview', () => {
   })
 
   it('shows an error and closes the preview when DELETE fails', async () => {
-    mockedDeleteBp.mockRejectedValue(new ApiError(500, 'Server exploded'))
+    mockedDeleteBp.mockRejectedValue(new ApiError(500, 'boom'))
     await renderPage()
     await openBpPreview()
-    await click(buttonByText(previewPanel()!, 'Delete blocked period'))
+    await click(buttonByText(previewPanel()!, 'Удалить блокировку'))
     await settle()
 
     expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
     expect(previewPanel()).toBeNull()
-    expect(bpSection().querySelector('[role="alert"]')?.textContent).toContain('Server exploded')
+    expect(bpSection().querySelector('[role="alert"]')?.textContent).toContain(
+      'Не удалось удалить блокировку.',
+    )
   })
 
   it('does not offer delete or preview to roles that cannot manage the schedule', async () => {
     setAuth('staff')
     await renderPage()
 
-    expect(buttonByText(bpSection(), 'Delete')).toBeUndefined()
+    expect(buttonByText(bpSection(), 'Удалить')).toBeUndefined()
     expect(previewPanel()).toBeNull()
     expect(mockedPreview).not.toHaveBeenCalled()
     expect(mockedDeleteBp).not.toHaveBeenCalled()
@@ -743,7 +745,7 @@ describe('AdminSchedulePage working hours create preview', () => {
   }
 
   async function submitCreate() {
-    await click(buttonByText(whCreateForm(), 'Create'))
+    await click(buttonByText(whCreateForm(), 'Создать'))
     await settle()
   }
 
@@ -788,14 +790,14 @@ describe('AdminSchedulePage working hours create preview', () => {
     await renderPage()
     await submitCreate()
 
-    expect(whSection().textContent).toContain('Enter both a start time and an end time.')
+    expect(whSection().textContent).toContain('Укажите время начала и окончания.')
     expect(mockedPreview).not.toHaveBeenCalled()
     expect(mockedCreateWh).not.toHaveBeenCalled()
     expect(whPanel()).toBeNull()
 
     await setValue(input('wh-create-start'), '09:00')
     await submitCreate()
-    expect(whSection().textContent).toContain('Enter both a start time and an end time.')
+    expect(whSection().textContent).toContain('Укажите время начала и окончания.')
     expect(mockedPreview).not.toHaveBeenCalled()
     expect(mockedCreateWh).not.toHaveBeenCalled()
   })
@@ -805,14 +807,14 @@ describe('AdminSchedulePage working hours create preview', () => {
     await fillTimes('17:00', '09:00')
     await submitCreate()
 
-    expect(whSection().textContent).toContain('Start time must be before end time.')
+    expect(whSection().textContent).toContain('Время начала должно быть раньше окончания.')
     expect(mockedPreview).not.toHaveBeenCalled()
     expect(mockedCreateWh).not.toHaveBeenCalled()
     expect(whPanel()).toBeNull()
 
     await fillTimes('10:00', '10:00')
     await submitCreate()
-    expect(whSection().textContent).toContain('Start time must be before end time.')
+    expect(whSection().textContent).toContain('Время начала должно быть раньше окончания.')
     expect(mockedPreview).not.toHaveBeenCalled()
     expect(mockedCreateWh).not.toHaveBeenCalled()
   })
@@ -821,11 +823,11 @@ describe('AdminSchedulePage working hours create preview', () => {
     await renderPage()
     await fillTimes('17:00', '09:00')
     await submitCreate()
-    expect(whSection().textContent).toContain('Start time must be before end time.')
+    expect(whSection().textContent).toContain('Время начала должно быть раньше окончания.')
 
     await fillTimes('09:00', '17:00')
     await submitCreate()
-    expect(whSection().textContent).not.toContain('Start time must be before end time.')
+    expect(whSection().textContent).not.toContain('Время начала должно быть раньше окончания.')
     expect(whPanel()).not.toBeNull()
     expect(mockedPreview).toHaveBeenCalledTimes(1)
   })
@@ -860,11 +862,11 @@ describe('AdminSchedulePage working hours create preview', () => {
     ]) {
       expect((container.querySelector(`#${id}`) as HTMLInputElement).disabled).toBe(true)
     }
-    expect(buttonByText(whCreateForm(), 'Create')?.disabled).toBe(true)
+    expect(buttonByText(whCreateForm(), 'Создать')?.disabled).toBe(true)
     expect((whSection().querySelector('select') as HTMLSelectElement).disabled).toBe(true)
     const table = whSection().querySelector('table') as HTMLElement
-    expect(buttonByText(table, 'Edit')?.disabled).toBe(true)
-    expect(buttonByText(table, 'Delete')?.disabled).toBe(true)
+    expect(buttonByText(table, 'Изменить')?.disabled).toBe(true)
+    expect(buttonByText(table, 'Удалить')?.disabled).toBe(true)
   })
 
   it('uses the selected staff scope in the snapshot change', async () => {
@@ -882,7 +884,7 @@ describe('AdminSchedulePage working hours create preview', () => {
       kind: 'working_hours.create',
       staff_id: 'staff-9',
     })
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
     expect(mockedCreateWh.mock.calls[0][2]).toMatchObject({ staff_id: 'staff-9' })
   })
@@ -891,10 +893,10 @@ describe('AdminSchedulePage working hours create preview', () => {
     await renderPage()
     await openCreatePreview()
 
-    expect(whPanel()?.textContent).toContain('No bookings would be affected')
+    expect(whPanel()?.textContent).toContain('В горизонте просмотра это изменение не затронет записи.')
     expect(mockedCreateWh).not.toHaveBeenCalled()
 
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
     expect(mockedCreateWh).toHaveBeenCalledTimes(1)
   })
@@ -917,7 +919,7 @@ describe('AdminSchedulePage working hours create preview', () => {
     await renderPage()
     await openCreatePreview()
     const calls = mockedFetchWh.mock.calls.length
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
 
     expect(mockedCreateWh).toHaveBeenCalledTimes(1)
@@ -965,7 +967,7 @@ describe('AdminSchedulePage working hours create preview', () => {
     await settle()
     expect(whPanel()).not.toBeNull()
 
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
 
     expect(mockedPreview).toHaveBeenCalledTimes(1)
@@ -999,7 +1001,7 @@ describe('AdminSchedulePage working hours create preview', () => {
       clearAuthAndRedirect,
     } as unknown as ReturnType<typeof useAuth>)
     await renderPage()
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
 
     expect(mockedCreateWh).not.toHaveBeenCalled()
@@ -1008,7 +1010,7 @@ describe('AdminSchedulePage working hours create preview', () => {
   it('Cancel closes the preview, does not POST, keeps the form values and unlocks the form', async () => {
     await renderPage()
     await openCreatePreview()
-    await click(buttonByText(whPanel()!, 'Cancel'))
+    await click(buttonByText(whPanel()!, 'Отмена'))
     await settle()
 
     expect(whPanel()).toBeNull()
@@ -1016,15 +1018,15 @@ describe('AdminSchedulePage working hours create preview', () => {
     expect(input('wh-create-start').value).toBe('09:00')
     expect(input('wh-create-end').value).toBe('17:00')
     expect(input('wh-create-start').disabled).toBe(false)
-    expect(buttonByText(whCreateForm(), 'Create')?.disabled).toBe(false)
+    expect(buttonByText(whCreateForm(), 'Создать')?.disabled).toBe(false)
     expect((whSection().querySelector('select') as HTMLSelectElement).disabled).toBe(false)
-    expect(buttonByText(whSection().querySelector('table')!, 'Delete')?.disabled).toBe(false)
+    expect(buttonByText(whSection().querySelector('table')!, 'Удалить')?.disabled).toBe(false)
   })
 
   it('a reopened preview gets a fresh snapshot and a new request', async () => {
     await renderPage()
     await openCreatePreview()
-    await click(buttonByText(whPanel()!, 'Cancel'))
+    await click(buttonByText(whPanel()!, 'Отмена'))
     await fillTimes('08:00', '12:00')
     await submitCreate()
 
@@ -1033,7 +1035,7 @@ describe('AdminSchedulePage working hours create preview', () => {
       start_time: '08:00:00',
       end_time: '12:00:00',
     })
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
     expect(mockedCreateWh.mock.calls[0][2]).toMatchObject({
       start_time: '08:00:00',
@@ -1046,14 +1048,14 @@ describe('AdminSchedulePage working hours create preview', () => {
     await renderPage()
     await openCreatePreview()
 
-    const confirmBtn = buttonByText(whPanel()!, 'Create working hours')
+    const confirmBtn = buttonByText(whPanel()!, 'Создать рабочие часы')
     expect(confirmBtn?.disabled).toBe(true)
     await click(confirmBtn)
     expect(mockedCreateWh).not.toHaveBeenCalled()
 
     await click(whPanel()!.querySelector('input[type="checkbox"]') as HTMLInputElement)
-    expect(buttonByText(whPanel()!, 'Create working hours')?.disabled).toBe(false)
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    expect(buttonByText(whPanel()!, 'Создать рабочие часы')?.disabled).toBe(false)
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
     expect(mockedCreateWh).toHaveBeenCalledTimes(1)
     expect(mockedCreateWh.mock.calls[0][2]).toMatchObject({
@@ -1115,9 +1117,9 @@ describe('AdminSchedulePage working hours create preview', () => {
     await renderPage()
     await openCreatePreview()
     await click(whPanel()!.querySelector('input[type="checkbox"]') as HTMLInputElement)
-    await click(buttonByText(whPanel()!, 'Load more bookings'))
+    await click(buttonByText(whPanel()!, 'Загрузить ещё записи'))
     await settle()
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
 
     expect(mockedCreateWh).toHaveBeenCalledTimes(1)
@@ -1141,41 +1143,45 @@ describe('AdminSchedulePage working hours create preview', () => {
     await openCreatePreview()
 
     expect(mockedPreview).toHaveBeenCalledTimes(1)
-    expect(whPanel()?.querySelector('[role="alert"]')?.textContent).toContain('Session expired')
+    expect(whPanel()?.querySelector('[role="alert"]')?.textContent).toContain(
+      'Не удалось загрузить просмотр влияния.',
+    )
     expect(clearAuthAndRedirect).not.toHaveBeenCalled()
-    expect(buttonByText(whPanel()!, 'Create working hours')?.disabled).toBe(true)
+    expect(buttonByText(whPanel()!, 'Создать рабочие часы')?.disabled).toBe(true)
     expect(mockedCreateWh).not.toHaveBeenCalled()
 
-    await click(buttonByText(whPanel()!, 'Cancel'))
+    await click(buttonByText(whPanel()!, 'Отмена'))
     expect(whPanel()).toBeNull()
     expect(clearAuthAndRedirect).not.toHaveBeenCalled()
     expect(mockedCreateWh).not.toHaveBeenCalled()
   })
 
   it('when previewScheduleImpact rejects: error shows in panel, create is not called, Cancel closes', async () => {
-    mockedPreview.mockRejectedValue(new ApiError(502, 'Preview unavailable'))
+    mockedPreview.mockRejectedValue(new ApiError(502, 'Не удалось загрузить просмотр влияния.'))
     await renderPage()
     await openCreatePreview()
 
     expect(mockedCreateWh).not.toHaveBeenCalled()
     expect(whPanel()?.querySelector('[role="alert"]')?.textContent).toContain(
-      'Preview unavailable',
+      'Не удалось загрузить просмотр влияния.',
     )
-    await click(buttonByText(whPanel()!, 'Cancel'))
+    await click(buttonByText(whPanel()!, 'Отмена'))
     expect(whPanel()).toBeNull()
     expect(mockedCreateWh).not.toHaveBeenCalled()
   })
 
   it('shows an error, closes the preview and keeps the form when the POST fails', async () => {
-    mockedCreateWh.mockRejectedValue(new ApiError(500, 'Server exploded'))
+    mockedCreateWh.mockRejectedValue(new ApiError(500, 'boom'))
     await renderPage()
     await openCreatePreview()
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
 
     expect(mockedCreateWh).toHaveBeenCalledTimes(1)
     expect(whPanel()).toBeNull()
-    expect(whSection().querySelector('[role="alert"]')?.textContent).toContain('Server exploded')
+    expect(whSection().querySelector('[role="alert"]')?.textContent).toContain(
+      'Не удалось создать рабочие часы.',
+    )
     expect(input('wh-create-start').value).toBe('09:00')
   })
 
@@ -1183,7 +1189,7 @@ describe('AdminSchedulePage working hours create preview', () => {
     mockedCreateWh.mockRejectedValue(new ApiError(401, 'Unauthorized'))
     await renderPage()
     await openCreatePreview()
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
 
     expect(clearAuthAndRedirect).toHaveBeenCalledTimes(1)
@@ -1202,11 +1208,11 @@ describe('AdminSchedulePage working hours create preview', () => {
   it('mutual block: WH delete preview blocks opening the WH create preview', async () => {
     await renderPage()
     await fillTimes()
-    await click(buttonByText(whSection().querySelector('table')!, 'Delete'))
+    await click(buttonByText(whSection().querySelector('table')!, 'Удалить'))
     await settle()
     expect(whSection().querySelectorAll('.schedule-impact-preview')).toHaveLength(1)
     expect(mockedPreview).toHaveBeenCalledTimes(1)
-    expect(buttonByText(whCreateForm(), 'Create')?.disabled).toBe(true)
+    expect(buttonByText(whCreateForm(), 'Создать')?.disabled).toBe(true)
 
     // Even a programmatic submit must not open a second WH preview.
     await act(async () => {
@@ -1222,7 +1228,7 @@ describe('AdminSchedulePage working hours create preview', () => {
   it('mutual block: WH create preview blocks opening the WH delete preview', async () => {
     await renderPage()
     await openCreatePreview()
-    const deleteBtn = buttonByText(whSection().querySelector('table')!, 'Delete')
+    const deleteBtn = buttonByText(whSection().querySelector('table')!, 'Удалить')
     expect(deleteBtn?.disabled).toBe(true)
     await click(deleteBtn)
     await settle()
@@ -1236,7 +1242,7 @@ describe('AdminSchedulePage working hours create preview', () => {
   it('dual panel: BP delete preview can be open together with the WH create preview and both confirm independently', async () => {
     await renderPage()
     await openCreatePreview()
-    await click(buttonByText(bpSection(), 'Delete'))
+    await click(buttonByText(bpSection(), 'Удалить'))
     await settle()
 
     expect(panels()).toHaveLength(2)
@@ -1249,14 +1255,14 @@ describe('AdminSchedulePage working hours create preview', () => {
       blocked_period_id: 'bp-1',
     })
 
-    await click(buttonByText(bpPanel()!, 'Delete blocked period'))
+    await click(buttonByText(bpPanel()!, 'Удалить блокировку'))
     await settle()
     expect(mockedDeleteBp.mock.calls[0]).toEqual([TOKEN, SALON_ID, 'bp-1'])
     expect(mockedCreateWh).not.toHaveBeenCalled()
     expect(whPanel()).not.toBeNull()
     expect(bpPanel()).toBeNull()
 
-    await click(buttonByText(whPanel()!, 'Create working hours'))
+    await click(buttonByText(whPanel()!, 'Создать рабочие часы'))
     await settle()
     expect(mockedCreateWh).toHaveBeenCalledTimes(1)
     expect(mockedDeleteBp).toHaveBeenCalledTimes(1)
@@ -1265,13 +1271,13 @@ describe('AdminSchedulePage working hours create preview', () => {
 
   it('dual panel: WH create preview can be opened while a BP delete preview is already open', async () => {
     await renderPage()
-    await click(buttonByText(bpSection(), 'Delete'))
+    await click(buttonByText(bpSection(), 'Удалить'))
     await settle()
     await openCreatePreview()
 
     expect(panels()).toHaveLength(2)
-    expect(buttonByText(bpSection(), 'Delete')?.disabled).toBe(true)
-    await click(buttonByText(whPanel()!, 'Cancel'))
+    expect(buttonByText(bpSection(), 'Удалить')?.disabled).toBe(true)
+    await click(buttonByText(whPanel()!, 'Отмена'))
     expect(whPanel()).toBeNull()
     expect(bpPanel()).not.toBeNull()
     expect(mockedCreateWh).not.toHaveBeenCalled()
@@ -1280,10 +1286,10 @@ describe('AdminSchedulePage working hours create preview', () => {
 
   it('regression: WH delete preview still deletes only after confirm, without create or window.confirm', async () => {
     await renderPage()
-    await click(buttonByText(whSection().querySelector('table')!, 'Delete'))
+    await click(buttonByText(whSection().querySelector('table')!, 'Удалить'))
     await settle()
     expect(mockedDeleteWh).not.toHaveBeenCalled()
-    await click(buttonByText(whPanel()!, 'Delete working hours'))
+    await click(buttonByText(whPanel()!, 'Удалить рабочие часы'))
     await settle()
 
     expect(mockedDeleteWh.mock.calls[0]).toEqual([
@@ -1303,10 +1309,10 @@ describe('AdminSchedulePage working hours create preview', () => {
 
   it('regression: BP delete preview still deletes only after confirm, without create or window.confirm', async () => {
     await renderPage()
-    await click(buttonByText(bpSection(), 'Delete'))
+    await click(buttonByText(bpSection(), 'Удалить'))
     await settle()
     expect(mockedDeleteBp).not.toHaveBeenCalled()
-    await click(buttonByText(bpPanel()!, 'Delete blocked period'))
+    await click(buttonByText(bpPanel()!, 'Удалить блокировку'))
     await settle()
 
     expect(mockedDeleteBp.mock.calls[0]).toEqual([TOKEN, SALON_ID, 'bp-1'])

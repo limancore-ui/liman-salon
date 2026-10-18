@@ -17,6 +17,8 @@ from app.services.public_booking.orchestrator import PublicBookingOrchestrator
 from app.services.public_booking.service import PublicBookingService
 from app.services.schedule.service import ScheduleService
 from app.services.schedule.impact import ScheduleImpactService
+from app.services.salon_appearance.service import SalonAppearanceService
+from app.services.salon_profile.service import SalonProfileService
 from app.services.salon_settings.service import SalonSettingsService
 from app.services.service_catalog.service import ServiceCatalogService
 from app.services.customer.service import CustomerService
@@ -31,6 +33,7 @@ from app.services.review.service import ReviewService
 from app.services.bonus.service import BonusLedgerService
 from app.services.admin_notifications.service import AdminNotificationService
 from app.services.smart_gap.service import SmartGapService
+from app.services.showcase.service import ShowcaseService
 
 SessionDep = Annotated[Session, Depends(get_db)]
 
@@ -78,6 +81,7 @@ def get_public_booking_service(session: SessionDep) -> PublicBookingService:
         session,
         booking_manage_token_pepper=settings.booking_manage_token_pepper,
         admin_notifications=AdminNotificationService(session),
+        notifications=NotificationService(session),
     )
 
 
@@ -194,6 +198,24 @@ SalonSettingsServiceDep = Annotated[
 ]
 
 
+def get_salon_appearance_service(session: SessionDep) -> SalonAppearanceService:
+    return SalonAppearanceService(session)
+
+
+SalonAppearanceServiceDep = Annotated[
+    SalonAppearanceService, Depends(get_salon_appearance_service)
+]
+
+
+def get_salon_profile_service(session: SessionDep) -> SalonProfileService:
+    return SalonProfileService(session)
+
+
+SalonProfileServiceDep = Annotated[
+    SalonProfileService, Depends(get_salon_profile_service)
+]
+
+
 def get_review_service(session: SessionDep) -> ReviewService:
     return ReviewService(session)
 
@@ -215,3 +237,10 @@ def get_smart_gap_service(session: SessionDep) -> SmartGapService:
 
 
 SmartGapServiceDep = Annotated[SmartGapService, Depends(get_smart_gap_service)]
+
+
+def get_showcase_service(session: SessionDep) -> ShowcaseService:
+    return ShowcaseService(session)
+
+
+ShowcaseServiceDep = Annotated[ShowcaseService, Depends(get_showcase_service)]

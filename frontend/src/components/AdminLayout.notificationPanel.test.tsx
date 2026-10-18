@@ -96,6 +96,7 @@ function mockOwnerSession() {
     },
     logout: vi.fn(),
     switchWorkspace: vi.fn(),
+    refreshSession: vi.fn(),
     clearAuthAndRedirect: vi.fn(),
   } as unknown as ReturnType<typeof useAuth>)
 }

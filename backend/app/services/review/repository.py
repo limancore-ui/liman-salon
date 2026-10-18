@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, exists, select
 from sqlalchemy.orm import Session
 
 from app.db.models.customer import Customer
 from app.db.models.review import Review
 from app.db.models.staff import Staff
 from app.services.review.types import AdminReviewRow, PublicReviewRow
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewRepository:
@@ -106,6 +109,7 @@ class ReviewRepository:
             .where(
                 Review.salon_id == salon_id,
                 Review.status == "published",
+                Review.published_at.is_not(None),
             )
             .order_by(desc(Review.published_at), Review.id)
             .limit(limit)
@@ -127,3 +131,19 @@ class ReviewRepository:
                 )
             )
         return rows
+
+    def has_published_reviews_missing_published_at(
+        self,
+        *,
+        salon_id: uuid.UUID,
+    ) -> bool:
+        stmt = select(
+            exists(
+                select(Review.id).where(
+                    Review.salon_id == salon_id,
+                    Review.status == "published",
+                    Review.published_at.is_(None),
+                )
+            )
+        )
+        return bool(self._session.scalar(stmt))

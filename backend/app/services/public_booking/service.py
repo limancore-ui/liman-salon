@@ -12,12 +12,18 @@ from app.services.booking.errors import SlotNotAvailableError
 from app.services.booking.manage_token import generate_manage_token, hash_manage_token
 from app.services.booking.service import BookingService
 from app.services.admin_notifications.service import AdminNotificationService
+from app.services.notifications.service import NotificationService
 from app.services.public_booking.types import PublicBookingResult
 from app.services.schedule.lock import acquire_schedule_lock_shared
 
 
 class PublicBookingService:
-    """Orchestrate public checkout holds: pre-check slot, delegate create to BookingService."""
+    """Pre-check a public slot and create a confirmed booking through BookingService.
+
+    The admin bell stays pending-specific. ``admin_notifications`` is accepted so
+    existing callers keep a stable constructor, and this service does not enqueue
+    bell events for new confirmed bookings.
+    """
 
     def __init__(
         self,
@@ -25,11 +31,12 @@ class PublicBookingService:
         *,
         booking_manage_token_pepper: str,
         admin_notifications: AdminNotificationService | None = None,
+        notifications: NotificationService | None = None,
     ) -> None:
         self._session = session
         self._manage_token_pepper = booking_manage_token_pepper
         self._admin_notifications = admin_notifications
-        self._booking = BookingService(session)
+        self._booking = BookingService(session, notifications=notifications)
         self._availability = AvailabilityService(session)
         self._availability_repo = AvailabilityRepository(session)
 
@@ -48,9 +55,6 @@ class PublicBookingService:
             raise ValueError("service_start must be timezone-aware")
         if as_of.tzinfo is None:
             raise ValueError("as_of must be timezone-aware")
-
-        hold_seconds = self._booking.resolve_pending_hold_seconds(salon_id)
-        hold_expires_at = as_of + timedelta(seconds=hold_seconds)
 
         service = self._availability_repo.get_service_for_availability(salon_id, service_id)
         if service is None:
@@ -81,19 +85,13 @@ class PublicBookingService:
             service_id=service_id,
             requested_service_start=service_start,
             source="public",
-            status="pending",
+            status="confirmed",
             as_of=as_of,
-            expires_at=hold_expires_at,
+            expires_at=None,
             customer_notes=customer_notes,
             manage_token_hash=manage_token_hash,
             schedule_gate_shared_held=True,
         )
-
-        if self._admin_notifications is not None:
-            self._admin_notifications.enqueue_public_booking_pending(
-                salon_id=salon_id,
-                booking_id=result.booking_id,
-            )
 
         service_end = service_start + timedelta(minutes=service.duration_minutes)
 
@@ -104,6 +102,6 @@ class PublicBookingService:
             staff_id=staff_id,
             service_start=service_start,
             service_end=service_end,
-            hold_expires_at=hold_expires_at,
+            hold_expires_at=None,
             manage_token=manage_token,
         )

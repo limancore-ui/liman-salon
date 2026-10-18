@@ -64,7 +64,7 @@ describe('ScheduleImpactPreviewPanel integration', () => {
       await flushPromises()
     })
     const cancelBtn = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent === 'Cancel',
+      (b) => b.textContent === 'Отмена',
     )
     expect(cancelBtn).toBeTruthy()
     await act(async () => {
@@ -125,7 +125,7 @@ describe('ScheduleImpactPreviewPanel integration', () => {
       await flushPromises()
     })
     const confirmBtn = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent === 'Continue',
+      (b) => b.textContent === 'Продолжить',
     )
     expect(confirmBtn?.disabled).toBe(true)
     const checkbox = container.querySelector(

@@ -49,7 +49,7 @@ export function AvailabilityTimeList({
 
   return (
     <div className="time-list">
-      <h3 className="time-list__heading">Выберите время</h3>
+      {/* Step title lives on the parent page (h2); avoid a second visible heading. */}
       <ul className="time-list__grid" role="listbox" aria-label="Выберите время">
         {state.slots.map((slot) => {
           const key = slotKey(slot)

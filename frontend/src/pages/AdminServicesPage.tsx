@@ -10,8 +10,8 @@ import {
   patchAdminService,
 } from '../api/services'
 import { fetchAdminStaff } from '../api/staff'
-import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
+import { adminUserErrorMessage } from '../utils/adminUserError'
 import { AdminEntityMediaAttach } from '../components/AdminEntityMediaAttach'
 import { useSalonMediaAttachmentIndex } from '../hooks/useSalonMediaAttachmentIndex'
 import type { ServiceListItem } from '../types/services'
@@ -36,13 +36,14 @@ import {
   sortStaffList,
   staffAvailableToAssign,
 } from '../utils/adminServiceStaffAssign'
+import { t } from '../i18n'
 
 function canManageServices(role: string | undefined): boolean {
   return role === 'owner' || role === 'admin'
 }
 
 function formatBool(value: boolean): string {
-  return value ? 'Yes' : 'No'
+  return value ? t('common.yes') : 'No'
 }
 
 function servicePrice(row: ServiceListItem): string {
@@ -98,32 +99,32 @@ const emptyCreateForm = (): ServiceFormState => ({
 function parseServiceFormFields(form: ServiceFormState): ParsedServiceFormValues | string {
   const name = form.name.trim()
   if (name === '') {
-    return 'Name is required.'
+    return t('admin.services.nameRequired')
   }
 
   const durationMinutes = parseDurationMinutes(form.durationMinutes)
   if (durationMinutes === null) {
-    return 'Duration must be a positive whole number of minutes.'
+    return t('admin.services.durationInvalid')
   }
 
   const bufferBefore = parseNonNegativeInt(form.bufferBefore)
   if (bufferBefore === null) {
-    return 'Buffer before must be a non-negative whole number of minutes.'
+    return t('admin.services.bufferBeforeInvalid')
   }
 
   const bufferAfter = parseNonNegativeInt(form.bufferAfter)
   if (bufferAfter === null) {
-    return 'Buffer after must be a non-negative whole number of minutes.'
+    return t('admin.services.bufferAfterInvalid')
   }
 
   const sortOrder = parseNonNegativeInt(form.sortOrder)
   if (sortOrder === null) {
-    return 'Sort order must be a non-negative whole number.'
+    return t('admin.services.sortInvalid')
   }
 
   const priceCents = parsePriceCents(form.priceMajor)
   if (priceCents === null) {
-    return 'Price must be a non-negative number.'
+    return t('admin.services.priceInvalid')
   }
 
   const descriptionTrimmed = form.description.trim()
@@ -153,7 +154,7 @@ function ServiceFormFields({
   return (
     <div className="admin-services__form-grid">
       <label className="admin-services__filter admin-services__filter--wide">
-        <span>Name</span>
+        <span>{t('admin.form.name')}</span>
         <input
           type="text"
           value={form.name}
@@ -167,7 +168,7 @@ function ServiceFormFields({
         />
       </label>
       <label className="admin-services__filter admin-services__filter--wide">
-        <span>Description</span>
+        <span>{t('admin.form.description')}</span>
         <textarea
           value={form.description}
           onChange={(event) =>
@@ -181,7 +182,7 @@ function ServiceFormFields({
         />
       </label>
       <label className="admin-services__filter">
-        <span>Duration (minutes)</span>
+        <span>{t('admin.form.durationMinutes')}</span>
         <input
           type="number"
           min={1}
@@ -197,7 +198,7 @@ function ServiceFormFields({
         />
       </label>
       <label className="admin-services__filter">
-        <span>Price ({currencyCode})</span>
+        <span>{t('admin.form.price', { currency: currencyCode })}</span>
         <input
           type="number"
           min={0}
@@ -213,7 +214,7 @@ function ServiceFormFields({
         />
       </label>
       <label className="admin-services__filter">
-        <span>Buffer before (minutes)</span>
+        <span>{t('admin.form.bufferBefore')}</span>
         <input
           type="number"
           min={0}
@@ -229,7 +230,7 @@ function ServiceFormFields({
         />
       </label>
       <label className="admin-services__filter">
-        <span>Buffer after (minutes)</span>
+        <span>{t('admin.form.bufferAfter')}</span>
         <input
           type="number"
           min={0}
@@ -245,7 +246,7 @@ function ServiceFormFields({
         />
       </label>
       <label className="admin-services__filter">
-        <span>Sort order</span>
+        <span>{t('admin.form.sortOrder')}</span>
         <input
           type="number"
           min={0}
@@ -329,11 +330,7 @@ export function AdminServicesPage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Could not load services.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.services.loadFailed'))
       setItems([])
     } finally {
       setLoading(false)
@@ -360,11 +357,7 @@ export function AdminServicesPage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setSalonStaffError(err.message)
-      } else {
-        setSalonStaffError('Could not load salon staff.')
-      }
+      setSalonStaffError(adminUserErrorMessage(err, 'admin.services.staffLoadFailed'))
       setSalonStaff([])
     } finally {
       setSalonStaffLoading(false)
@@ -622,7 +615,7 @@ export function AdminServicesPage() {
 
       const original = items.find((row) => row.id === editingId)
       if (!original) {
-        setEditError('This service is no longer in the list. Refresh and try again.')
+        setEditError(t('admin.services.stale'))
         return
       }
 
@@ -734,11 +727,8 @@ export function AdminServicesPage() {
     <AdminLayout>
       <section className="admin-services">
         <header className="admin-services__header">
-          <h1 className="admin-services__title">Services</h1>
-          <p className="admin-services__lead">
-            Service catalog for your salon. Owners and admins can add services, assign
-            staff who perform each service, and set cover images from the media library.
-          </p>
+          <h1 className="admin-services__title">{t('admin.services.title')}</h1>
+          <p className="admin-services__lead">{t('admin.services.lead')}</p>
           {canWrite && salonStaffError ? (
           <p className="admin-services__state admin-services__state--error" role="alert">
             {salonStaffError} Staff assignment may be unavailable until this is resolved.
@@ -758,7 +748,7 @@ export function AdminServicesPage() {
                   staffPanelBusy
                 }
               >
-                Create service
+                {t('admin.services.createService')}
               </button>
             </p>
           ) : null}
@@ -769,11 +759,8 @@ export function AdminServicesPage() {
             className="admin-services__form"
             onSubmit={(event) => void handleCreateSubmit(event)}
           >
-            <h2 className="admin-services__form-title">Create service</h2>
-            <p className="admin-services__form-lead">
-              New services are active by default. Price is in {currencyCode} (major
-              units, e.g. 25.00).
-            </p>
+            <h2 className="admin-services__form-title">{t('admin.services.create')}</h2>
+            <p className="admin-services__form-lead">{t('admin.services.createLead', { currency: currencyCode })}</p>
             {createError ? (
               <p className="admin-services__form-error" role="alert">
                 {createError}
@@ -791,7 +778,7 @@ export function AdminServicesPage() {
                 className="btn btn--primary btn--compact"
                 disabled={createSubmitting}
               >
-                {createSubmitting ? 'Creating…' : 'Create service'}
+                {createSubmitting ? t('common.creating') : t('admin.services.create')}
               </button>
               <button
                 type="button"
@@ -799,7 +786,7 @@ export function AdminServicesPage() {
                 onClick={clearCreate}
                 disabled={createSubmitting}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </form>
@@ -811,12 +798,9 @@ export function AdminServicesPage() {
             onSubmit={(event) => void handleEditSubmit(event)}
           >
             <h2 className="admin-services__form-title">
-              Edit service{editingRow ? `: ${editingRow.name}` : ''}
+              {t('admin.services.edit')}{editingRow ? `: ${editingRow.name}` : ''}
             </h2>
-            <p className="admin-services__form-lead">
-              Only changed fields are sent to the server. Price is in {currencyCode}{' '}
-              (major units, e.g. 25.00).
-            </p>
+            <p className="admin-services__form-lead">{t('admin.services.editLead', { currency: currencyCode })}</p>
             {editError ? (
               <p className="admin-services__form-error" role="alert">
                 {editError}
@@ -834,7 +818,7 @@ export function AdminServicesPage() {
                 className="btn btn--primary btn--compact"
                 disabled={editSubmitting}
               >
-                {editSubmitting ? 'Saving…' : 'Save changes'}
+                {editSubmitting ? t('common.saving') : t('common.save')}
               </button>
               <button
                 type="button"
@@ -842,7 +826,7 @@ export function AdminServicesPage() {
                 onClick={clearEdit}
                 disabled={editSubmitting}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </form>
@@ -861,13 +845,13 @@ export function AdminServicesPage() {
               checked={showInactive}
               onChange={(event) => setShowInactive(event.target.checked)}
             />
-            <span>Show inactive</span>
+            <span>{t('admin.form.showInactive')}</span>
           </label>
         </div>
 
         {loading ? (
           <p className="admin-services__state" role="status">
-            Loading services…
+            {t('admin.services.loading')}
           </p>
         ) : null}
 
@@ -878,7 +862,7 @@ export function AdminServicesPage() {
         ) : null}
 
         {!loading && !error && items.length === 0 ? (
-          <p className="admin-services__state">No services match your filters.</p>
+          <p className="admin-services__state">{t('admin.services.empty')}</p>
         ) : null}
 
         {!loading && !error && items.length > 0 ? (
@@ -886,13 +870,13 @@ export function AdminServicesPage() {
             <table className="admin-services__table">
               <thead>
                 <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Description</th>
-                  <th scope="col">Duration</th>
-                  <th scope="col">Price</th>
-                  <th scope="col">Active</th>
-                  <th scope="col">Cover</th>
-                  {canWrite ? <th scope="col">Actions</th> : null}
+                  <th scope="col">{t('admin.services.colName')}</th>
+                  <th scope="col">{t('admin.services.colDescription')}</th>
+                  <th scope="col">{t('admin.services.colDuration')}</th>
+                  <th scope="col">{t('admin.services.colPrice')}</th>
+                  <th scope="col">{t('admin.services.colActive')}</th>
+                  <th scope="col">{t('admin.services.cover')}</th>
+                  {canWrite ? <th scope="col">{t('common.actions')}</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -929,7 +913,7 @@ export function AdminServicesPage() {
                           entityType="service"
                           entityId={row.id}
                           purpose="cover"
-                          label="Cover"
+                          label={t('admin.services.cover')}
                           assets={mediaIndex.assets}
                           attachment={mediaIndex.getAttachment(
                             'service',
@@ -954,10 +938,10 @@ export function AdminServicesPage() {
                           aria-expanded={panelOpen}
                         >
                           {panelOpen
-                            ? 'Hide staff'
+                            ? t('admin.services.hideStaff')
                             : assigned !== undefined
                               ? assignedStaffSummary(assigned)
-                              : 'View staff'}
+                              : t('admin.services.viewStaff')}
                         </button>
                       ) : null}
                     </td>
@@ -975,10 +959,10 @@ export function AdminServicesPage() {
                             aria-expanded={panelOpen}
                           >
                             {panelOpen
-                              ? 'Hide staff'
+                              ? t('admin.services.hideStaff')
                               : assigned !== undefined
                                 ? assignedStaffSummary(assigned)
-                                : 'View staff'}
+                                : t('admin.services.viewStaff')}
                           </button>
                           <button
                             type="button"
@@ -992,7 +976,7 @@ export function AdminServicesPage() {
                               (editingId !== null && editingId !== row.id)
                             }
                           >
-                            Edit
+                            {t('common.edit')}
                           </button>
                           <button
                             type="button"
@@ -1008,8 +992,8 @@ export function AdminServicesPage() {
                           >
                             {togglingId === row.id
                               ? row.is_active
-                                ? 'Deactivating…'
-                                : 'Activating…'
+                                ? t('admin.services.deactivating')
+                                : t('admin.services.activating')
                               : serviceActiveToggleLabel(row.is_active)}
                           </button>
                         </div>
@@ -1029,11 +1013,11 @@ export function AdminServicesPage() {
                       <td colSpan={tableColumnCount}>
                         <div className="admin-services__staff-panel">
                           <h3 className="admin-services__staff-title">
-                            Staff for {row.name}
+                            {t('admin.services.staffFor', { name: row.name })}
                           </h3>
                           {assignedLoading ? (
                             <p className="admin-services__staff-state" role="status">
-                              Loading assigned staff…
+                              {t('admin.services.loadingAssigned')}
                             </p>
                           ) : null}
                           {!assignedLoading && assignedLoadErrors[row.id] ? (
@@ -1050,7 +1034,7 @@ export function AdminServicesPage() {
                             <>
                               {assigned.length === 0 ? (
                                 <p className="admin-services__staff-state">
-                                  No staff assigned yet.
+                                  {t('admin.services.noStaffAssignedYet')}
                                 </p>
                               ) : (
                                 <ul className="admin-services__staff-list">
@@ -1079,7 +1063,7 @@ export function AdminServicesPage() {
                                             }
                                             aria-busy={detachBusy}
                                           >
-                                            {detachBusy ? 'Removing…' : 'Remove'}
+                                            {detachBusy ? t('admin.services.removing') : t('admin.services.remove')}
                                           </button>
                                         ) : null}
                                       </li>
@@ -1090,7 +1074,7 @@ export function AdminServicesPage() {
                               {canWrite ? (
                                 <div className="admin-services__staff-assign">
                                   <label className="admin-services__staff-assign-label">
-                                    <span>Add staff</span>
+                                    <span>{t('admin.services.addStaff')}</span>
                                     <select
                                       value={attachPick}
                                       onChange={(event) =>
@@ -1107,10 +1091,10 @@ export function AdminServicesPage() {
                                     >
                                       <option value="">
                                         {salonStaffLoading
-                                          ? 'Loading staff…'
+                                          ? t('admin.services.loadingStaff')
                                           : assignCandidates.length === 0
-                                            ? 'No available staff'
-                                            : 'Select staff member'}
+                                            ? t('admin.services.noAvailableStaff')
+                                            : t('admin.services.selectStaff')}
                                       </option>
                                       {assignCandidates.map((candidate) => (
                                         <option key={candidate.id} value={candidate.id}>
@@ -1130,7 +1114,7 @@ export function AdminServicesPage() {
                                     }
                                     aria-busy={attachPending}
                                   >
-                                    {attachPending ? 'Assigning…' : 'Assign'}
+                                    {attachPending ? t('admin.services.assigning') : t('admin.services.assign')}
                                   </button>
                                 </div>
                               ) : null}

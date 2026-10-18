@@ -429,7 +429,7 @@ Salon-scoped customer profile (walk-in and registered guests).
 
 ### bookings
 
-Appointments: source of truth for committed time on staff calendars. **`confirmed`** and **`in_progress`** block until a terminal status. **`pending`** public reservations temporarily hold a slot with a finite **`expires_at`**; when the hold is stale, the application transitions the row to **`expired`** (scheduled sweeper and/or immediately before a new booking transaction). **`expired`**, **`cancelled`**, **`completed`**, and **`no_show`** do not participate in PostgreSQL overlap exclusion (see [Booking overlap protection](#booking-overlap-protection) and [Booking status](#booking-status)).
+Appointments: source of truth for committed time on staff calendars. **New public checkout** inserts `source=public`, `status=confirmed`, `confirmed_at` set, and `expires_at` NULL. That row blocks the staff interval immediately and shows up in the admin bookings list as confirmed. **`confirmed`** and **`in_progress`** block until a terminal status. **`pending`** remains for admin-created holds and for public holds created before this rule. Those rows temporarily hold a slot with a finite **`expires_at`**; when the hold is stale, the application transitions the row to **`expired`** (scheduled sweeper and/or immediately before a new booking transaction). Existing pending rows are not rewritten by the new public-create rule. **`expired`**, **`cancelled`**, **`completed`**, and **`no_show`** do not participate in PostgreSQL overlap exclusion (see [Booking overlap protection](#booking-overlap-protection) and [Booking status](#booking-status)). The admin notification bell stays limited to `public_booking_pending` events for bookings that are still `pending`; new confirmed public bookings are visible in the bookings table, not via that bell.
 
 | Column | Type | Null | Default | Constraints / notes |
 |--------|------|------|---------|---------------------|
@@ -451,7 +451,7 @@ Appointments: source of truth for committed time on staff calendars. **`confirme
 | `cancellation_reason` | `VARCHAR(255)` | NULL | | |
 | `confirmed_at` | `TIMESTAMPTZ` | NULL | | |
 | `completed_at` | `TIMESTAMPTZ` | NULL | | |
-| `expires_at` | `TIMESTAMPTZ` | NULL | | Reservation hold deadline (UTC). Required for `pending` holds from `source = 'public'` (and optionally other sources); NULL for `confirmed` / admin bookings with no TTL. **Application source of truth** for whether a `pending` hold is stale (`expires_at <=` current time at evaluation); stale holds must be moved to `expired` before overlap-safe writes. Not referenced with dynamic `now()` in partial indexes or exclusion constraint predicates. |
+| `expires_at` | `TIMESTAMPTZ` | NULL | | Reservation hold deadline (UTC). Required for `pending` holds, including legacy public holds and admin-created `pending` bookings. NULL for `confirmed` bookings, including new public checkout. **Application source of truth** for whether a `pending` hold is stale (`expires_at <=` current time at evaluation); stale holds must be moved to `expired` before overlap-safe writes. Not referenced with dynamic `now()` in partial indexes or exclusion constraint predicates. |
 | `created_by_user_id` | `UUID` | NULL | | **FK → users(id)** ON DELETE SET NULL |
 | `created_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | |
 | `updated_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | |
@@ -754,8 +754,8 @@ Messages within an AI conversation (user, assistant, tool results).
 
 | Status | Meaning |
 |--------|---------|
-| `pending` | Created, awaiting confirmation (public checkout hold or policy). Temporarily holds a slot while active; public holds require `expires_at`. Stale holds (`expires_at <=` evaluation time) must transition to `expired` via application service / sweeper — see [Booking overlap protection](#booking-overlap-protection). |
-| `confirmed` | Accepted; blocks staff calendar until terminal state. `expires_at` should be NULL. |
+| `pending` | Awaiting confirmation. Used for admin-created holds and for public holds already stored. Temporarily holds a slot while active and requires `expires_at`. Stale holds (`expires_at <=` evaluation time) must transition to `expired` via application service / sweeper — see [Booking overlap protection](#booking-overlap-protection). New public checkout does not insert this status. |
+| `confirmed` | Accepted; blocks staff calendar until terminal state. `expires_at` is NULL. New public checkout is inserted in this status inside the create transaction. |
 | `in_progress` | Service started (optional MVP use). |
 | `completed` | Visit finished; eligible for review/bonus earn. Terminal; does not block availability. |
 | `cancelled` | Voided by user or staff. Terminal; does not block availability. |
@@ -782,7 +782,7 @@ no_show → (terminal)
 - **PostgreSQL exclusion (static):** rows with `status IN ('pending', 'confirmed', 'in_progress')` participate in the GiST exclusion constraint. `expired`, `cancelled`, `completed`, and `no_show` do **not**.
 - **Smart Gap / read path:** treat `confirmed` and `in_progress` as blocking. Treat `pending` as blocking only while the hold is **not** stale: compare `expires_at` to the application’s current time (`expires_at IS NOT NULL AND expires_at > :as_of`). Stale `pending` rows must not be offered as occupied once identified; prefer transitioning them to `expired` promptly.
 - **Write path (mandatory):** before starting a new booking transaction (create/reschedule), the booking service must **expire stale `pending` holds** that would overlap the target slot (or rely on a sweeper that has already done so). Use `expires_at` as the source for staleness. This keeps the static DB exclusion aligned with product rules without `now()` inside constraint predicates.
-- Public hold TTL: set `expires_at` at create from application time `as_of + hold_seconds`. **Resolution order:** optional `salons.settings` v1 `booking.public_hold_seconds` (60–3600 when set) → env `PUBLIC_BOOKING_HOLD_SECONDS` / `Settings.public_booking_hold_seconds` → default **900** s. Same resolved TTL applies to admin-created `pending` bookings. Empty `{}` settings keep env/default behavior. Extend on payment step if product requires (not implemented in MVP backend).
+- Pending hold TTL applies to admin-created `pending` bookings and to legacy `pending` rows. **Resolution order:** optional `salons.settings` v1 `booking.public_hold_seconds` (60–3600 when set) → env `PUBLIC_BOOKING_HOLD_SECONDS` / `Settings.public_booking_hold_seconds` → default **900** s. Empty `{}` settings keep env/default behavior. New public checkout does not set `expires_at`. Extend on payment step if product requires (not implemented in MVP backend).
 
 ### Bonus transaction types
 

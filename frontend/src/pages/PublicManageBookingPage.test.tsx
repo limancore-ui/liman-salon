@@ -8,6 +8,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { PublicManageBookingPage } from './PublicManageBookingPage'
 import {
   cancelPublicBookingBySlug,
+  createPublicBookingReviewBySlug,
   getPublicBookingManageBySlug,
   getPublicBookingReviewBySlug,
   getPublicSalon,
@@ -31,6 +32,7 @@ vi.mock('../api/publicSalon', async (importOriginal) => {
     getPublicSalon: vi.fn(),
     getPublicBookingManageBySlug: vi.fn(),
     getPublicBookingReviewBySlug: vi.fn(),
+    createPublicBookingReviewBySlug: vi.fn(),
     cancelPublicBookingBySlug: vi.fn(),
     reschedulePublicBookingBySlug: vi.fn(),
     getPublicServiceStaff: vi.fn(),
@@ -39,16 +41,41 @@ vi.mock('../api/publicSalon', async (importOriginal) => {
 })
 
 vi.mock('../components/SalonHeader', () => ({
-  SalonHeader: ({ name }: { name: string }) => <div>{name}</div>,
+  SalonHeader: ({
+    name,
+    logoUrl,
+    subtitle,
+  }: {
+    name: string
+    logoUrl?: string | null
+    subtitle?: string | null
+  }) => (
+    <div data-testid="salon-header">
+      <span>{name}</span>
+      {logoUrl ? (
+        <img alt={`Логотип салона ${name}`} src={logoUrl} />
+      ) : (
+        <span data-testid="salon-header-fallback">fallback</span>
+      )}
+      {subtitle ? <span>{subtitle}</span> : null}
+    </div>
+  ),
 }))
 
 const mockedGetSalon = vi.mocked(getPublicSalon)
 const mockedGetManage = vi.mocked(getPublicBookingManageBySlug)
 const mockedGetReview = vi.mocked(getPublicBookingReviewBySlug)
+const mockedCreateReview = vi.mocked(createPublicBookingReviewBySlug)
 const mockedCancel = vi.mocked(cancelPublicBookingBySlug)
 const mockedReschedule = vi.mocked(reschedulePublicBookingBySlug)
 const mockedGetStaff = vi.mocked(getPublicServiceStaff)
 const mockedGetAvailability = vi.mocked(getPublicServiceAvailability)
+
+function hasLeaveReviewButton(container: HTMLElement): boolean {
+  return Array.from(container.querySelectorAll('button')).some((b) =>
+    b.textContent?.includes('Оставить отзыв'),
+  )
+}
 
 const reactActEnv = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -534,5 +561,175 @@ describe('PublicManageBookingPage cancel/reschedule consistency', () => {
     expect(container.textContent).toContain('Иван')
     cleanup()
     vi.useRealTimers()
+  })
+})
+
+describe('PublicManageBookingPage salon brand', () => {
+  beforeEach(() => {
+    mockedGetReview.mockRejectedValue(new ApiError(404, 'not found'))
+    mockedGetManage.mockResolvedValue(manageApi())
+  })
+
+  afterEach(() => {
+    sessionStorage.clear()
+    vi.clearAllMocks()
+    document.body.innerHTML = ''
+  })
+
+  it('shows salon name and logo from public salon API', async () => {
+    mockedGetSalon.mockResolvedValue({
+      name: 'Студия Север',
+      logo_url: '/api/v1/public/salons/sever/media/logo-1/content',
+      timezone: 'UTC',
+    } as Awaited<ReturnType<typeof getPublicSalon>>)
+    const path = `/s/${SLUG}/bookings/${BOOKING_ID}/manage?token=${TOKEN}`
+    const { container, cleanup } = renderManagePage(path)
+    await settle()
+
+    const header = container.querySelector('[data-testid="salon-header"]')
+    expect(header?.textContent).toContain('Студия Север')
+    expect(header?.textContent).toContain('Управление записью')
+    const img = header?.querySelector('img') as HTMLImageElement
+    expect(img?.getAttribute('src')).toContain('/salons/sever/media/logo-1/')
+    expect(img?.getAttribute('alt')).toBe('Логотип салона Студия Север')
+    cleanup()
+  })
+
+  it('shows fallback mark when salon has no logo', async () => {
+    mockedGetSalon.mockResolvedValue({
+      name: 'Салон Без Лого',
+      logo_url: null,
+      timezone: 'UTC',
+    } as Awaited<ReturnType<typeof getPublicSalon>>)
+    const path = `/s/${SLUG}/bookings/${BOOKING_ID}/manage?token=${TOKEN}`
+    const { container, cleanup } = renderManagePage(path)
+    await settle()
+
+    expect(container.textContent).toContain('Салон Без Лого')
+    expect(
+      container.querySelector('[data-testid="salon-header-fallback"]'),
+    ).toBeTruthy()
+    cleanup()
+  })
+})
+
+describe('PublicManageBookingPage review eligibility', () => {
+  beforeEach(() => {
+    mockedGetSalon.mockResolvedValue({
+      name: 'Demo Salon',
+      logo_url: null,
+      timezone: 'UTC',
+    } as Awaited<ReturnType<typeof getPublicSalon>>)
+    mockedGetReview.mockRejectedValue(new ApiError(404, 'not found'))
+  })
+
+  afterEach(() => {
+    sessionStorage.clear()
+    vi.clearAllMocks()
+    document.body.innerHTML = ''
+  })
+
+  it('does not offer review for confirmed bookings', async () => {
+    mockedGetManage.mockResolvedValue(manageApi({ status: 'confirmed' }))
+    const path = `/s/${SLUG}/bookings/${BOOKING_ID}/manage?token=${TOKEN}`
+    const { container, cleanup } = renderManagePage(path)
+    await settle()
+
+    expect(hasLeaveReviewButton(container)).toBe(false)
+    expect(container.textContent).not.toContain('Отзыв о визите')
+    cleanup()
+  })
+
+  it('does not offer review for in_progress bookings', async () => {
+    mockedGetManage.mockResolvedValue(manageApi({ status: 'in_progress' }))
+    const path = `/s/${SLUG}/bookings/${BOOKING_ID}/manage?token=${TOKEN}`
+    const { container, cleanup } = renderManagePage(path)
+    await settle()
+
+    expect(hasLeaveReviewButton(container)).toBe(false)
+    expect(container.textContent).not.toContain('Отзыв о визите')
+    cleanup()
+  })
+
+  it('offers review form for completed bookings without an existing review', async () => {
+    mockedGetManage.mockResolvedValue(manageApi({ status: 'completed' }))
+    const path = `/s/${SLUG}/bookings/${BOOKING_ID}/manage?token=${TOKEN}`
+    const { container, cleanup } = renderManagePage(path)
+    await settle()
+
+    expect(hasLeaveReviewButton(container)).toBe(true)
+
+    const leaveBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Оставить отзыв'),
+    )
+    await act(async () => {
+      leaveBtn!.click()
+      await settle()
+    })
+
+    expect(container.textContent).toContain('Отзыв о визите')
+    expect(
+      Array.from(container.querySelectorAll('button')).some((b) =>
+        b.textContent?.includes('Отправить отзыв'),
+      ),
+    ).toBe(true)
+    cleanup()
+  })
+
+  it('does not offer review again when a completed booking already has a review', async () => {
+    mockedGetManage.mockResolvedValue(manageApi({ status: 'completed' }))
+    mockedGetReview.mockResolvedValue({
+      review_id: 'rev-1',
+      booking_id: BOOKING_ID,
+      status: 'pending',
+      rating: 5,
+      title: null,
+      body: null,
+      created_at: '2026-08-02T12:00:00.000Z',
+    })
+    const path = `/s/${SLUG}/bookings/${BOOKING_ID}/manage?token=${TOKEN}`
+    const { container, cleanup } = renderManagePage(path)
+    await settle()
+
+    expect(hasLeaveReviewButton(container)).toBe(false)
+    expect(container.textContent).toContain('Спасибо! Ваш отзыв отправлен')
+    expect(container.textContent).not.toContain('Отзыв о визите')
+    cleanup()
+  })
+
+  it('shows Russian copy when API rejects incomplete-visit review', async () => {
+    mockedGetManage.mockResolvedValue(manageApi({ status: 'completed' }))
+    mockedCreateReview.mockRejectedValue(
+      new ApiError(
+        422,
+        'review can only be submitted for a completed booking',
+        'validation_error',
+      ),
+    )
+    const path = `/s/${SLUG}/bookings/${BOOKING_ID}/manage?token=${TOKEN}`
+    const { container, cleanup } = renderManagePage(path)
+    await settle()
+
+    const leaveBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Оставить отзыв'),
+    )
+    await act(async () => {
+      leaveBtn!.click()
+      await settle()
+    })
+
+    const submitBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Отправить отзыв'),
+    )
+    await act(async () => {
+      submitBtn!.click()
+      await settle()
+    })
+
+    expect(mockedCreateReview).toHaveBeenCalled()
+    expect(container.textContent).toContain(
+      'Отзыв можно оставить после завершения визита',
+    )
+    cleanup()
   })
 })

@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
 import { fetchAdminDashboard } from '../api/dashboard'
-import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
+import { adminUserErrorMessage } from '../utils/adminUserError'
 import type {
   AdminDashboardSnapshot,
   DashboardStatusCounts,
@@ -15,39 +15,38 @@ import {
   formatDashboardPrice,
 } from '../utils/adminSalonFormat'
 import { buildAdminBookingsFilterPath } from '../utils/adminBookingsFilterParams'
+import { t, bookingStatusLabel } from '../i18n'
 
 const OPS_ATTENTION_STATUSES: {
   key: 'pending' | 'confirmed' | 'in_progress'
   label: string
 }[] = [
-  { key: 'pending', label: 'Pending' },
-  { key: 'confirmed', label: 'Confirmed' },
-  { key: 'in_progress', label: 'In progress' },
+  { key: 'pending', label: t('admin.status.pending') },
+  { key: 'confirmed', label: t('admin.status.confirmed') },
+  { key: 'in_progress', label: t('admin.status.inProgress') },
 ]
 
 const STATUS_SUMMARY: {
   key: keyof DashboardStatusCounts
   label: string
 }[] = [
-  { key: 'pending', label: 'Pending' },
-  { key: 'confirmed', label: 'Confirmed' },
-  { key: 'in_progress', label: 'In progress' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'cancelled', label: 'Cancelled' },
-  { key: 'no_show', label: 'No show' },
-  { key: 'expired', label: 'Expired' },
+  { key: 'pending', label: t('admin.status.pending') },
+  { key: 'confirmed', label: t('admin.status.confirmed') },
+  { key: 'in_progress', label: t('admin.status.inProgress') },
+  { key: 'completed', label: t('admin.status.completed') },
+  { key: 'cancelled', label: t('admin.status.cancelled') },
+  { key: 'no_show', label: t('admin.status.noShow') },
+  { key: 'expired', label: t('admin.status.expired') },
 ]
 
 const KNOWN_WARNING_MESSAGES: Record<string, string> = {
-  no_active_staff: 'No active staff members for this salon.',
-  no_bookable_staff: 'No bookable staff available for new bookings.',
+  no_active_staff: t('admin.dashboard.warnNoActiveStaff'),
+  no_bookable_staff: t('admin.dashboard.warnNoBookableStaff'),
 }
 
 const SESSION_GAP_MESSAGES = {
-  timezone:
-    'Salon timezone is not available on the authenticated session (GET /auth/salons/{salon_id}/context). Booking times cannot be shown in salon local time until the auth context exposes timezone.',
-  currency:
-    'Salon currency is not available on the authenticated session (GET /auth/salons/{salon_id}/context). Prices are shown as major units without a currency code until the auth context exposes currency_code.',
+  timezone: t('admin.dashboard.sessionTimezoneMissing'),
+  currency: t('admin.dashboard.sessionCurrencyMissing'),
 } as const
 
 function formatSalonDate(isoDate: string, timeZone: string | undefined): string {
@@ -60,7 +59,7 @@ function formatSalonDate(isoDate: string, timeZone: string | undefined): string 
 }
 
 function formatStatusLabel(status: string): string {
-  return status.replaceAll('_', ' ')
+  return bookingStatusLabel(status)
 }
 
 function formatWarningMessage(warning: DashboardWarning): string {
@@ -136,11 +135,7 @@ export function AdminDashboardPage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Could not load dashboard.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.dashboard.loadFailed'))
       setSnapshot(null)
     } finally {
       setLoading(false)
@@ -155,7 +150,7 @@ export function AdminDashboardPage() {
     <AdminLayout>
       <section className="admin-dashboard">
         <header className="admin-dashboard__header">
-          <h1 className="admin-dashboard__title">Dashboard</h1>
+          <h1 className="admin-dashboard__title">{t('admin.dashboard.title')}</h1>
           {snapshot ? (
             <p className="admin-dashboard__date">
               Salon date:{' '}
@@ -185,7 +180,7 @@ export function AdminDashboardPage() {
         {!loading && !error && snapshot ? (
           <>
             {sessionGaps.length > 0 ? (
-              <ul className="admin-dashboard__warnings" aria-label="Session context gaps">
+              <ul className="admin-dashboard__warnings" aria-label={t('admin.dashboard.sessionGapsAria')}>
                 {sessionGaps.map((message) => (
                   <li key={message} className="admin-dashboard__warning">
                     {message}
@@ -195,7 +190,7 @@ export function AdminDashboardPage() {
             ) : null}
 
             {snapshot.warnings.length > 0 ? (
-              <ul className="admin-dashboard__warnings" aria-label="Dashboard warnings">
+              <ul className="admin-dashboard__warnings" aria-label={t('admin.dashboard.warningsAria')}>
                 {snapshot.warnings.map((warning) => (
                   <li key={warning.code} className="admin-dashboard__warning">
                     {formatWarningMessage(warning)}
@@ -205,16 +200,16 @@ export function AdminDashboardPage() {
             ) : null}
 
             {isDashboardEmpty(snapshot) ? (
-              <p className="admin-dashboard__state">No booking activity for today yet.</p>
+              <p className="admin-dashboard__state">{t('admin.dashboard.emptyToday')}</p>
             ) : null}
 
             <div className="admin-dashboard__summary">
               <div className="admin-dashboard__stat">
-                <span className="admin-dashboard__stat-label">Today&apos;s bookings</span>
+                <span className="admin-dashboard__stat-label">{t('admin.dashboard.todaysBookings')}</span>
                 <span className="admin-dashboard__stat-value">{snapshot.today_booking_count}</span>
               </div>
               <div className="admin-dashboard__stat">
-                <span className="admin-dashboard__stat-label">Active staff</span>
+                <span className="admin-dashboard__stat-label">{t('admin.dashboard.activeStaff')}</span>
                 <span className="admin-dashboard__stat-value">{snapshot.active_staff_count}</span>
               </div>
             </div>
@@ -225,10 +220,10 @@ export function AdminDashboardPage() {
                 aria-labelledby="dashboard-ops-spotlight-heading"
               >
                 <h2 id="dashboard-ops-spotlight-heading" className="admin-dashboard__panel-title">
-                  Ops spotlight
+                  {t('admin.dashboard.opsTitle')}
                 </h2>
                 <p className="admin-dashboard__ops-lead">
-                  Operational bookings for today that may need follow-up in the bookings list.
+                  {t('admin.dashboard.opsLead')}
                 </p>
                 <ul className="admin-dashboard__ops-links">
                   {OPS_ATTENTION_STATUSES.map(({ key, label }) => {
@@ -253,25 +248,27 @@ export function AdminDashboardPage() {
                         className="admin-dashboard__ops-link"
                         to={buildAdminBookingsFilterPath(snapshot.salon_date)}
                       >
-                        View all operational today ({opsAttentionCount(snapshot)})
+                        {t('admin.dashboard.viewAllOps', {
+                          count: opsAttentionCount(snapshot),
+                        })}
                       </Link>
                     </li>
                   ) : null}
                 </ul>
 
                 {snapshot.attention_bookings.length === 0 ? (
-                  <p className="admin-dashboard__empty">No operational bookings listed.</p>
+                  <p className="admin-dashboard__empty">{t('admin.dashboard.emptyOps')}</p>
                 ) : (
                   <div className="admin-bookings__table-wrap">
                     <table className="admin-bookings__table">
                       <thead>
                         <tr>
-                          <th scope="col">Time</th>
-                          <th scope="col">Customer</th>
-                          <th scope="col">Service</th>
-                          <th scope="col">Staff</th>
-                          <th scope="col">Status</th>
-                          <th scope="col">Price</th>
+                          <th scope="col">{t('admin.dashboard.colTime')}</th>
+                          <th scope="col">{t('admin.dashboard.colCustomer')}</th>
+                          <th scope="col">{t('admin.dashboard.colService')}</th>
+                          <th scope="col">{t('common.staff')}</th>
+                          <th scope="col">{t('admin.dashboard.colStatus')}</th>
+                          <th scope="col">{t('admin.dashboard.colPrice')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -300,14 +297,16 @@ export function AdminDashboardPage() {
             ) : null}
 
             <section className="admin-dashboard__panel" aria-labelledby="dashboard-status-heading">
-              <h2 id="dashboard-status-heading" className="admin-dashboard__panel-title">
-                Booking status today
+                <h2 id="dashboard-status-heading" className="admin-dashboard__panel-title">
+                {t('admin.dashboard.statusToday')}
               </h2>
               <dl className="admin-dashboard__status-grid">
                 {STATUS_SUMMARY.map(({ key, label }) => (
                   <div key={key} className="admin-dashboard__status-item">
                     <dt>{label}</dt>
-                    <dd aria-label={`${label} count`}>{snapshot.status_counts[key]}</dd>
+                    <dd aria-label={t('admin.dashboard.countAria', { label })}>
+                      {snapshot.status_counts[key]}
+                    </dd>
                   </div>
                 ))}
               </dl>
@@ -315,22 +314,22 @@ export function AdminDashboardPage() {
 
             <section className="admin-dashboard__panel" aria-labelledby="dashboard-upcoming-heading">
               <h2 id="dashboard-upcoming-heading" className="admin-dashboard__panel-title">
-                Upcoming bookings today
+                {t('admin.dashboard.upcomingToday')}
               </h2>
 
               {snapshot.upcoming_bookings.length === 0 ? (
-                <p className="admin-dashboard__empty">No upcoming bookings for today.</p>
+                <p className="admin-dashboard__empty">{t('admin.dashboard.emptyUpcoming')}</p>
               ) : (
                 <div className="admin-bookings__table-wrap">
                   <table className="admin-bookings__table">
                     <thead>
                       <tr>
-                        <th scope="col">Time</th>
-                        <th scope="col">Customer</th>
-                        <th scope="col">Service</th>
-                        <th scope="col">Staff</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Price</th>
+                        <th scope="col">{t('admin.dashboard.colTime')}</th>
+                        <th scope="col">{t('admin.dashboard.colCustomer')}</th>
+                        <th scope="col">{t('admin.dashboard.colService')}</th>
+                        <th scope="col">{t('common.staff')}</th>
+                        <th scope="col">{t('admin.dashboard.colStatus')}</th>
+                        <th scope="col">{t('admin.dashboard.colPrice')}</th>
                       </tr>
                     </thead>
                     <tbody>

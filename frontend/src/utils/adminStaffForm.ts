@@ -1,11 +1,17 @@
 import { ApiError } from '../api/errors'
 import type { StaffCreateBody, StaffListItem, StaffUpdateBody } from '../types/staff'
+import { t } from '../i18n'
+import { adminUserErrorMessage } from './adminUserError'
 
 const COLOR_HEX = /^#[0-9A-Fa-f]{6}$/
 const TITLE_MAX_LENGTH = 100
 
-export const STAFF_UNSUPPORTED_CLEAR_MESSAGE =
-  'Clearing title, bio, or color is not supported. Leave the field unchanged or enter a new value.'
+export function staffUnsupportedClearMessage(): string {
+  return t('admin.staff.unsupportedClear')
+}
+
+/** @deprecated use staffUnsupportedClearMessage() */
+export const STAFF_UNSUPPORTED_CLEAR_MESSAGE = staffUnsupportedClearMessage()
 
 export type StaffFormState = {
   displayName: string
@@ -66,22 +72,22 @@ function parseNonNegativeInt(raw: string): number | null {
 export function parseStaffFormFields(form: StaffFormState): ParsedStaffFormValues | string {
   const display_name = form.displayName.trim()
   if (display_name === '') {
-    return 'Display name is required.'
+    return t('admin.staff.displayNameRequired')
   }
 
   const sort_order = parseNonNegativeInt(form.sortOrder)
   if (sort_order === null) {
-    return 'Sort order must be a non-negative whole number.'
+    return t('admin.staff.sortInvalid')
   }
 
   const colorTrimmed = form.colorHex.trim()
   if (colorTrimmed !== '' && !COLOR_HEX.test(colorTrimmed)) {
-    return 'Color must be a hex value like #AABBCC.'
+    return t('admin.staff.colorInvalid')
   }
 
   const titleTrimmed = form.title.trim()
   if (titleTrimmed.length > TITLE_MAX_LENGTH) {
-    return `Title must be at most ${TITLE_MAX_LENGTH} characters.`
+    return t('admin.staff.titleTooLong', { max: TITLE_MAX_LENGTH })
   }
   const bioTrimmed = form.bio.trim()
 
@@ -176,23 +182,15 @@ export function buildStaffUpdatePatch(
 }
 
 function mapAdminStaffNetworkError(err: unknown, action: 'create' | 'update'): string {
-  if (err instanceof ApiError) {
-    if (err.status === 403) {
-      return action === 'create'
-        ? 'You do not have permission to create staff.'
-        : 'You do not have permission to update staff.'
-    }
-    if (err.status === 422 && err.message.trim() !== '') {
-      return err.message
-    }
-    if (err.status === 0) {
-      return 'Could not reach the server. Check your connection and try again.'
-    }
+  if (err instanceof ApiError && err.status === 403) {
     return action === 'create'
-      ? 'Could not create staff. Try again later.'
-      : 'Could not update staff. Try again later.'
+      ? t('admin.staff.noPermissionCreate')
+      : t('admin.staff.noPermissionUpdate')
   }
-  return 'Could not reach the server. Check your connection and try again.'
+  return adminUserErrorMessage(
+    err,
+    action === 'create' ? 'admin.staff.createFailed' : 'admin.staff.updateFailed',
+  )
 }
 
 export function mapAdminStaffCreateError(err: unknown): string {
@@ -203,12 +201,12 @@ export function mapAdminStaffUpdateError(err: unknown): string {
   return mapAdminStaffNetworkError(err, 'update')
 }
 
-export function staffActiveToggleLabel(isActive: boolean): 'Activate' | 'Deactivate' {
-  return isActive ? 'Deactivate' : 'Activate'
+export function staffActiveToggleLabel(isActive: boolean): string {
+  return isActive ? t('admin.staff.deactivate') : t('admin.staff.activate')
 }
 
-export function staffBookableToggleLabel(isBookable: boolean): 'Make unbookable' | 'Make bookable' {
-  return isBookable ? 'Make unbookable' : 'Make bookable'
+export function staffBookableToggleLabel(isBookable: boolean): string {
+  return isBookable ? t('admin.staff.makeUnbookable') : t('admin.staff.makeBookable')
 }
 
 export function staffActiveTogglePatch(isActive: boolean): Pick<StaffUpdateBody, 'is_active'> {

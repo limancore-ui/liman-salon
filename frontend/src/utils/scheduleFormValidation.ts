@@ -1,8 +1,17 @@
 import type { WorkingHoursFormState } from './scheduleFormBodies'
+import { t } from '../i18n'
 
-export const WORKING_HOURS_TIMES_REQUIRED_MESSAGE =
-  'Enter both a start time and an end time.'
-export const WORKING_HOURS_TIME_ORDER_MESSAGE = 'Start time must be before end time.'
+export function workingHoursTimesRequiredMessage(): string {
+  return t('admin.schedule.timesRequired')
+}
+export function workingHoursTimeOrderMessage(): string {
+  return t('admin.schedule.timeOrder')
+}
+
+/** @deprecated use workingHoursTimesRequiredMessage() */
+export const WORKING_HOURS_TIMES_REQUIRED_MESSAGE = workingHoursTimesRequiredMessage()
+/** @deprecated use workingHoursTimeOrderMessage() */
+export const WORKING_HOURS_TIME_ORDER_MESSAGE = workingHoursTimeOrderMessage()
 
 const TIME_PATTERN = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/
 

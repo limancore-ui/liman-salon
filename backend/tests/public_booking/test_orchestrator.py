@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -22,7 +22,6 @@ BOOKING_ID = uuid.uuid4()
 AS_OF = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 SERVICE_START = datetime(2026, 9, 25, 10, 0, tzinfo=UTC)
 SERVICE_END = datetime(2026, 9, 25, 11, 0, tzinfo=UTC)
-HOLD = AS_OF + timedelta(seconds=900)
 MANAGE_TOKEN = "mock-manage-token-for-tests"
 
 
@@ -53,12 +52,12 @@ def test_orchestrator_resolves_salon_then_customer_then_booking() -> None:
     )
     public_booking.create_public_booking.return_value = PublicBookingResult(
         booking_id=BOOKING_ID,
-        status="pending",
+        status="confirmed",
         service_id=SERVICE_ID,
         staff_id=STAFF_ID,
         service_start=SERVICE_START,
         service_end=SERVICE_END,
-        hold_expires_at=HOLD,
+        hold_expires_at=None,
         manage_token=MANAGE_TOKEN,
     )
 
@@ -93,7 +92,7 @@ def test_orchestrator_resolves_salon_then_customer_then_booking() -> None:
     assert result.booking_id == BOOKING_ID
     assert result.service_start == SERVICE_START
     assert result.service_end == SERVICE_END
-    assert result.hold_expires_at == HOLD
+    assert result.hold_expires_at is None
     assert result.manage_token == MANAGE_TOKEN
 
 

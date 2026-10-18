@@ -26,7 +26,7 @@ class PublicBookingCreateResponse(BaseModel):
     staff_id: UUID
     service_start: datetime
     service_end: datetime
-    hold_expires_at: datetime
+    hold_expires_at: datetime | None = None
     manage_token: str = Field(
         ...,
         min_length=1,

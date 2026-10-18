@@ -1,5 +1,7 @@
 import { ApiError } from '../api/errors'
 import type { StaffListItem } from '../types/staff'
+import { t } from '../i18n'
+import { adminUserErrorMessage } from './adminUserError'
 
 export type ServiceStaffAction = 'attach' | 'detach'
 
@@ -46,10 +48,10 @@ export function staffAvailableToAssign(
 
 export function assignedStaffSummary(assigned: StaffListItem[] | undefined): string {
   if (assigned === undefined) {
-    return 'Staff'
+    return t('admin.services.staffSummary')
   }
   if (assigned.length === 0) {
-    return 'No staff assigned'
+    return t('admin.services.noStaffAssigned')
   }
   const names = sortStaffList(assigned).map((row) => row.display_name)
   if (names.length <= 2) {
@@ -59,40 +61,23 @@ export function assignedStaffSummary(assigned: StaffListItem[] | undefined): str
 }
 
 export function mapAdminServiceStaffAssignError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 403) {
-      return 'You do not have permission to change staff assignments.'
-    }
-    if (err.status === 404) {
-      return err.message.trim() !== ''
-        ? err.message
-        : 'Service or staff member was not found.'
-    }
-    if (err.status === 422 && err.message.trim() !== '') {
-      return err.message
-    }
-    if (err.status === 0) {
-      return 'Could not reach the server. Check your connection and try again.'
-    }
-    return 'Could not update staff assignment. Try again later.'
+  if (err instanceof ApiError && err.status === 403) {
+    return t('admin.services.assignForbidden')
   }
-  return 'Could not reach the server. Check your connection and try again.'
+  if (err instanceof ApiError && err.status === 404) {
+    return t('admin.services.assignNotFound')
+  }
+  return adminUserErrorMessage(err, 'admin.services.assignFailed')
 }
 
 export function mapAdminServiceStaffLoadError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 403) {
-      return 'You do not have permission to view staff assignments.'
-    }
-    if (err.status === 404) {
-      return 'Service not found.'
-    }
-    if (err.status === 0) {
-      return 'Could not reach the server. Check your connection and try again.'
-    }
-    return 'Could not load assigned staff. Try again later.'
+  if (err instanceof ApiError && err.status === 403) {
+    return t('admin.services.assignViewForbidden')
   }
-  return 'Could not reach the server. Check your connection and try again.'
+  if (err instanceof ApiError && err.status === 404) {
+    return t('admin.services.serviceNotFound')
+  }
+  return adminUserErrorMessage(err, 'admin.services.assignLoadFailed')
 }
 
 /** Staff-panel `colSpan` on AdminServicesPage (must equal rendered `<th>` count). */

@@ -4,10 +4,11 @@ import type {
   ScheduleImpactPreviewResponse,
 } from '../types/schedule'
 import { useScheduleImpactPreview } from '../hooks/useScheduleImpactPreview'
+import { t, bookingStatusLabel } from '../i18n'
 import { formatScheduleImpactReasons } from '../utils/mapScheduleImpactReason'
 import { isScheduleImpactConfirmDisabled } from '../utils/scheduleImpactPreviewState'
 
-const PREVIEW_LOCALE = 'en' as const
+const PREVIEW_LOCALE = 'ru' as const
 
 function formatPreviewDateTime(iso: string): string {
   const date = new Date(iso)
@@ -15,10 +16,6 @@ function formatPreviewDateTime(iso: string): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
-}
-
-function formatStatusLabel(status: string): string {
-  return status.replace(/_/g, ' ')
 }
 
 export type ScheduleImpactPreviewConfirmPayload = {
@@ -79,6 +76,10 @@ export function ScheduleImpactPreviewView({
   const titleId = 'schedule-impact-preview-title'
   const totalImpacted = response?.counts.total_impacted ?? 0
   const requiresAck = response?.commit_policy.requires_acknowledgement ?? false
+  const bookingWord =
+    totalImpacted === 1
+      ? t('admin.impact.bookingSingular')
+      : t('admin.impact.bookingPlural')
 
   return (
     <section
@@ -88,18 +89,14 @@ export function ScheduleImpactPreviewView({
     >
       <header className="schedule-impact-preview__header">
         <h2 id={titleId} className="schedule-impact-preview__title">
-          Schedule change preview
+          {t('admin.impact.title')}
         </h2>
-        <p className="schedule-impact-preview__lead">
-          Review how this change may affect existing bookings before you continue.
-          This preview reflects the salon state at the time it was loaded; other
-          bookings or schedule edits may occur before you confirm.
-        </p>
+        <p className="schedule-impact-preview__lead">{t('admin.impact.lead')}</p>
       </header>
 
       {loading ? (
         <p className="schedule-impact-preview__state" role="status">
-          Loading impact preview…
+          {t('admin.impact.loading')}
         </p>
       ) : null}
 
@@ -111,7 +108,7 @@ export function ScheduleImpactPreviewView({
             className="btn btn--secondary btn--compact"
             onClick={onRetry}
           >
-            Retry preview
+            {t('admin.impact.retry')}
           </button>
         </div>
       ) : null}
@@ -120,27 +117,32 @@ export function ScheduleImpactPreviewView({
         <>
           <div className="schedule-impact-preview__summary">
             <p>
-              <strong>{totalImpacted}</strong>{' '}
-              {totalImpacted === 1 ? 'booking' : 'bookings'} may be affected
+              <strong>{totalImpacted}</strong> {bookingWord}{' '}
+              {t('admin.impact.mayBeAffected')}
               {response.change_summary.horizon.days > 0
-                ? ` (next ${response.change_summary.horizon.days} days)`
+                ? ` ${t('admin.impact.nextDays', {
+                    days: String(response.change_summary.horizon.days),
+                  })}`
                 : ''}
               .
             </p>
             <p className="schedule-impact-preview__as-of">
-              Preview as of {formatPreviewDateTime(response.as_of)}.
+              {t('admin.impact.asOf', {
+                when: formatPreviewDateTime(response.as_of),
+              })}
             </p>
           </div>
 
           {totalImpacted === 0 ? (
             <p className="schedule-impact-preview__state" role="status">
-              No bookings would be affected by this change in the preview horizon.
+              {t('admin.impact.noneAffectedLong')}
             </p>
           ) : (
             <>
               <p className="schedule-impact-preview__showing">
-                Showing {impacts.length} of {totalImpacted} affected{' '}
-                {totalImpacted === 1 ? 'booking' : 'bookings'}.
+                {t('admin.impact.showingPrefix')} {impacts.length}{' '}
+                {t('admin.impact.showingOf')} {totalImpacted}{' '}
+                {t('admin.impact.affected')} {bookingWord}.
               </p>
               <ul className="schedule-impact-preview__list">
                 {impacts.map((row) => {
@@ -159,31 +161,31 @@ export function ScheduleImpactPreviewView({
                         </h3>
                         <dl className="schedule-impact-preview__details">
                           <div>
-                            <dt>Service</dt>
+                            <dt>{t('admin.impact.service')}</dt>
                             <dd>{row.service_name}</dd>
                           </div>
                           <div>
-                            <dt>Start</dt>
+                            <dt>{t('admin.impact.start')}</dt>
                             <dd>{formatPreviewDateTime(row.starts_at)}</dd>
                           </div>
                           <div>
-                            <dt>End</dt>
+                            <dt>{t('admin.impact.end')}</dt>
                             <dd>{formatPreviewDateTime(row.ends_at)}</dd>
                           </div>
                           <div>
-                            <dt>Status</dt>
+                            <dt>{t('common.status')}</dt>
                             <dd>
-                              {formatStatusLabel(row.status)}
+                              {bookingStatusLabel(row.status)}
                               {row.is_in_progress ? (
                                 <span className="schedule-impact-preview__badge">
-                                  In progress
+                                  {t('admin.status.inProgress')}
                                 </span>
                               ) : null}
                             </dd>
                           </div>
                           {reasonLabels.length > 0 ? (
                             <div>
-                              <dt>Reasons</dt>
+                              <dt>{t('admin.impact.reasons')}</dt>
                               <dd>
                                 <ul className="schedule-impact-preview__reasons">
                                   {reasonLabels.map((label) => (
@@ -215,7 +217,9 @@ export function ScheduleImpactPreviewView({
                   disabled={loadingMore}
                   aria-busy={loadingMore}
                 >
-                  {loadingMore ? 'Loading more…' : 'Load more bookings'}
+                  {loadingMore
+                    ? t('admin.impact.loadingMore')
+                    : t('admin.impact.loadMore')}
                 </button>
               ) : null}
             </>
@@ -231,9 +235,10 @@ export function ScheduleImpactPreviewView({
                 }
               />
               <span>
-                I understand that {totalImpacted}{' '}
-                {totalImpacted === 1 ? 'booking may' : 'bookings may'} be
-                affected by this change.
+                {t('admin.impact.ackPrefix')} {totalImpacted}{' '}
+                {totalImpacted === 1
+                  ? t('admin.impact.ackMaySingular')
+                  : t('admin.impact.ackMayPlural')}
               </span>
             </label>
           ) : null}
@@ -246,7 +251,7 @@ export function ScheduleImpactPreviewView({
           className="btn btn--secondary btn--compact"
           onClick={onCancel}
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           type="button"
@@ -267,7 +272,7 @@ export function ScheduleImpactPreviewPanel({
   change,
   onCancel,
   onConfirm,
-  confirmLabel = 'Continue',
+  confirmLabel = t('admin.impact.continue'),
   horizonDays,
   impactLimit,
 }: ScheduleImpactPreviewPanelProps) {
@@ -328,4 +333,3 @@ export function ScheduleImpactPreviewPanel({
     />
   )
 }
-

@@ -1,5 +1,6 @@
 from app.db.models.media_asset import MediaAsset
 from app.db.models.media_attachment import MediaAttachment
+from app.db.models.showcase_item import ShowcaseItem
 from app.db.models.ai_conversation import AIConversation
 from app.db.models.ai_message import AIMessage
 from app.db.models.blocked_period import BlockedPeriod
@@ -22,6 +23,7 @@ from app.db.models.working_hour import WorkingHour
 __all__ = [
     "MediaAsset",
     "MediaAttachment",
+    "ShowcaseItem",
     "AIConversation",
     "AIMessage",
     "BlockedPeriod",

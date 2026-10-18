@@ -14,6 +14,7 @@ import {
 } from '../api/schedule'
 import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
+import { adminUserErrorMessage } from '../utils/adminUserError'
 import type { StaffListItem } from '../types/staff'
 import {
   ScheduleImpactPreviewPanel,
@@ -48,22 +49,23 @@ import {
   type BlockedPeriodFormState,
   type WorkingHoursFormState,
 } from '../utils/scheduleFormBodies'
+import { t } from '../i18n'
 
 const DAY_NAMES = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
+  t('admin.schedule.day.mon'),
+  t('admin.schedule.day.tue'),
+  t('admin.schedule.day.wed'),
+  t('admin.schedule.day.thu'),
+  t('admin.schedule.day.fri'),
+  t('admin.schedule.day.sat'),
+  t('admin.schedule.day.sun'),
 ] as const
 
 const BLOCK_TYPE_OPTIONS: { value: '' | BlockType; label: string }[] = [
-  { value: '', label: 'All types' },
-  { value: 'manual', label: 'Manual' },
-  { value: 'holiday', label: 'Holiday' },
-  { value: 'time_off', label: 'Time off' },
+  { value: '', label: t('admin.schedule.typeAll') },
+  { value: 'manual', label: t('admin.schedule.typeManual') },
+  { value: 'holiday', label: t('admin.schedule.typeHoliday') },
+  { value: 'time_off', label: t('admin.schedule.typeTimeOff') },
 ]
 
 const WH_SCOPE_SALON = ''
@@ -91,7 +93,7 @@ function staffLabel(
   staffById: Map<string, StaffListItem>,
 ): string {
   if (staffId === null) {
-    return 'Salon (all staff)'
+    return t('admin.schedule.salonAllStaff')
   }
   return staffById.get(staffId)?.display_name ?? staffId
 }
@@ -100,14 +102,14 @@ function scopeStaffIdFromSelector(scopeStaffId: string): string | null {
   return scopeStaffId === WH_SCOPE_SALON ? null : scopeStaffId
 }
 
-function mapWorkingHoursActionError(err: unknown, fallback: string): string {
-  if (err instanceof ApiError) {
-    if (err.status === 403) {
-      return 'You do not have permission to manage working hours.'
-    }
-    return err.message
+function mapWorkingHoursActionError(
+  err: unknown,
+  fallback: 'admin.schedule.createWhFailed' | 'admin.schedule.updateWhFailed' | 'admin.schedule.deleteWhFailed',
+): string {
+  if (err instanceof ApiError && err.status === 403) {
+    return t('admin.schedule.noPermissionWh')
   }
-  return fallback
+  return adminUserErrorMessage(err, fallback)
 }
 
 function WorkingHoursFormFields({
@@ -124,7 +126,7 @@ function WorkingHoursFormFields({
   return (
     <>
       <label className="admin-schedule__filter">
-        <span>Day</span>
+        <span>{t('admin.form.day')}</span>
         <select
           id={`${idPrefix}-day`}
           disabled={disabled}
@@ -141,7 +143,7 @@ function WorkingHoursFormFields({
         </select>
       </label>
       <label className="admin-schedule__filter">
-        <span>Start</span>
+        <span>{t('admin.form.start')}</span>
         <input
           id={`${idPrefix}-start`}
           type="time"
@@ -152,7 +154,7 @@ function WorkingHoursFormFields({
         />
       </label>
       <label className="admin-schedule__filter">
-        <span>End</span>
+        <span>{t('admin.form.end')}</span>
         <input
           id={`${idPrefix}-end`}
           type="time"
@@ -163,7 +165,7 @@ function WorkingHoursFormFields({
         />
       </label>
       <label className="admin-schedule__filter">
-        <span>Effective from</span>
+        <span>{t('admin.form.effectiveFrom')}</span>
         <input
           id={`${idPrefix}-effective-from`}
           type="date"
@@ -175,7 +177,7 @@ function WorkingHoursFormFields({
         />
       </label>
       <label className="admin-schedule__filter">
-        <span>Effective to</span>
+        <span>{t('admin.form.effectiveTo')}</span>
         <input
           id={`${idPrefix}-effective-to`}
           type="date"
@@ -297,11 +299,7 @@ export function AdminSchedulePage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setWhError(err.message)
-      } else {
-        setWhError('Could not load working hours.')
-      }
+      setWhError(adminUserErrorMessage(err, 'admin.schedule.loadWhFailed'))
       setWorkingHours([])
     } finally {
       setWhLoading(false)
@@ -326,11 +324,7 @@ export function AdminSchedulePage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setBpError(err.message)
-      } else {
-        setBpError('Could not load blocked periods.')
-      }
+      setBpError(adminUserErrorMessage(err, 'admin.schedule.loadBpFailed'))
       setBlockedPeriods([])
     } finally {
       setBpLoading(false)
@@ -422,7 +416,7 @@ export function AdminSchedulePage() {
     const snapshot = pendingWhCreate
     setPendingWhCreate(null)
     if (session.salon.salon_id !== snapshot.salonId) {
-      setWhActionError('The salon changed while the preview was open. Please try again.')
+      setWhActionError(t('admin.schedule.previewSalonChanged'))
       return
     }
     setWhSaving(true)
@@ -443,7 +437,7 @@ export function AdminSchedulePage() {
         clearAuthAndRedirect()
         return
       }
-      setWhActionError(mapWorkingHoursActionError(err, 'Could not create working hours.'))
+      setWhActionError(mapWorkingHoursActionError(err, 'admin.schedule.createWhFailed'))
     } finally {
       setWhSaving(false)
     }
@@ -482,7 +476,7 @@ export function AdminSchedulePage() {
         clearAuthAndRedirect()
         return
       }
-      setWhActionError(mapWorkingHoursActionError(err, 'Could not update working hours.'))
+      setWhActionError(mapWorkingHoursActionError(err, 'admin.schedule.updateWhFailed'))
     } finally {
       setWhSaving(false)
     }
@@ -529,7 +523,7 @@ export function AdminSchedulePage() {
         clearAuthAndRedirect()
         return
       }
-      setWhActionError(mapWorkingHoursActionError(err, 'Could not delete working hours.'))
+      setWhActionError(mapWorkingHoursActionError(err, 'admin.schedule.deleteWhFailed'))
     } finally {
       setWhSaving(false)
     }
@@ -573,11 +567,7 @@ export function AdminSchedulePage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setBpActionError(err.message)
-      } else {
-        setBpActionError('Could not create blocked period.')
-      }
+      setBpActionError(adminUserErrorMessage(err, 'admin.schedule.createBpFailed'))
     } finally {
       setBpSaving(false)
     }
@@ -615,11 +605,7 @@ export function AdminSchedulePage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setBpActionError(err.message)
-      } else {
-        setBpActionError('Could not update blocked period.')
-      }
+      setBpActionError(adminUserErrorMessage(err, 'admin.schedule.updateBpFailed'))
     } finally {
       setBpSaving(false)
     }
@@ -659,11 +645,7 @@ export function AdminSchedulePage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setBpActionError(err.message)
-      } else {
-        setBpActionError('Could not delete blocked period.')
-      }
+      setBpActionError(adminUserErrorMessage(err, 'admin.schedule.deleteBpFailed'))
     } finally {
       setBpSaving(false)
     }
@@ -673,27 +655,24 @@ export function AdminSchedulePage() {
     <AdminLayout>
       <div className="admin-schedule">
         <header className="admin-schedule__header">
-          <h1 className="admin-schedule__title">Schedule</h1>
-          <p className="admin-schedule__lead">
-            Owners and admins can manage working hours and blocked periods. Other roles have
-            read-only access to working hours.
-          </p>
+          <h1 className="admin-schedule__title">{t('admin.schedule.title')}</h1>
+          <p className="admin-schedule__lead">{t('admin.schedule.lead')}</p>
         </header>
 
         <section className="admin-schedule__section" aria-labelledby="admin-schedule-wh-heading">
           <h2 id="admin-schedule-wh-heading" className="admin-schedule__section-title">
-            Working hours
+            {t('admin.schedule.workingHoursTitle')}
           </h2>
 
           <div className="admin-schedule__filters">
             <label className="admin-schedule__filter">
-              <span>Scope</span>
+              <span>{t('admin.form.scope')}</span>
               <select
                 value={whScopeStaffId}
                 onChange={(event) => setWhScopeStaffId(event.target.value)}
                 disabled={staffLoading || pendingWhCreate !== null}
               >
-                <option value={WH_SCOPE_SALON}>Salon default</option>
+                <option value={WH_SCOPE_SALON}>{t('admin.form.salonDefault')}</option>
                 {staffList.map((staff) => (
                   <option key={staff.id} value={staff.id}>
                     {staff.display_name}
@@ -709,7 +688,7 @@ export function AdminSchedulePage() {
               onSubmit={handleCreateWorkingHours}
               noValidate
             >
-              <h3 className="admin-schedule__form-title">Add working hours</h3>
+              <h3 className="admin-schedule__form-title">{t('admin.schedule.addWh')}</h3>
               <div className="admin-schedule__form-grid">
                 <WorkingHoursFormFields
                   idPrefix="wh-create"
@@ -723,7 +702,7 @@ export function AdminSchedulePage() {
                 className="btn btn--primary btn--compact"
                 disabled={whSaving || pendingWhCreate !== null || pendingWhDelete !== null}
               >
-                Create
+                {t('common.create')}
               </button>
             </form>
           ) : null}
@@ -740,7 +719,7 @@ export function AdminSchedulePage() {
               token={session.token}
               salonId={pendingWhCreate.salonId}
               change={pendingWhCreate.change}
-              confirmLabel="Create working hours"
+              confirmLabel={t('admin.schedule.createWh')}
               onCancel={handleCancelCreateWorkingHoursPreview}
               onConfirm={(payload) => void handleConfirmCreateWorkingHours(payload)}
             />
@@ -752,7 +731,7 @@ export function AdminSchedulePage() {
               token={session.token}
               salonId={session.salon.salon_id}
               change={pendingWhDelete.change}
-              confirmLabel="Delete working hours"
+              confirmLabel={t('admin.schedule.deleteWh')}
               onCancel={handleCancelDeleteWorkingHoursPreview}
               onConfirm={(payload) => void handleConfirmDeleteWorkingHours(payload)}
             />
@@ -763,7 +742,7 @@ export function AdminSchedulePage() {
               className="admin-schedule__form admin-schedule__form--edit"
               onSubmit={handleUpdateWorkingHours}
             >
-              <h3 className="admin-schedule__form-title">Edit working hours</h3>
+              <h3 className="admin-schedule__form-title">{t('admin.schedule.editWh')}</h3>
               <div className="admin-schedule__form-grid">
                 <WorkingHoursFormFields
                   idPrefix="wh-edit"
@@ -778,7 +757,7 @@ export function AdminSchedulePage() {
                   className="btn btn--primary btn--compact"
                   disabled={whSaving || pendingWhCreate !== null}
                 >
-                  Save
+                  {t('common.save')}
                 </button>
                 <button
                   type="button"
@@ -786,7 +765,7 @@ export function AdminSchedulePage() {
                   onClick={cancelWhEdit}
                   disabled={whSaving || pendingWhCreate !== null}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </form>
@@ -794,7 +773,7 @@ export function AdminSchedulePage() {
 
           {whLoading ? (
             <p className="admin-schedule__state" role="status">
-              Loading working hours…
+              {t('admin.schedule.loadingWh')}
             </p>
           ) : null}
 
@@ -814,7 +793,7 @@ export function AdminSchedulePage() {
                       <li key={name} className="admin-schedule__weekly-day">
                         <span className="admin-schedule__weekly-day-name">{name}</span>
                         {dayRows.length === 0 ? (
-                          <span className="admin-schedule__weekly-closed">Closed</span>
+                          <span className="admin-schedule__weekly-closed">{t('admin.form.closed')}</span>
                         ) : (
                           <ul className="admin-schedule__weekly-slots">
                             {dayRows.map((row) => (
@@ -832,10 +811,10 @@ export function AdminSchedulePage() {
 
               {closedDayNames.length > 0 ? (
                 <p className="admin-schedule__closed-summary">
-                  Closed days: {closedDayNames.join(', ')}
+                  {t('admin.schedule.closedDays', { days: closedDayNames.join(', ') })}
                 </p>
               ) : (
-                <p className="admin-schedule__closed-summary">No closed days in this scope.</p>
+                <p className="admin-schedule__closed-summary">{t('admin.schedule.noClosedDays')}</p>
               )}
 
               {workingHours.length > 0 ? (
@@ -843,12 +822,12 @@ export function AdminSchedulePage() {
                   <table className="admin-schedule__table">
                     <thead>
                       <tr>
-                        <th scope="col">Day</th>
-                        <th scope="col">Start</th>
-                        <th scope="col">End</th>
-                        <th scope="col">Effective from</th>
-                        <th scope="col">Effective to</th>
-                        {manage ? <th scope="col">Actions</th> : null}
+                        <th scope="col">{t('admin.schedule.colDay')}</th>
+                        <th scope="col">{t('admin.schedule.colStart')}</th>
+                        <th scope="col">{t('admin.schedule.colEnd')}</th>
+                        <th scope="col">{t('admin.schedule.colEffectiveFrom')}</th>
+                        <th scope="col">{t('admin.schedule.colEffectiveTo')}</th>
+                        {manage ? <th scope="col">{t('common.actions')}</th> : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -867,7 +846,7 @@ export function AdminSchedulePage() {
                                 onClick={() => startWhEdit(row)}
                                 disabled={whSaving || pendingWhCreate !== null}
                               >
-                                Edit
+                                {t('common.edit')}
                               </button>
                               <button
                                 type="button"
@@ -877,7 +856,7 @@ export function AdminSchedulePage() {
                                   whSaving || pendingWhDelete !== null || pendingWhCreate !== null
                                 }
                               >
-                                Delete
+                                {t('common.delete')}
                               </button>
                             </td>
                           ) : null}
@@ -887,7 +866,7 @@ export function AdminSchedulePage() {
                   </table>
                 </div>
               ) : (
-                <p className="admin-schedule__state">No working hours defined for this scope.</p>
+                <p className="admin-schedule__state">{t('admin.schedule.noWh')}</p>
               )}
             </>
           ) : null}
@@ -895,17 +874,17 @@ export function AdminSchedulePage() {
 
         <section className="admin-schedule__section" aria-labelledby="admin-schedule-bp-heading">
           <h2 id="admin-schedule-bp-heading" className="admin-schedule__section-title">
-            Blocked periods
+            {t('admin.schedule.blockedPeriodsTitle')}
           </h2>
 
           <form className="admin-schedule__filters" onSubmit={handleBpFiltersSubmit}>
             <label className="admin-schedule__filter">
-              <span>Staff</span>
+              <span>{t('common.staff')}</span>
               <select
                 value={bpFilterStaffId}
                 onChange={(event) => setBpFilterStaffId(event.target.value)}
               >
-                <option value="">All</option>
+                <option value="">{t('admin.form.all')}</option>
                 {staffList.map((staff) => (
                   <option key={staff.id} value={staff.id}>
                     {staff.display_name}
@@ -914,7 +893,7 @@ export function AdminSchedulePage() {
               </select>
             </label>
             <label className="admin-schedule__filter">
-              <span>Starts from</span>
+              <span>{t('admin.form.startsFrom')}</span>
               <input
                 type="datetime-local"
                 value={bpFilterStartsFrom}
@@ -922,7 +901,7 @@ export function AdminSchedulePage() {
               />
             </label>
             <label className="admin-schedule__filter">
-              <span>Ends to</span>
+              <span>{t('admin.form.endsTo')}</span>
               <input
                 type="datetime-local"
                 value={bpFilterEndsTo}
@@ -930,7 +909,7 @@ export function AdminSchedulePage() {
               />
             </label>
             <label className="admin-schedule__filter">
-              <span>Block type</span>
+              <span>{t('admin.form.blockType')}</span>
               <select
                 value={bpFilterBlockType}
                 onChange={(event) =>
@@ -945,7 +924,7 @@ export function AdminSchedulePage() {
               </select>
             </label>
             <button type="submit" className="btn btn--secondary btn--compact">
-              Apply
+              {t('common.apply')}
             </button>
           </form>
 
@@ -954,17 +933,17 @@ export function AdminSchedulePage() {
               className="admin-schedule__form admin-schedule__form--create"
               onSubmit={handleCreateBlocked}
             >
-              <h3 className="admin-schedule__form-title">Add blocked period</h3>
+              <h3 className="admin-schedule__form-title">{t('admin.schedule.addBp')}</h3>
               <div className="admin-schedule__form-grid">
                 <label className="admin-schedule__filter">
-                  <span>Staff</span>
+                  <span>{t('common.staff')}</span>
                   <select
                     value={createForm.staffId}
                     onChange={(event) =>
                       setCreateForm((prev) => ({ ...prev, staffId: event.target.value }))
                     }
                   >
-                    <option value="">Salon (all staff)</option>
+                    <option value="">{t('admin.schedule.salonAllStaff')}</option>
                     {staffList.map((staff) => (
                       <option key={staff.id} value={staff.id}>
                         {staff.display_name}
@@ -973,7 +952,7 @@ export function AdminSchedulePage() {
                   </select>
                 </label>
                 <label className="admin-schedule__filter">
-                  <span>Starts at</span>
+                  <span>{t('admin.form.startsAt')}</span>
                   <input
                     type="datetime-local"
                     required
@@ -984,7 +963,7 @@ export function AdminSchedulePage() {
                   />
                 </label>
                 <label className="admin-schedule__filter">
-                  <span>Ends at</span>
+                  <span>{t('admin.form.endsAt')}</span>
                   <input
                     type="datetime-local"
                     required
@@ -995,7 +974,7 @@ export function AdminSchedulePage() {
                   />
                 </label>
                 <label className="admin-schedule__filter">
-                  <span>Block type</span>
+                  <span>{t('admin.form.blockType')}</span>
                   <select
                     value={createForm.blockType}
                     onChange={(event) =>
@@ -1005,13 +984,13 @@ export function AdminSchedulePage() {
                       }))
                     }
                   >
-                    <option value="manual">Manual</option>
-                    <option value="holiday">Holiday</option>
-                    <option value="time_off">Time off</option>
+                    <option value="manual">{t('admin.schedule.typeManual')}</option>
+                    <option value="holiday">{t('admin.schedule.typeHoliday')}</option>
+                    <option value="time_off">{t('admin.schedule.typeTimeOff')}</option>
                   </select>
                 </label>
                 <label className="admin-schedule__filter admin-schedule__filter--wide">
-                  <span>Reason</span>
+                  <span>{t('admin.form.reason')}</span>
                   <input
                     type="text"
                     maxLength={255}
@@ -1019,7 +998,7 @@ export function AdminSchedulePage() {
                     onChange={(event) =>
                       setCreateForm((prev) => ({ ...prev, reason: event.target.value }))
                     }
-                    placeholder="Optional"
+                    placeholder={t('common.optional')}
                   />
                 </label>
               </div>
@@ -1028,7 +1007,7 @@ export function AdminSchedulePage() {
                 className="btn btn--primary btn--compact"
                 disabled={bpSaving}
               >
-                Create
+                {t('common.create')}
               </button>
             </form>
           ) : null}
@@ -1045,7 +1024,7 @@ export function AdminSchedulePage() {
               token={session.token}
               salonId={session.salon.salon_id}
               change={pendingBpDelete.change}
-              confirmLabel="Delete blocked period"
+              confirmLabel={t('admin.schedule.deleteBp')}
               onCancel={handleCancelDeleteBlockedPreview}
               onConfirm={() => void handleConfirmDeleteBlocked()}
             />
@@ -1056,17 +1035,17 @@ export function AdminSchedulePage() {
               className="admin-schedule__form admin-schedule__form--edit"
               onSubmit={handleUpdateBlocked}
             >
-              <h3 className="admin-schedule__form-title">Edit blocked period</h3>
+              <h3 className="admin-schedule__form-title">{t('admin.schedule.editBp')}</h3>
               <div className="admin-schedule__form-grid">
                 <label className="admin-schedule__filter">
-                  <span>Staff</span>
+                  <span>{t('common.staff')}</span>
                   <select
                     value={editForm.staffId}
                     onChange={(event) =>
                       setEditForm((prev) => ({ ...prev, staffId: event.target.value }))
                     }
                   >
-                    <option value="">Salon (all staff)</option>
+                    <option value="">{t('admin.schedule.salonAllStaff')}</option>
                     {staffList.map((staff) => (
                       <option key={staff.id} value={staff.id}>
                         {staff.display_name}
@@ -1075,7 +1054,7 @@ export function AdminSchedulePage() {
                   </select>
                 </label>
                 <label className="admin-schedule__filter">
-                  <span>Starts at</span>
+                  <span>{t('admin.form.startsAt')}</span>
                   <input
                     type="datetime-local"
                     required
@@ -1086,7 +1065,7 @@ export function AdminSchedulePage() {
                   />
                 </label>
                 <label className="admin-schedule__filter">
-                  <span>Ends at</span>
+                  <span>{t('admin.form.endsAt')}</span>
                   <input
                     type="datetime-local"
                     required
@@ -1097,7 +1076,7 @@ export function AdminSchedulePage() {
                   />
                 </label>
                 <label className="admin-schedule__filter">
-                  <span>Block type</span>
+                  <span>{t('admin.form.blockType')}</span>
                   <select
                     value={editForm.blockType}
                     onChange={(event) =>
@@ -1107,13 +1086,13 @@ export function AdminSchedulePage() {
                       }))
                     }
                   >
-                    <option value="manual">Manual</option>
-                    <option value="holiday">Holiday</option>
-                    <option value="time_off">Time off</option>
+                    <option value="manual">{t('admin.schedule.typeManual')}</option>
+                    <option value="holiday">{t('admin.schedule.typeHoliday')}</option>
+                    <option value="time_off">{t('admin.schedule.typeTimeOff')}</option>
                   </select>
                 </label>
                 <label className="admin-schedule__filter admin-schedule__filter--wide">
-                  <span>Reason</span>
+                  <span>{t('admin.form.reason')}</span>
                   <input
                     type="text"
                     maxLength={255}
@@ -1121,7 +1100,7 @@ export function AdminSchedulePage() {
                     onChange={(event) =>
                       setEditForm((prev) => ({ ...prev, reason: event.target.value }))
                     }
-                    placeholder="Optional"
+                    placeholder={t('common.optional')}
                   />
                 </label>
               </div>
@@ -1131,7 +1110,7 @@ export function AdminSchedulePage() {
                   className="btn btn--primary btn--compact"
                   disabled={bpSaving}
                 >
-                  Save
+                  {t('common.save')}
                 </button>
                 <button
                   type="button"
@@ -1139,7 +1118,7 @@ export function AdminSchedulePage() {
                   onClick={cancelEdit}
                   disabled={bpSaving}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </form>
@@ -1147,7 +1126,7 @@ export function AdminSchedulePage() {
 
           {bpLoading ? (
             <p className="admin-schedule__state" role="status">
-              Loading blocked periods…
+              {t('admin.schedule.loadingBp')}
             </p>
           ) : null}
 
@@ -1158,7 +1137,7 @@ export function AdminSchedulePage() {
           ) : null}
 
           {!bpLoading && !bpError && blockedPeriods.length === 0 ? (
-            <p className="admin-schedule__state">No blocked periods match your filters.</p>
+            <p className="admin-schedule__state">{t('admin.schedule.noBp')}</p>
           ) : null}
 
           {!bpLoading && !bpError && blockedPeriods.length > 0 ? (
@@ -1166,12 +1145,12 @@ export function AdminSchedulePage() {
               <table className="admin-schedule__table">
                 <thead>
                   <tr>
-                    <th scope="col">Staff</th>
-                    <th scope="col">Start</th>
-                    <th scope="col">End</th>
-                    <th scope="col">Reason</th>
-                    <th scope="col">Block type</th>
-                    {manage ? <th scope="col">Actions</th> : null}
+                    <th scope="col">{t('common.staff')}</th>
+                    <th scope="col">{t('admin.schedule.colStart')}</th>
+                    <th scope="col">{t('admin.schedule.colEnd')}</th>
+                    <th scope="col">{t('admin.schedule.colReason')}</th>
+                    <th scope="col">{t('admin.schedule.colBlockType')}</th>
+                    {manage ? <th scope="col">{t('common.actions')}</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -1190,7 +1169,7 @@ export function AdminSchedulePage() {
                             onClick={() => startEdit(row)}
                             disabled={bpSaving}
                           >
-                            Edit
+                            {t('common.edit')}
                           </button>
                           <button
                             type="button"
@@ -1198,7 +1177,7 @@ export function AdminSchedulePage() {
                             onClick={() => handleDeleteBlocked(row)}
                             disabled={bpSaving || pendingBpDelete !== null}
                           >
-                            Delete
+                            {t('common.delete')}
                           </button>
                         </td>
                       ) : null}

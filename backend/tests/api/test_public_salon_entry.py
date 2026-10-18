@@ -9,7 +9,10 @@ from app.api.deps import get_salon_public_service
 from app.main import create_app
 from app.services.salon_public.errors import PublicSalonNotFoundError
 from app.services.salon_public.service import SalonPublicService
-from app.services.salon_public.types import PublicSalonEntry
+from app.services.salon_public.types import (
+    PublicSalonAppearanceColors,
+    PublicSalonEntry,
+)
 
 SALON_ID = uuid.UUID("cccccccc-cccc-4ccc-8ccc-cccccccccccc")
 
@@ -41,6 +44,8 @@ def test_get_public_salon_no_auth_required() -> None:
             "currency_code": "KZT",
             "timezone": "Asia/Almaty",
             "logo_media_id": None,
+            "background_media_id": None,
+            "appearance": None,
         }
         assert set(body.keys()) == {
             "salon_id",
@@ -49,8 +54,43 @@ def test_get_public_salon_no_auth_required() -> None:
             "currency_code",
             "timezone",
             "logo_media_id",
+            "background_media_id",
+            "appearance",
         }
         mock_svc.resolve_public_salon_by_slug.assert_called_once_with("liman-demo")
+    finally:
+        client.close()
+
+
+def test_get_public_salon_includes_safe_appearance_only() -> None:
+    client, mock_svc = _public_app()
+    cover_id = uuid.UUID("dddddddd-dddd-4ddd-8ddd-dddddddddddd")
+    mock_svc.resolve_public_salon_by_slug.return_value = PublicSalonEntry(
+        salon_id=SALON_ID,
+        slug="liman-demo",
+        name="Liman Demo",
+        currency_code="KZT",
+        timezone="Asia/Almaty",
+        logo_media_id=None,
+        background_media_id=cover_id,
+        appearance=PublicSalonAppearanceColors(
+            primary_color="#1e4d7b",
+            accent_soft_color="#e3eef8",
+            background_color="#f5f7fa",
+        ),
+    )
+    try:
+        response = client.get("/api/v1/public/salons/liman-demo")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["appearance"] == {
+            "primary_color": "#1e4d7b",
+            "accent_soft_color": "#e3eef8",
+            "background_color": "#f5f7fa",
+        }
+        assert body["background_media_id"] == str(cover_id)
+        assert "settings" not in body
+        assert "booking" not in body
     finally:
         client.close()
 

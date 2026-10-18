@@ -99,7 +99,7 @@ export function ensureManageSessionFromCreate(
     staff_display_name: existing?.staff_display_name ?? '',
     service_start: booking.service_start,
     service_end: booking.service_end,
-    hold_expires_at: booking.hold_expires_at,
+    hold_expires_at: booking.hold_expires_at ?? '',
     status: existing?.status,
     cancelled_at: existing?.cancelled_at,
     can_cancel: existing?.can_cancel,

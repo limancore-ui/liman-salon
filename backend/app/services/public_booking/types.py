@@ -13,7 +13,7 @@ class PublicBookingResult:
     staff_id: UUID
     service_start: datetime
     service_end: datetime
-    hold_expires_at: datetime
+    hold_expires_at: datetime | None
     manage_token: str
 
 
@@ -24,5 +24,5 @@ class PublicBookingOrchestrateResult:
     booking_id: UUID
     service_start: datetime
     service_end: datetime
-    hold_expires_at: datetime
+    hold_expires_at: datetime | None
     manage_token: str

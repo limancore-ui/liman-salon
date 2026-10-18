@@ -16,8 +16,11 @@ from urllib.parse import unquote, urlparse
 from sqlalchemy import func, select
 
 TEST_DB_NAME = "liman_salon_test"
+STAGING_DB_NAME = "liman_salon_staging"
 BOOTSTRAP_ALLOW_ENV = "ALLOW_FIRST_SALON_BOOTSTRAP"
 PRODUCTION_LIKE_ENVIRONMENTS = frozenset({"production", "staging"})
+# Local/dev bootstrap keeps the historical early-return path.
+DEVELOPMENT_ENVIRONMENT = "development"
 
 
 @dataclass(frozen=True)
@@ -45,8 +48,15 @@ def assert_bootstrap_allowed(
     allow_bootstrap: bool,
 ) -> None:
     env = environment.strip().lower()
-    if env not in PRODUCTION_LIKE_ENVIRONMENTS:
+    if env == DEVELOPMENT_ENVIRONMENT:
         return
+
+    if env not in PRODUCTION_LIKE_ENVIRONMENTS:
+        raise SystemExit(
+            "Refusing bootstrap: ENVIRONMENT must be "
+            f"{DEVELOPMENT_ENVIRONMENT!r}, 'staging', or 'production' "
+            f"(got {environment!r})."
+        )
 
     if not allow_bootstrap:
         raise SystemExit(
@@ -59,6 +69,15 @@ def assert_bootstrap_allowed(
         raise SystemExit(
             "Refusing bootstrap: production-like ENVIRONMENT must not target "
             f"database '{TEST_DB_NAME}' (parsed name: {db_name!r})."
+        )
+
+    # Staging must hit the dedicated staging database name exactly.
+    # Production keep historical allowlist (any non-test name + allow flag);
+    # do not require POSTGRES_DB=liman_salon until ops confirms all prod hosts.
+    if env == "staging" and db_name != STAGING_DB_NAME:
+        raise SystemExit(
+            "Refusing bootstrap: when ENVIRONMENT is 'staging', database name "
+            f"must be exactly {STAGING_DB_NAME!r} (parsed name: {db_name!r})."
         )
 
 

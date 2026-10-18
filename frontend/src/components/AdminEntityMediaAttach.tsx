@@ -4,14 +4,15 @@ import {
   attachAdminMedia,
   detachAdminMediaAttachment,
 } from '../api/media'
-import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
+import { adminUserErrorMessage } from '../utils/adminUserError'
 import type { EntityAttachmentRef } from '../hooks/useSalonMediaAttachmentIndex'
 import type {
   MediaAssetResponse,
   MediaEntityType,
   MediaPurpose,
 } from '../types/media'
+import { t } from '../i18n'
 
 type AdminEntityMediaAttachProps = {
   token: string
@@ -68,9 +69,7 @@ export function AdminEntityMediaAttach({
         onUnauthorized()
         return
       }
-      setLocalError(
-        err instanceof ApiError ? err.message : 'Could not attach image.',
-      )
+      setLocalError(adminUserErrorMessage(err, 'admin.mediaAttach.attachFailed'))
     } finally {
       setBusy(false)
     }
@@ -96,9 +95,7 @@ export function AdminEntityMediaAttach({
         onUnauthorized()
         return
       }
-      setLocalError(
-        err instanceof ApiError ? err.message : 'Could not detach image.',
-      )
+      setLocalError(adminUserErrorMessage(err, 'admin.mediaAttach.detachFailed'))
     } finally {
       setBusy(false)
     }
@@ -131,7 +128,7 @@ export function AdminEntityMediaAttach({
         </div>
       ) : null}
       {!attachmentLoading && !attachment ? (
-        <p className="admin-entity-media-attach__hint">No image attached.</p>
+        <p className="admin-entity-media-attach__hint">{t('admin.mediaAttach.noneHint')}</p>
       ) : null}
       {canWrite ? (
         <div className="admin-entity-media-attach__actions">
@@ -142,11 +139,11 @@ export function AdminEntityMediaAttach({
             className="admin-entity-media-attach__select"
             value={selectedMediaId}
             disabled={busy || assets.length === 0}
-            aria-label={`${label} — choose from library`}
+            aria-label={t('admin.mediaAttach.chooseAria', { label })}
             onChange={(event) => setSelectedMediaId(event.target.value)}
           >
             <option value="">
-              {assets.length === 0 ? 'No media in library' : 'Choose from library…'}
+              {assets.length === 0 ? t('admin.mediaAttach.noLibrary') : t('admin.mediaAttach.choose')}
             </option>
             {assets.map((asset) => (
               <option key={asset.id} value={asset.id}>
@@ -160,7 +157,7 @@ export function AdminEntityMediaAttach({
             disabled={busy || !selectedMediaId}
             onClick={() => void handleAttach()}
           >
-            {busy ? 'Saving…' : attachment ? 'Replace' : 'Attach'}
+            {busy ? t('common.saving') : attachment ? t('admin.mediaAttach.replace') : t('admin.mediaAttach.attach')}
           </button>
           {attachment ? (
             <button

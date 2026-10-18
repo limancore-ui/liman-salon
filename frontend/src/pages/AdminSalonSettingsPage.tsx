@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../auth/AuthContext'
 import { fetchSalonSettings, patchSalonSettings } from '../api/salonSettings'
-import { ApiError } from '../api/errors'
 import { isUnauthorizedError } from '../api/auth'
+import { adminUserErrorMessage } from '../utils/adminUserError'
 import type { SalonSettings } from '../types/salonSettings'
+import { t } from '../i18n'
 
 const MIN_HOLD = 60
 const MAX_HOLD = 3600
@@ -16,9 +17,9 @@ function canManageSettings(role: string | undefined): boolean {
 function formatHoldLabel(seconds: number): string {
   const minutes = Math.round(seconds / 60)
   if (seconds % 60 === 0) {
-    return `${minutes} min (${seconds}s)`
+    return t('admin.settings.holdLabelMin', { minutes, seconds })
   }
-  return `${seconds}s`
+  return t('admin.settings.holdLabelSec', { seconds })
 }
 
 export function AdminSalonSettingsPage() {
@@ -58,11 +59,7 @@ export function AdminSalonSettingsPage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Could not load salon settings.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.settings.loadFailed'))
       setSettings(null)
     } finally {
       setLoading(false)
@@ -80,7 +77,7 @@ export function AdminSalonSettingsPage() {
     }
     const parsed = Number(holdInput)
     if (!Number.isInteger(parsed) || parsed < MIN_HOLD || parsed > MAX_HOLD) {
-      setError(`Hold time must be an integer between ${MIN_HOLD} and ${MAX_HOLD} seconds.`)
+      setError(t('admin.settings.holdInvalid', { min: MIN_HOLD, max: MAX_HOLD }))
       return
     }
     setSaving(true)
@@ -92,17 +89,13 @@ export function AdminSalonSettingsPage() {
       })
       setSettings(updated)
       setHoldInput(String(updated.booking!.public_hold_seconds))
-      setSaveMessage('Settings saved.')
+      setSaveMessage(t('admin.settings.saved'))
     } catch (err) {
       if (isUnauthorizedError(err)) {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Could not save settings.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.settings.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -132,17 +125,13 @@ export function AdminSalonSettingsPage() {
           ? String(updated.bonuses.earn_percentage)
           : '',
       )
-      setSaveMessage('Settings saved.')
+      setSaveMessage(t('admin.settings.saved'))
     } catch (err) {
       if (isUnauthorizedError(err)) {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Could not save settings.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.settings.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -168,11 +157,7 @@ export function AdminSalonSettingsPage() {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Could not reset settings.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.settings.resetFailed'))
     } finally {
       setSaving(false)
     }
@@ -191,17 +176,13 @@ export function AdminSalonSettingsPage() {
       })
       setSettings(updated)
       setHoldInput('')
-      setSaveMessage('Salon override cleared; platform default applies.')
+      setSaveMessage(t('admin.settings.overrideCleared'))
     } catch (err) {
       if (isUnauthorizedError(err)) {
         clearAuthAndRedirect()
         return
       }
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Could not reset settings.')
-      }
+      setError(adminUserErrorMessage(err, 'admin.settings.resetFailed'))
     } finally {
       setSaving(false)
     }
@@ -215,16 +196,15 @@ export function AdminSalonSettingsPage() {
     <AdminLayout>
       <section className="admin-schedule">
         <header className="admin-schedule__header">
-          <h1 className="admin-schedule__title">Salon settings</h1>
+          <h1 className="admin-schedule__title">{t('admin.settings.title')}</h1>
           <p className="admin-schedule__lead">
-            Configure per-salon booking behavior. When a hold override is set, pending
-            checkout uses that value; otherwise the platform default applies.
+            {t('admin.settings.lead')}
           </p>
         </header>
 
         {loading ? (
           <p className="admin-schedule__state" role="status">
-            Loading settings…
+            {t('admin.settings.loading')}
           </p>
         ) : null}
 
@@ -243,18 +223,18 @@ export function AdminSalonSettingsPage() {
         {settings && !loading ? (
           <div className="admin-schedule__section">
             <p className="admin-schedule__lead">
-              <strong>Pending hold:</strong>{' '}
+              <strong>{t('admin.settings.pendingHold')}</strong>{' '}
               {usingOverride && overrideSeconds != null
-                ? `${formatHoldLabel(overrideSeconds)} (salon override)`
-                : 'Platform default (no salon override)'}
+                ? `${formatHoldLabel(overrideSeconds)} ${t('admin.settings.salonOverride')}`
+                : t('admin.settings.platformDefault')}
             </p>
 
             {canWrite ? (
               <form className="admin-schedule__form" onSubmit={(e) => void handleSave(e)}>
-                <h2 className="admin-schedule__form-title">Public booking hold (seconds)</h2>
+                <h2 className="admin-schedule__form-title">{t('admin.settings.holdTitle')}</h2>
                 <div className="admin-schedule__form-grid">
                   <label>
-                    Hold duration
+                    {t('admin.settings.holdDuration')}
                     <input
                       type="number"
                       min={MIN_HOLD}
@@ -268,11 +248,11 @@ export function AdminSalonSettingsPage() {
                   </label>
                 </div>
                 <p className="admin-schedule__lead">
-                  Allowed range: {MIN_HOLD}–{MAX_HOLD} seconds (1 minute to 1 hour).
+                  {t('admin.settings.holdRange', { min: MIN_HOLD, max: MAX_HOLD })}
                 </p>
                 <div className="admin-schedule__form-actions">
                   <button type="submit" className="btn btn--primary" disabled={saving}>
-                    {saving ? 'Saving…' : 'Save hold override'}
+                    {saving ? t('common.saving') : t('admin.settings.saveHold')}
                   </button>
                   <button
                     type="button"
@@ -280,13 +260,13 @@ export function AdminSalonSettingsPage() {
                     disabled={saving || !usingOverride}
                     onClick={() => void handleResetToPlatformDefault()}
                   >
-                    Reset to platform default
+                    {t('admin.settings.resetPlatform')}
                   </button>
                 </div>
               </form>
             ) : (
               <p className="admin-schedule__lead">
-                Only owners and admins can change salon settings.
+                {t('admin.settings.readonly')}
               </p>
             )}
 
@@ -329,7 +309,7 @@ export function AdminSalonSettingsPage() {
                   </div>
                   <div className="admin-schedule__form-actions">
                     <button type="submit" className="btn btn--primary" disabled={saving}>
-                      {saving ? 'Saving…' : 'Save bonus settings'}
+                      {saving ? t('common.saving') : t('admin.settings.saveBonuses')}
                     </button>
                     <button
                       type="button"

@@ -43,15 +43,14 @@ def test_public_booking_delegates_to_service() -> None:
     app = create_app()
     mock_service = MagicMock()
     booking_id = uuid4()
-    hold = FIXED_AS_OF + timedelta(seconds=900)
     mock_service.create_public_booking.return_value = PublicBookingResult(
         booking_id=booking_id,
-        status="pending",
+        status="confirmed",
         service_id=SERVICE_ID,
         staff_id=STAFF_ID,
         service_start=SERVICE_START,
         service_end=SERVICE_END,
-        hold_expires_at=hold,
+        hold_expires_at=None,
         manage_token=MANAGE_TOKEN,
     )
     app.dependency_overrides[get_public_booking_service] = lambda: mock_service
@@ -66,14 +65,15 @@ def test_public_booking_delegates_to_service() -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["booking_id"] == str(booking_id)
-    assert body["status"] == "pending"
+    assert body["status"] == "confirmed"
     assert body["service_id"] == str(SERVICE_ID)
     assert body["staff_id"] == str(STAFF_ID)
     assert body["service_start"] == SERVICE_START.isoformat().replace("+00:00", "Z")
     assert body["service_end"] == SERVICE_END.isoformat().replace("+00:00", "Z")
     assert "starts_at" not in body
     assert "ends_at" not in body
-    assert body["hold_expires_at"] is not None
+    assert "hold_expires_at" in body
+    assert body["hold_expires_at"] is None
     assert body["manage_token"] == MANAGE_TOKEN
 
     mock_service.create_public_booking.assert_called_once()
