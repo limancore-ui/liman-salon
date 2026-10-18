@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 
@@ -27,6 +28,8 @@ from app.services.review.types import (
 
 _REVIEW_ELIGIBLE_STATUS = "completed"
 _TITLE_MAX = 200
+_BODY_MAX = 1000
+logger = logging.getLogger(__name__)
 
 
 class ReviewService:
@@ -47,7 +50,7 @@ class ReviewService:
     ) -> CreateReviewResult:
         self._validate_rating(rating)
         title = self._normalize_optional_text(title, max_len=_TITLE_MAX, field="title")
-        body = self._normalize_optional_text(body, max_len=None, field="body")
+        body = self._normalize_optional_text(body, max_len=_BODY_MAX, field="body")
 
         booking = self._bookings.get_booking(salon_id, booking_id)
         if booking is None:
@@ -152,6 +155,13 @@ class ReviewService:
             raise ReviewValidationError("limit must be between 1 and 200")
         if offset < 0:
             raise ReviewValidationError("offset must be >= 0")
+        if self._reviews.has_published_reviews_missing_published_at(
+            salon_id=salon_id
+        ):
+            logger.warning(
+                "Published reviews are missing published_at for salon_id=%s",
+                salon_id,
+            )
         return self._reviews.list_admin_reviews(
             salon_id=salon_id,
             limit=limit,
