@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   getPublicBookingManageBySlug,
+  getPublicReviews,
+  getPublicShowcase,
   mapServiceAvailabilityToSelectedSlots,
 } from './publicSalon'
 import { ApiError } from './errors'
 import type { ServiceAvailabilityResponse } from '../types/publicCatalog'
+import type { PublicShowcaseResponse } from '../types/publicShowcase'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -115,5 +118,103 @@ describe('getPublicBookingManageBySlug', () => {
       message: 'Not found',
       code: 'not_found',
     })
+  })
+})
+
+describe('getPublicShowcase', () => {
+  const body: PublicShowcaseResponse = {
+    salon_id: 'salon-1',
+    items: [
+      {
+        id: 'item-1',
+        category: 'work',
+        title: 'Образ для фотосессии',
+        description: null,
+        price_cents: null,
+        image_url: '/api/v1/public/salons/demo/showcase/items/item-1/image',
+      },
+    ],
+  }
+
+  it('encodes the slug and requests the first 50 items without a category', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => body,
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getPublicShowcase('salon / demo')).resolves.toEqual(body)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/public/salons/salon%20%2F%20demo/showcase?limit=50&offset=0',
+    )
+  })
+
+  it.each(['work', 'cosmetics', 'dyes', 'varnishes'] as const)(
+    'passes the selected category %s',
+    async (category) => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => body,
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      await getPublicShowcase('demo-salon', category)
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/v1/public/salons/demo-salon/showcase?limit=50&offset=0&category=${category}`,
+      )
+    },
+  )
+
+  it('converts HTTP errors to ApiError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        json: async () => ({ detail: 'salon not found', code: 'not_found' }),
+      }),
+    )
+
+    await expect(getPublicShowcase('missing')).rejects.toMatchObject({
+      status: 404,
+      message: 'salon not found',
+      code: 'not_found',
+    })
+  })
+
+  it('converts network errors without exposing the original error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('synthetic socket detail')),
+    )
+
+    await expect(getPublicShowcase('demo-salon')).rejects.toMatchObject({
+      status: 0,
+      message: 'network error',
+    })
+  })
+})
+
+describe('getPublicReviews', () => {
+  it('encodes the salon slug and forwards an abort signal', async () => {
+    const body = { salon_id: 'salon-1', reviews: [] }
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => body,
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const controller = new AbortController()
+
+    await expect(getPublicReviews('salon / demo', controller.signal)).resolves.toEqual(
+      body,
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/public/salons/salon%20%2F%20demo/reviews',
+      { signal: controller.signal },
+    )
   })
 })

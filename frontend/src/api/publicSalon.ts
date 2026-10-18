@@ -17,6 +17,7 @@ import type {
   PublicBookingReviewCreateRequest,
   PublicBookingReviewCreateResponse,
   PublicBookingReviewStatusResponse,
+  PublicSalonReviewsResponse,
 } from '../types/reviews'
 import type {
   PublicCatalogServiceOut,
@@ -27,6 +28,10 @@ import type {
   PublicCatalogStaffResponse,
   ServiceAvailabilityResponse,
 } from '../types/publicCatalog'
+import type {
+  PublicShowcaseCategory,
+  PublicShowcaseResponse,
+} from '../types/publicShowcase'
 import { resolvePublicMediaUrl } from '../utils/publicMedia'
 
 /** Matches backend `PublicBookingManageResponse`. */
@@ -157,6 +162,48 @@ export async function getPublicServices(
       mapPublicServiceWithMedia(slug, service),
     ),
   }
+}
+
+export async function getPublicShowcase(
+  slug: string,
+  category?: PublicShowcaseCategory,
+  signal?: AbortSignal,
+): Promise<PublicShowcaseResponse> {
+  const query = new URLSearchParams({ limit: '50', offset: '0' })
+  if (category !== undefined) {
+    query.set('category', category)
+  }
+
+  const url = `/api/v1/public/salons/${encodeURIComponent(slug)}/showcase?${query.toString()}`
+  let response: Response
+  try {
+    response = signal ? await fetch(url, { signal }) : await fetch(url)
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err
+    }
+    throw new ApiError(0, 'network error')
+  }
+
+  return parseJsonResponse<PublicShowcaseResponse>(response)
+}
+
+export async function getPublicReviews(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<PublicSalonReviewsResponse> {
+  const url = `/api/v1/public/salons/${encodeURIComponent(slug)}/reviews`
+  let response: Response
+  try {
+    response = signal ? await fetch(url, { signal }) : await fetch(url)
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err
+    }
+    throw new ApiError(0, 'network error')
+  }
+
+  return parseJsonResponse<PublicSalonReviewsResponse>(response)
 }
 
 export type PublicCatalogStaffWithMediaResponse = {

@@ -21,8 +21,10 @@ import { CustomerDetailsForm } from '../components/CustomerDetailsForm'
 import { DateSelector } from '../components/DateSelector'
 import { ErrorState } from '../components/ErrorState'
 import { LoadingState } from '../components/LoadingState'
+import { PublicReviewsSection } from '../components/PublicReviewsSection'
 import { SalonHeader } from '../components/SalonHeader'
 import { SelectedServiceBar } from '../components/SelectedServiceBar'
+import { ShowcaseSection } from '../components/ShowcaseSection'
 import {
   ServiceList,
   type ServiceListState,
@@ -755,13 +757,30 @@ export function PublicSalonPage() {
           )}
         </section>
       ) : (
-        <section className="public-salon-page__services" aria-label="Services">
-          <ServiceList
-            state={servicesState}
-            selectedServiceId={null}
-            onSelectService={handleSelectService}
-          />
-        </section>
+        <>
+          <section
+            className="public-salon-page__services"
+            aria-label="Services"
+          >
+            <ServiceList
+              state={servicesState}
+              selectedServiceId={null}
+              onSelectService={handleSelectService}
+            />
+          </section>
+          {slug ? (
+            <ShowcaseSection
+              slug={slug}
+              currencyCode={salonState.salon.currency_code}
+            />
+          ) : null}
+          {slug ? (
+            <PublicReviewsSection
+              slug={slug}
+              timeZone={salonState.salon.timezone}
+            />
+          ) : null}
+        </>
       )}
     </main>
   )

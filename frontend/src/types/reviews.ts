@@ -47,3 +47,18 @@ export type AdminReviewModerationResponse = {
   moderated_by_user_id: string
   published_at: string | null
 }
+
+export type PublicSalonReview = {
+  id: string
+  rating: number
+  title: string | null
+  body: string | null
+  staff_display_name: string | null
+  published_at: string
+  created_at: string
+}
+
+export type PublicSalonReviewsResponse = {
+  salon_id: string
+  reviews: PublicSalonReview[]
+}
