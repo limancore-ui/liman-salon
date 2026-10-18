@@ -81,6 +81,11 @@ from app.services.bonus.errors import (
     BonusLedgerNotFoundError,
     BonusLedgerValidationError,
 )
+from app.services.showcase.errors import (
+    ShowcaseItemNotFoundError,
+    ShowcaseItemValidationError,
+    ShowcaseMediaNotFoundError,
+)
 
 
 class ErrorBody(BaseModel):
@@ -515,4 +520,31 @@ def register_exception_handlers(app: FastAPI) -> None:
                 detail="internal server error",
                 code="internal_error",
             ).model_dump(),
+        )
+
+    @app.exception_handler(ShowcaseItemNotFoundError)
+    async def showcase_item_not_found(
+        _request: Request, exc: ShowcaseItemNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail=str(exc), code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(ShowcaseMediaNotFoundError)
+    async def showcase_media_not_found(
+        _request: Request, _exc: ShowcaseMediaNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorBody(detail="media asset not found", code="not_found").model_dump(),
+        )
+
+    @app.exception_handler(ShowcaseItemValidationError)
+    async def showcase_validation(
+        _request: Request, exc: ShowcaseItemValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorBody(detail=str(exc), code="validation_error").model_dump(),
         )

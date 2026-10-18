@@ -33,6 +33,7 @@ from app.services.review.service import ReviewService
 from app.services.bonus.service import BonusLedgerService
 from app.services.admin_notifications.service import AdminNotificationService
 from app.services.smart_gap.service import SmartGapService
+from app.services.showcase.service import ShowcaseService
 
 SessionDep = Annotated[Session, Depends(get_db)]
 
@@ -236,3 +237,10 @@ def get_smart_gap_service(session: SessionDep) -> SmartGapService:
 
 
 SmartGapServiceDep = Annotated[SmartGapService, Depends(get_smart_gap_service)]
+
+
+def get_showcase_service(session: SessionDep) -> ShowcaseService:
+    return ShowcaseService(session)
+
+
+ShowcaseServiceDep = Annotated[ShowcaseService, Depends(get_showcase_service)]

@@ -18,6 +18,7 @@ from app.api.v1 import (
     schedule,
     services,
     smart_gaps,
+    showcase,
     staff,
 )
 
@@ -40,3 +41,4 @@ v1_router.include_router(reviews.router)
 v1_router.include_router(salon_settings.router)
 v1_router.include_router(salon_appearance.router)
 v1_router.include_router(salon_profile.router)
+v1_router.include_router(showcase.router)
