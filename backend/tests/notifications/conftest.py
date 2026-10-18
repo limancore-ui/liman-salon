@@ -5,15 +5,19 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.orm import Session
 
-from app.db.session import engine
+
 @pytest.fixture
-def db_session() -> Session:
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(bind=connection, join_transaction_mode="create_savepoint")
+def db_session(postgres_test_engine) -> Session:
+    connection = postgres_test_engine.connect()
     try:
-        yield session
+        transaction = connection.begin()
+        try:
+            with Session(
+                bind=connection,
+                join_transaction_mode="create_savepoint",
+            ) as session:
+                yield session
+        finally:
+            transaction.rollback()
     finally:
-        session.close()
-        transaction.rollback()
         connection.close()
