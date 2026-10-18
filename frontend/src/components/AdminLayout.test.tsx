@@ -337,6 +337,14 @@ describe('AdminLayout', () => {
     expect(html).toContain('>Записи<')
   })
 
+  it('shows the read-only Showcase navigation for staff roles supported by its list endpoint', () => {
+    installMatchMedia(false)
+    mockSession('staff')
+    const html = renderLayout()
+    expect(html).toContain('href="/admin/showcase"')
+    expect(html).toContain('>Витрина<')
+  })
+
   it('includes Settings and Appearance nav for owner role', () => {
     installMatchMedia(false)
     mockSession('owner')

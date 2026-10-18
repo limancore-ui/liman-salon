@@ -11,6 +11,7 @@ import { AdminDashboardPage } from '../pages/AdminDashboardPage'
 import { AdminSalonSettingsPage } from '../pages/AdminSalonSettingsPage'
 import { AdminAppearancePage } from '../pages/AdminAppearancePage'
 import { AdminReviewsPage } from '../pages/AdminReviewsPage'
+import { AdminShowcasePage } from '../pages/AdminShowcasePage'
 import { AdminLoginPage } from '../pages/AdminLoginPage'
 import { AdminNoAccessPage } from '../pages/AdminNoAccessPage'
 import { AdminWorkspacePickerPage } from '../pages/AdminWorkspacePickerPage'
@@ -27,6 +28,7 @@ export function AdminRoutes() {
           <Route path="bookings" element={<AdminBookingsPage />} />
           <Route path="customers" element={<AdminCustomersPage />} />
           <Route path="reviews" element={<AdminReviewsPage />} />
+          <Route path="showcase" element={<AdminShowcasePage />} />
           <Route path="staff" element={<AdminStaffPage />} />
           <Route path="services" element={<AdminServicesPage />} />
           <Route path="schedule" element={<AdminSchedulePage />} />

@@ -21,6 +21,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { labelKey: 'admin.nav.bookings', to: '/admin/bookings' },
   { labelKey: 'admin.nav.customers', to: '/admin/customers' },
   { labelKey: 'admin.nav.reviews', to: '/admin/reviews' },
+  { labelKey: 'admin.nav.showcase', to: '/admin/showcase' },
   { labelKey: 'admin.nav.staff', to: '/admin/staff' },
   { labelKey: 'admin.nav.services', to: '/admin/services' },
   { labelKey: 'admin.nav.schedule', to: '/admin/schedule' },

@@ -3261,3 +3261,222 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.admin-showcase {
+  min-width: 0;
+}
+
+.admin-showcase__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.admin-showcase__title {
+  margin: 0 0 var(--space-xs);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.admin-showcase__lead,
+.admin-showcase__readonly {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.admin-showcase__readonly {
+  margin-bottom: var(--space-md);
+}
+
+.admin-showcase__notice,
+.admin-showcase__state {
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-md);
+  color: var(--color-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-showcase__notice {
+  color: var(--color-accent);
+}
+
+.admin-showcase__state {
+  text-align: center;
+}
+
+.admin-showcase__state--error,
+.admin-showcase__form-error {
+  color: var(--color-danger, #8b2e2e);
+}
+
+.admin-showcase__state--error p {
+  margin: 0 0 var(--space-sm);
+}
+
+.admin-showcase__form {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-showcase__form-title {
+  margin: 0 0 var(--space-md);
+  font-size: 1.05rem;
+}
+
+.admin-showcase__form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 var(--space-md);
+}
+
+.admin-showcase__field-wide {
+  grid-column: 1 / -1;
+}
+
+.admin-showcase__form-image {
+  display: block;
+  width: min(100%, 18rem);
+  height: auto;
+  aspect-ratio: 4 / 3;
+  margin-top: var(--space-sm);
+  object-fit: cover;
+}
+
+.admin-showcase__inline-button {
+  min-height: 2.5rem;
+  padding: 0.25rem 0.5rem;
+  color: var(--color-accent);
+  font: inherit;
+  text-decoration: underline;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.admin-showcase__inline-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-showcase__form-error {
+  margin: 0 0 var(--space-md);
+  font-size: 0.9rem;
+}
+
+.admin-showcase__form-actions,
+.admin-showcase__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.admin-showcase__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-showcase__card {
+  min-width: 0;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.admin-showcase__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border: 0;
+  border-radius: 0;
+}
+
+.admin-showcase__card-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+.admin-showcase__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.admin-showcase__badge {
+  padding: 0.2rem 0.55rem;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+
+.admin-showcase__badge--published {
+  color: var(--color-accent);
+}
+
+.admin-showcase__item-title,
+.admin-showcase__description,
+.admin-showcase__price,
+.admin-showcase__sort-order {
+  max-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-showcase__item-title {
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.admin-showcase__description {
+  white-space: pre-wrap;
+}
+
+.admin-showcase__price {
+  font-weight: 650;
+}
+
+.admin-showcase__sort-order {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.admin-showcase__actions {
+  width: 100%;
+  margin-top: var(--space-xs);
+}
+
+.admin-showcase__load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+
+@media (min-width: 48rem) {
+  .admin-showcase__form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-showcase__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
