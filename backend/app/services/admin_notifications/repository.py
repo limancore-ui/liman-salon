@@ -12,7 +12,7 @@ from app.db.models.customer import Customer
 from app.db.models.salon_user import SalonUser
 from app.db.models.service import Service
 from app.db.models.staff import Staff
-from app.services.admin_notifications.constants import EVENT_TYPE_PUBLIC_BOOKING_PENDING
+from app.services.admin_notifications.constants import PUBLIC_BOOKING_EVENT_TYPES
 from app.services.admin_notifications.types import AdminNotificationRow
 
 
@@ -47,7 +47,7 @@ class AdminNotificationRepository:
         self._session.add(event)
         return event
 
-    def _active_public_pending_query(
+    def _public_booking_notifications_query(
         self,
         *,
         salon_id: uuid.UUID,
@@ -86,8 +86,8 @@ class AdminNotificationRepository:
             .where(
                 AdminNotificationEvent.salon_id == salon_id,
                 AdminNotificationEvent.recipient_user_id == recipient_user_id,
+                AdminNotificationEvent.event_type.in_(PUBLIC_BOOKING_EVENT_TYPES),
                 Booking.source == "public",
-                Booking.status == "pending",
             )
         )
 
@@ -100,7 +100,7 @@ class AdminNotificationRepository:
         offset: int,
     ) -> list[AdminNotificationRow]:
         stmt = (
-            self._active_public_pending_query(
+            self._public_booking_notifications_query(
                 salon_id=salon_id,
                 recipient_user_id=recipient_user_id,
             )
@@ -130,8 +130,8 @@ class AdminNotificationRepository:
                 AdminNotificationEvent.salon_id == salon_id,
                 AdminNotificationEvent.recipient_user_id == recipient_user_id,
                 AdminNotificationEvent.read_at.is_(None),
+                AdminNotificationEvent.event_type.in_(PUBLIC_BOOKING_EVENT_TYPES),
                 Booking.source == "public",
-                Booking.status == "pending",
             )
         )
         return int(self._session.scalar(stmt) or 0)
@@ -144,7 +144,7 @@ class AdminNotificationRepository:
         after_id: uuid.UUID | None,
         limit: int = 20,
     ) -> list[AdminNotificationRow]:
-        stmt = self._active_public_pending_query(
+        stmt = self._public_booking_notifications_query(
             salon_id=salon_id,
             recipient_user_id=recipient_user_id,
         )
@@ -184,14 +184,27 @@ class AdminNotificationRepository:
         event_id: uuid.UUID,
         read_at: datetime,
     ) -> bool:
-        result = self._session.execute(
-            update(AdminNotificationEvent)
+        owned_public_event = (
+            select(AdminNotificationEvent.id)
+            .join(
+                Booking,
+                and_(
+                    Booking.salon_id == AdminNotificationEvent.salon_id,
+                    Booking.id == AdminNotificationEvent.booking_id,
+                ),
+            )
             .where(
                 AdminNotificationEvent.id == event_id,
                 AdminNotificationEvent.salon_id == salon_id,
                 AdminNotificationEvent.recipient_user_id == recipient_user_id,
                 AdminNotificationEvent.read_at.is_(None),
+                AdminNotificationEvent.event_type.in_(PUBLIC_BOOKING_EVENT_TYPES),
+                Booking.source == "public",
             )
+        )
+        result = self._session.execute(
+            update(AdminNotificationEvent)
+            .where(AdminNotificationEvent.id.in_(owned_public_event))
             .values(read_at=read_at)
         )
         return result.rowcount > 0
@@ -216,8 +229,8 @@ class AdminNotificationRepository:
                 AdminNotificationEvent.salon_id == salon_id,
                 AdminNotificationEvent.recipient_user_id == recipient_user_id,
                 AdminNotificationEvent.read_at.is_(None),
+                AdminNotificationEvent.event_type.in_(PUBLIC_BOOKING_EVENT_TYPES),
                 Booking.source == "public",
-                Booking.status == "pending",
             )
         )
         result = self._session.execute(

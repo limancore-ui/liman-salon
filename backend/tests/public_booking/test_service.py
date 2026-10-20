@@ -148,7 +148,7 @@ def test_public_booking_uses_injected_notification_service() -> None:
     assert svc._booking._notifications is notifications
 
 
-def test_confirmed_public_create_does_not_enqueue_admin_bell() -> None:
+def test_confirmed_public_create_enqueues_admin_bell() -> None:
     admin_notifications = MagicMock()
     svc = PublicBookingService(
         MagicMock(),
@@ -163,6 +163,7 @@ def test_confirmed_public_create_does_not_enqueue_admin_bell() -> None:
         buffer_before_minutes=0,
         buffer_after_minutes=0,
     )
+    booking_id = uuid.uuid4()
     with (
         patch.object(
             svc._availability_repo,
@@ -174,7 +175,7 @@ def test_confirmed_public_create_does_not_enqueue_admin_bell() -> None:
             svc._booking,
             "create_booking",
             return_value=CreateBookingResult(
-                booking_id=uuid.uuid4(),
+                booking_id=booking_id,
                 starts_at=SERVICE_START,
                 ends_at=SERVICE_START + timedelta(minutes=60),
                 status="confirmed",
@@ -189,6 +190,51 @@ def test_confirmed_public_create_does_not_enqueue_admin_bell() -> None:
             service_start=SERVICE_START,
             as_of=AS_OF,
         )
+    admin_notifications.enqueue_public_booking_confirmed.assert_called_once_with(
+        salon_id=SALON_ID,
+        booking_id=booking_id,
+    )
+    admin_notifications.enqueue_public_booking_pending.assert_not_called()
+
+
+def test_failed_public_booking_does_not_enqueue_admin_bell() -> None:
+    admin_notifications = MagicMock()
+    svc = PublicBookingService(
+        MagicMock(),
+        booking_manage_token_pepper=TEST_PEPPER,
+        admin_notifications=admin_notifications,
+    )
+    svc._booking._repo = MagicMock()
+    service_row = ServiceForAvailability(
+        id=SERVICE_ID,
+        is_active=False,
+        duration_minutes=60,
+        buffer_before_minutes=0,
+        buffer_after_minutes=0,
+    )
+    with (
+        patch.object(
+            svc._availability_repo,
+            "get_service_for_availability",
+            return_value=service_row,
+        ),
+        patch.object(
+            svc._booking,
+            "create_booking",
+            side_effect=RuntimeError("booking creation failed"),
+        ),
+    ):
+        with pytest.raises(RuntimeError, match="booking creation failed"):
+            svc.create_public_booking(
+                salon_id=SALON_ID,
+                customer_id=CUSTOMER_ID,
+                staff_id=STAFF_ID,
+                service_id=SERVICE_ID,
+                service_start=SERVICE_START,
+                as_of=AS_OF,
+            )
+
+    admin_notifications.enqueue_public_booking_confirmed.assert_not_called()
     admin_notifications.enqueue_public_booking_pending.assert_not_called()
 
 

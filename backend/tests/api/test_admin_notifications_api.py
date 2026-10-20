@@ -60,7 +60,7 @@ def _auth_app(
     mock_admin.list_notifications.return_value = [
         AdminNotificationRow(
             id=uuid.uuid4(),
-            event_type="public_booking_pending",
+            event_type="public_booking_confirmed",
             booking_id=uuid.uuid4(),
             created_at=NOW,
             read_at=None,
@@ -97,7 +97,79 @@ def test_list_ok_for_owner() -> None:
     data = response.json()
     assert data["unread_count"] == 1
     assert len(data["items"]) == 1
+    assert data["items"][0]["event_type"] == "public_booking_confirmed"
     mock_admin.list_notifications.assert_called_once()
+
+
+def test_list_ok_for_admin() -> None:
+    client, mock_admin, headers = _auth_app(role="admin")
+    response = client.get(
+        f"/api/v1/salons/{SALON_A}/admin-notifications",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["unread_count"] == 1
+    mock_admin.list_notifications.assert_called_once()
+    assert mock_admin.list_notifications.call_args.kwargs["salon_id"] == SALON_A
+    assert mock_admin.list_notifications.call_args.kwargs["recipient_user_id"] == USER_ID
+
+
+def test_list_receptionist_rejected() -> None:
+    client, mock_admin, headers = _auth_app(role="receptionist")
+    response = client.get(
+        f"/api/v1/salons/{SALON_A}/admin-notifications",
+        headers=headers,
+    )
+    assert response.status_code == 403
+    mock_admin.list_notifications.assert_not_called()
+
+
+def test_mark_read_ok_for_admin() -> None:
+    client, mock_admin, headers = _auth_app(role="admin")
+    notification_id = uuid.uuid4()
+    response = client.patch(
+        f"/api/v1/salons/{SALON_A}/admin-notifications/{notification_id}/read",
+        headers=headers,
+    )
+    assert response.status_code == 204
+    mock_admin.mark_read.assert_called_once()
+    assert mock_admin.mark_read.call_args.kwargs["salon_id"] == SALON_A
+    assert mock_admin.mark_read.call_args.kwargs["recipient_user_id"] == USER_ID
+    assert mock_admin.mark_read.call_args.kwargs["event_id"] == notification_id
+
+
+def test_mark_read_receptionist_rejected() -> None:
+    client, mock_admin, headers = _auth_app(role="receptionist")
+    response = client.patch(
+        f"/api/v1/salons/{SALON_A}/admin-notifications/{uuid.uuid4()}/read",
+        headers=headers,
+    )
+    assert response.status_code == 403
+    mock_admin.mark_read.assert_not_called()
+
+
+def test_mark_all_read_ok_for_admin() -> None:
+    client, mock_admin, headers = _auth_app(role="admin")
+    mock_admin.mark_all_read.return_value = 3
+    response = client.post(
+        f"/api/v1/salons/{SALON_A}/admin-notifications/mark-all-read",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json() == {"marked_count": 3}
+    mock_admin.mark_all_read.assert_called_once()
+    assert mock_admin.mark_all_read.call_args.kwargs["salon_id"] == SALON_A
+    assert mock_admin.mark_all_read.call_args.kwargs["recipient_user_id"] == USER_ID
+
+
+def test_mark_all_read_receptionist_rejected() -> None:
+    client, mock_admin, headers = _auth_app(role="receptionist")
+    response = client.post(
+        f"/api/v1/salons/{SALON_A}/admin-notifications/mark-all-read",
+        headers=headers,
+    )
+    assert response.status_code == 403
+    mock_admin.mark_all_read.assert_not_called()
 
 
 def test_cross_salon_path_denied_when_salon_not_found() -> None:

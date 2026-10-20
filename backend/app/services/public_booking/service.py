@@ -18,12 +18,7 @@ from app.services.schedule.lock import acquire_schedule_lock_shared
 
 
 class PublicBookingService:
-    """Pre-check a public slot and create a confirmed booking through BookingService.
-
-    The admin bell stays pending-specific. ``admin_notifications`` is accepted so
-    existing callers keep a stable constructor, and this service does not enqueue
-    bell events for new confirmed bookings.
-    """
+    """Pre-check a public slot, then create a confirmed booking and admin event."""
 
     def __init__(
         self,
@@ -92,6 +87,12 @@ class PublicBookingService:
             manage_token_hash=manage_token_hash,
             schedule_gate_shared_held=True,
         )
+
+        if self._admin_notifications is not None and result.status == "confirmed":
+            self._admin_notifications.enqueue_public_booking_confirmed(
+                salon_id=salon_id,
+                booking_id=result.booking_id,
+            )
 
         service_end = service_start + timedelta(minutes=service.duration_minutes)
 

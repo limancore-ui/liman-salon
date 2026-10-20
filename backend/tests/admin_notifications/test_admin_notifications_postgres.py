@@ -201,18 +201,20 @@ def _enqueue_legacy_pending_public(
     return result.booking_id
 
 
-def test_confirmed_public_booking_does_not_create_bell_events(
-    db_session: Session,
-) -> None:
-    salon, staff, service, _owner, _admin, _staff_user = _seed_salon_with_members(
-        db_session
-    )
-    customer_id = _seed_customer(db_session, salon.id)
-    as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
+def _create_confirmed_public_booking(
+    session: Session,
+    *,
+    salon: Salon,
+    staff: Staff,
+    service: Service,
+    customer_id: uuid.UUID,
+    service_start: datetime,
+    as_of: datetime,
+) -> uuid.UUID:
     public_svc = PublicBookingService(
-        db_session,
+        session,
         booking_manage_token_pepper="test-pepper",
-        admin_notifications=AdminNotificationService(db_session),
+        admin_notifications=AdminNotificationService(session),
         notifications=None,
     )
     result = public_svc.create_public_booking(
@@ -220,23 +222,114 @@ def test_confirmed_public_booking_does_not_create_bell_events(
         customer_id=customer_id,
         staff_id=staff.id,
         service_id=service.id,
+        service_start=service_start,
+        as_of=as_of,
+    )
+    return result.booking_id
+
+
+def test_confirmed_public_booking_creates_owner_admin_events_and_history(
+    db_session: Session,
+) -> None:
+    salon, staff, service, owner, admin, _staff_user = _seed_salon_with_members(
+        db_session
+    )
+    customer_id = _seed_customer(db_session, salon.id)
+    as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
+    booking_id = _create_confirmed_public_booking(
+        db_session,
+        salon=salon,
+        staff=staff,
+        service=service,
+        customer_id=customer_id,
         service_start=datetime(2026, 7, 2, 9, 0, tzinfo=UTC),
         as_of=as_of,
     )
-    booking = db_session.get(Booking, result.booking_id)
+    booking = db_session.get(Booking, booking_id)
     assert booking is not None
     assert booking.status == "confirmed"
     assert booking.confirmed_at == as_of
     assert booking.expires_at is None
     rows = db_session.scalars(
         select(AdminNotificationEvent).where(
-            AdminNotificationEvent.booking_id == result.booking_id,
+            AdminNotificationEvent.salon_id == salon.id,
+            AdminNotificationEvent.booking_id == booking_id,
         )
     ).all()
-    assert rows == []
+    assert len(rows) == 2
+    assert {row.recipient_user_id for row in rows} == {owner.id, admin.id}
+    assert {row.event_type for row in rows} == {"public_booking_confirmed"}
+
+    notifications = AdminNotificationService(db_session)
+    assert notifications.enqueue_public_booking_confirmed(
+        salon_id=salon.id,
+        booking_id=booking_id,
+    ) == 0
+    listed = notifications.list_notifications(
+        salon_id=salon.id,
+        recipient_user_id=owner.id,
+        limit=50,
+        offset=0,
+    )
+    assert len(listed) == 1
+    assert listed[0].booking_id == booking_id
+    assert listed[0].event_type == "public_booking_confirmed"
+    assert notifications.unread_count(
+        salon_id=salon.id,
+        recipient_user_id=owner.id,
+    ) == 1
+    streamed = notifications.list_since(
+        salon_id=salon.id,
+        recipient_user_id=owner.id,
+        after_id=None,
+    )
+    assert len(streamed) == 1
+    assert streamed[0].event_type == "public_booking_confirmed"
+
+    booking.status = "cancelled"
+    db_session.flush()
+    assert len(
+        notifications.list_notifications(
+            salon_id=salon.id,
+            recipient_user_id=owner.id,
+            limit=50,
+            offset=0,
+        )
+    ) == 1
+    assert notifications.unread_count(
+        salon_id=salon.id,
+        recipient_user_id=owner.id,
+    ) == 1
+    assert len(
+        notifications.list_since(
+            salon_id=salon.id,
+            recipient_user_id=owner.id,
+            after_id=None,
+        )
+    ) == 1
+    notifications.mark_read(
+        salon_id=salon.id,
+        recipient_user_id=owner.id,
+        event_id=listed[0].id,
+        read_at=as_of + timedelta(minutes=1),
+    )
+    history = notifications.list_notifications(
+        salon_id=salon.id,
+        recipient_user_id=owner.id,
+        limit=50,
+        offset=0,
+    )
+    assert len(history) == 1
+    assert history[0].read_at == as_of + timedelta(minutes=1)
+    assert notifications.unread_count(
+        salon_id=salon.id,
+        recipient_user_id=owner.id,
+    ) == 0
 
 
-def test_public_booking_creates_owner_admin_events(db_session: Session) -> None:
+def test_legacy_pending_public_booking_creates_owner_admin_events(
+    db_session: Session,
+) -> None:
     salon, staff, service, owner, admin, staff_user = _seed_salon_with_members(
         db_session
     )
@@ -338,7 +431,7 @@ def test_transaction_rollback_removes_events(db_session: Session) -> None:
     booking_id: uuid.UUID | None = None
     try:
         with db_session.begin_nested():
-            booking_id = _enqueue_legacy_pending_public(
+            booking_id = _create_confirmed_public_booking(
                 db_session,
                 salon=salon,
                 staff=staff,
@@ -352,6 +445,7 @@ def test_transaction_rollback_removes_events(db_session: Session) -> None:
         pass
 
     assert booking_id is not None
+    assert db_session.get(Booking, booking_id) is None
     rows = db_session.scalars(
         select(AdminNotificationEvent).where(
             AdminNotificationEvent.booking_id == booking_id,
@@ -360,7 +454,7 @@ def test_transaction_rollback_removes_events(db_session: Session) -> None:
     assert rows == []
 
 
-def test_stale_when_booking_not_pending(db_session: Session) -> None:
+def test_notification_history_survives_booking_status_change(db_session: Session) -> None:
     salon, staff, service, owner, admin, _ = _seed_salon_with_members(db_session)
     customer_id = _seed_customer(db_session, salon.id)
     as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
@@ -390,18 +484,19 @@ def test_stale_when_booking_not_pending(db_session: Session) -> None:
         limit=50,
         offset=0,
     )
-    assert listed == []
-    assert admin_svc.unread_count(salon_id=salon.id, recipient_user_id=owner.id) == 0
+    assert len(listed) == 1
+    assert listed[0].booking_id == booking_id
+    assert admin_svc.unread_count(salon_id=salon.id, recipient_user_id=owner.id) == 1
 
 
 def test_cross_tenant_isolation(db_session: Session) -> None:
     salon_a, staff_a, service_a, owner_a, _, _ = _seed_salon_with_members(db_session)
-    salon_b, staff_b, service_b, owner_b, _, _ = _seed_salon_with_members(db_session)
+    salon_b, staff_b, service_b, _, _, _ = _seed_salon_with_members(db_session)
     customer_a = _seed_customer(db_session, salon_a.id)
     customer_b = _seed_customer(db_session, salon_b.id)
     as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
 
-    res_a = _enqueue_legacy_pending_public(
+    res_a = _create_confirmed_public_booking(
         db_session,
         salon=salon_a,
         staff=staff_a,
@@ -410,7 +505,7 @@ def test_cross_tenant_isolation(db_session: Session) -> None:
         service_start=datetime(2026, 7, 3, 10, 0, tzinfo=UTC),
         as_of=as_of,
     )
-    res_b = _enqueue_legacy_pending_public(
+    res_b = _create_confirmed_public_booking(
         db_session,
         salon=salon_b,
         staff=staff_b,
@@ -529,7 +624,9 @@ def test_list_since_after_id_cursor_no_gap_no_replay(db_session: Session) -> Non
     assert after_second == []
 
 
-def test_list_since_empty_when_booking_no_longer_pending(db_session: Session) -> None:
+def test_list_since_keeps_notification_after_booking_status_change(
+    db_session: Session,
+) -> None:
     salon, staff, service, owner, _, _ = _seed_salon_with_members(db_session)
     customer_id = _seed_customer(db_session, salon.id)
     as_of = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
@@ -553,12 +650,11 @@ def test_list_since_empty_when_booking_no_longer_pending(db_session: Session) ->
     db_session.flush()
 
     admin_svc = AdminNotificationService(db_session)
-    assert (
-        admin_svc.list_since(
-            salon_id=salon.id,
-            recipient_user_id=owner.id,
-            after_id=None,
-            limit=20,
-        )
-        == []
+    streamed = admin_svc.list_since(
+        salon_id=salon.id,
+        recipient_user_id=owner.id,
+        after_id=None,
+        limit=20,
     )
+    assert len(streamed) == 1
+    assert streamed[0].booking_id == booking_id

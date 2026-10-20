@@ -26,7 +26,9 @@ if TYPE_CHECKING:
     from app.db.models.salon import Salon
     from app.db.models.user import User
 
-_EVENT_TYPE_CHECK = "event_type IN ('public_booking_pending')"
+_EVENT_TYPE_CHECK = (
+    "event_type IN ('public_booking_pending', 'public_booking_confirmed')"
+)
 
 
 def _admin_notification_booking_join():

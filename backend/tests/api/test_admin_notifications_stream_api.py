@@ -26,7 +26,7 @@ BOOKING_ID = uuid.UUID("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee")
 def _sample_row(*, row_id: uuid.UUID | None = None) -> AdminNotificationRow:
     return AdminNotificationRow(
         id=row_id or NOTIFICATION_ID,
-        event_type="public_booking_pending",
+        event_type="public_booking_confirmed",
         booking_id=BOOKING_ID,
         created_at=NOW,
         read_at=None,
@@ -124,6 +124,36 @@ def test_stream_unauthenticated_rejected() -> None:
     assert response.status_code == 401
 
 
+def test_stream_admin_allowed() -> None:
+    app, headers = _auth_headers(role="admin")
+
+    async def _one_event(**_kwargs):
+        yield "data: {}\n\n"
+
+    with patch.object(
+        admin_notifications_module,
+        "_sse_notification_stream",
+        _one_event,
+    ):
+        client = TestClient(app)
+        response = client.get(
+            f"/api/v1/salons/{SALON_A}/admin-notifications/stream",
+            headers=headers,
+        )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+
+
+def test_stream_receptionist_rejected() -> None:
+    app, headers = _auth_headers(role="receptionist")
+    client = TestClient(app)
+    response = client.get(
+        f"/api/v1/salons/{SALON_A}/admin-notifications/stream",
+        headers=headers,
+    )
+    assert response.status_code == 403
+
+
 def test_stream_staff_rejected() -> None:
     app, headers = _auth_headers(role="staff")
     client = TestClient(app)
@@ -167,6 +197,7 @@ async def test_stream_payload_shape_without_sensitive_fields() -> None:
     assert "phone" not in notification
     assert "email" not in notification
     assert notification["customer_name"] == "Guest"
+    assert notification["event_type"] == "public_booking_confirmed"
 
 
 @pytest.mark.anyio
